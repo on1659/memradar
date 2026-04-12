@@ -3,7 +3,7 @@ import { DropZone } from './components/DropZone'
 import { Dashboard } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
-import { parseJsonl } from './parser'
+import { detectAndParse } from './providers'
 import type { Session } from './types'
 
 type View =
@@ -43,7 +43,7 @@ function App() {
                 const r = await fetch(`/api/session-content?path=${encodeURIComponent(f.path)}`)
                 if (!r.ok) return null
                 const content = await r.text()
-                return parseJsonl(content, f.name)
+                return detectAndParse(content, f.name)
               } catch {
                 return null
               }
@@ -68,7 +68,7 @@ function App() {
   const handleFilesLoaded = useCallback((files: { name: string; content: string }[]) => {
     const parsed: Session[] = []
     for (const file of files) {
-      const session = parseJsonl(file.content, file.name)
+      const session = detectAndParse(file.content, file.name)
       if (session) parsed.push(session)
     }
     setSessions((prev) => {
