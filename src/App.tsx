@@ -3,6 +3,7 @@ import { DropZone } from './components/DropZone'
 import { Dashboard } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
+import { WrappedView } from './components/wrapped/WrappedView'
 import { detectAndParse } from './providers'
 import type { Session } from './types'
 
@@ -12,6 +13,7 @@ type View =
   | { type: 'dashboard' }
   | { type: 'session'; session: Session; highlightMessageIndex?: number }
   | { type: 'search' }
+  | { type: 'wrapped' }
 
 function App() {
   const [sessions, setSessions] = useState<Session[]>([])
@@ -133,6 +135,15 @@ function App() {
     )
   }
 
+  if (view.type === 'wrapped') {
+    return (
+      <WrappedView
+        sessions={sessions}
+        onClose={() => setView({ type: 'dashboard' })}
+      />
+    )
+  }
+
   if (view.type === 'search') {
     return (
       <SearchView
@@ -150,6 +161,7 @@ function App() {
       sessions={sessions}
       onSelectSession={(session) => setView({ type: 'session', session })}
       onOpenSearch={() => setView({ type: 'search' })}
+      onOpenWrapped={() => setView({ type: 'wrapped' })}
     />
   )
 }

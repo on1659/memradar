@@ -13,6 +13,7 @@ interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
   onOpenSearch: () => void
+  onOpenWrapped?: () => void
 }
 
 function formatTokens(n: number): string {
@@ -54,7 +55,7 @@ function StatCard({
   )
 }
 
-export function Dashboard({ sessions, onSelectSession, onOpenSearch }: DashboardProps) {
+export function Dashboard({ sessions, onSelectSession, onOpenSearch, onOpenWrapped }: DashboardProps) {
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
 
   const sortedSessions = useMemo(
@@ -84,14 +85,25 @@ export function Dashboard({ sessions, onSelectSession, onOpenSearch }: Dashboard
             {stats.totalSessions}개의 세션에서 발견한 당신의 이야기
           </p>
         </div>
-        <button
-          onClick={onOpenSearch}
-          className="flex items-center gap-2 px-4 py-2 bg-bg-card border border-border rounded-lg text-sm text-text hover:text-text-bright hover:border-accent/30 transition-colors"
-        >
-          <Search className="w-4 h-4" />
-          <span className="hidden sm:inline">검색</span>
-          <kbd className="hidden sm:inline text-[10px] text-text/30 bg-bg px-1.5 py-0.5 rounded ml-1">Ctrl+K</kbd>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenWrapped && (
+            <button
+              onClick={onOpenWrapped}
+              className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg text-sm text-accent hover:bg-accent/20 transition-colors"
+            >
+              <span>✦</span>
+              <span className="hidden sm:inline">Wrapped</span>
+            </button>
+          )}
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-2 px-4 py-2 bg-bg-card border border-border rounded-lg text-sm text-text hover:text-text-bright hover:border-accent/30 transition-colors"
+          >
+            <Search className="w-4 h-4" />
+            <span className="hidden sm:inline">검색</span>
+            <kbd className="hidden sm:inline text-[10px] text-text/30 bg-bg px-1.5 py-0.5 rounded ml-1">Ctrl+K</kbd>
+          </button>
+        </div>
       </div>
 
       {/* Stat Cards */}
