@@ -8,12 +8,14 @@ import { computeStats } from '../parser'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { WordCloud } from './WordCloud'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
   onOpenSearch: () => void
   onOpenWrapped?: () => void
+  themeProps: { theme: string; accent: string; setTheme: (t: string) => void; setAccent: (a: string) => void }
 }
 
 function formatTokens(n: number): string {
@@ -55,7 +57,7 @@ function StatCard({
   )
 }
 
-export function Dashboard({ sessions, onSelectSession, onOpenSearch, onOpenWrapped }: DashboardProps) {
+export function Dashboard({ sessions, onSelectSession, onOpenSearch, onOpenWrapped, themeProps }: DashboardProps) {
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
 
   const sortedSessions = useMemo(
@@ -103,6 +105,12 @@ export function Dashboard({ sessions, onSelectSession, onOpenSearch, onOpenWrapp
             <span className="hidden sm:inline">검색</span>
             <kbd className="hidden sm:inline text-[10px] text-text/30 bg-bg px-1.5 py-0.5 rounded ml-1">Ctrl+K</kbd>
           </button>
+          <ThemeSwitcher
+            theme={themeProps.theme}
+            accent={themeProps.accent}
+            onThemeChange={themeProps.setTheme}
+            onAccentChange={themeProps.setAccent}
+          />
         </div>
       </div>
 

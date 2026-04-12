@@ -5,6 +5,7 @@ import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
 import { detectAndParse } from './providers'
+import { useTheme } from './components/ThemeSwitcher'
 import type { Session } from './types'
 
 type View =
@@ -16,6 +17,7 @@ type View =
   | { type: 'wrapped' }
 
 function App() {
+  const themeProps = useTheme()
   const [sessions, setSessions] = useState<Session[]>([])
   const [view, setView] = useState<View>({ type: 'loading' })
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 })
@@ -162,6 +164,7 @@ function App() {
       onSelectSession={(session) => setView({ type: 'session', session })}
       onOpenSearch={() => setView({ type: 'search' })}
       onOpenWrapped={() => setView({ type: 'wrapped' })}
+      themeProps={themeProps}
     />
   )
 }
