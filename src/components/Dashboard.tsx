@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import {
   MessageSquare, Zap, Clock, BarChart3,
-  Brain, Wrench, TrendingUp, Calendar,
+  Brain, Wrench, TrendingUp, Calendar, Search,
 } from 'lucide-react'
 import type { Session, Stats } from '../types'
 import { computeStats } from '../parser'
@@ -12,6 +12,7 @@ import { WordCloud } from './WordCloud'
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
+  onOpenSearch: () => void
 }
 
 function formatTokens(n: number): string {
@@ -53,7 +54,7 @@ function StatCard({
   )
 }
 
-export function Dashboard({ sessions, onSelectSession }: DashboardProps) {
+export function Dashboard({ sessions, onSelectSession, onOpenSearch }: DashboardProps) {
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
 
   const sortedSessions = useMemo(
@@ -83,6 +84,14 @@ export function Dashboard({ sessions, onSelectSession }: DashboardProps) {
             {stats.totalSessions}개의 세션에서 발견한 당신의 이야기
           </p>
         </div>
+        <button
+          onClick={onOpenSearch}
+          className="flex items-center gap-2 px-4 py-2 bg-bg-card border border-border rounded-lg text-sm text-text hover:text-text-bright hover:border-accent/30 transition-colors"
+        >
+          <Search className="w-4 h-4" />
+          <span className="hidden sm:inline">검색</span>
+          <kbd className="hidden sm:inline text-[10px] text-text/30 bg-bg px-1.5 py-0.5 rounded ml-1">Ctrl+K</kbd>
+        </button>
       </div>
 
       {/* Stat Cards */}

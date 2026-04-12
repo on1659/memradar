@@ -1,81 +1,589 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PROMPTALE — "Cosmic Developer Journal" Theme
+   Deep space / constellation aesthetic.
+   Sessions are stars in your personal developer universe.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tailwind v4 @theme tokens ──────────────────────────────────────── */
 @theme {
-  --color-bg: #0a0a0f;
-  --color-bg-card: #12121a;
-  --color-bg-hover: #1a1a25;
-  --color-border: #1e1e2e;
-  --color-text: #a0a0b0;
-  --color-text-bright: #e0e0f0;
-  --color-accent: #7c5bf5;
-  --color-accent-dim: #5a3fd4;
-  --color-green: #34d399;
-  --color-amber: #fbbf24;
-  --color-rose: #f472b6;
-  --color-cyan: #22d3ee;
+  /* Background palette — deep space blues */
+  --color-bg: #06060e;
+  --color-bg-card: #0c0c1a;
+  --color-bg-hover: #121228;
+  --color-border: #1a1a3a;
+
+  /* Text — cool grey with slight lavender */
+  --color-text: #8888aa;
+  --color-text-bright: #d8d8f0;
+
+  /* Primary accent — shifted from purple to a cool indigo-violet */
+  --color-accent: #7b6cf6;
+  --color-accent-dim: #5546c8;
+
+  /* Semantic palette — slightly desaturated, more cosmic */
+  --color-green: #3ee8a8;
+  --color-amber: #f0c040;
+  --color-rose: #e870a8;
+  --color-cyan: #40d8f0;
 }
 
+/* ── Custom properties for layered effects ──────────────────────────── */
+:root {
+  --cosmic-glow-1: rgba(90, 70, 200, 0.08);
+  --cosmic-glow-2: rgba(60, 200, 160, 0.05);
+  --cosmic-glow-3: rgba(200, 100, 180, 0.04);
+  --star-color: rgba(200, 200, 255, 0.6);
+  --nebula-1: rgba(100, 80, 220, 0.12);
+  --nebula-2: rgba(50, 180, 140, 0.08);
+  --nebula-3: rgba(180, 70, 160, 0.06);
+  --glass-bg: rgba(12, 12, 28, 0.7);
+  --glass-border: rgba(100, 100, 200, 0.12);
+}
+
+/* ── Typography — Space Grotesk + Instrument Serif ──────────────────── */
 body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
+  position: relative;
 }
 
+/* ── Starfield background — pure CSS ────────────────────────────────── */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Layer 1: Nebula gradient */
+body::before {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, var(--nebula-1), transparent),
+    radial-gradient(ellipse 60% 80% at 80% 85%, var(--nebula-2), transparent),
+    radial-gradient(ellipse 50% 50% at 60% 30%, var(--nebula-3), transparent);
+  opacity: 1;
+}
+
+/* Layer 2: Star dust via radial gradients (lightweight) */
+body::after {
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 25% 42%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 40% 8%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 55% 65%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 70% 22%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 85% 78%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 15% 88%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 35% 55%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 62% 92%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 92% 38%, var(--star-color), transparent),
+    radial-gradient(1.5px 1.5px at 5% 50%, rgba(160, 180, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 48% 30%, rgba(160, 180, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 78% 60%, rgba(180, 160, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 30% 75%, rgba(160, 255, 220, 0.5), transparent),
+    radial-gradient(2px 2px at 50% 50%, rgba(200, 180, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 18% 33%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 66% 12%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 82% 48%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 44% 82%, var(--star-color), transparent),
+    radial-gradient(1px 1px at 8% 68%, var(--star-color), transparent);
+  animation: starDrift 120s linear infinite;
+}
+
+@keyframes starDrift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-20px); }
+}
+
+/* Ensure all content sits above the cosmic background */
+#root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Scrollbar — minimal, cosmic ────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a3a;
-  border-radius: 3px;
+  background: rgba(123, 108, 246, 0.25);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(123, 108, 246, 0.45);
 }
 
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 108, 246, 0.25) transparent;
+}
+
+/* ── Glass card effect — applies to bg-bg-card elements ─────────────── */
+
+/* Override bg-bg-card to add glass morphism wherever it appears */
+.bg-bg-card {
+  background: linear-gradient(
+    135deg,
+    rgba(12, 12, 30, 0.85),
+    rgba(16, 14, 36, 0.75)
+  ) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px rgba(100, 100, 220, 0.06),
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* ── Border glow on hover for cards ─────────────────────────────────── */
+.border-border {
+  border-color: rgba(80, 70, 160, 0.15) !important;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.border-border:hover {
+  border-color: rgba(123, 108, 246, 0.25) !important;
+}
+
+/* Stat cards — constellation node glow */
+.bg-bg-card.rounded-xl.p-5 {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.bg-bg-card.rounded-xl.p-5::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(123, 108, 246, 0.15),
+    transparent 50%,
+    rgba(62, 232, 168, 0.08)
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
+}
+
+.bg-bg-card.rounded-xl.p-5:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(123, 108, 246, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(123, 108, 246, 0.06);
+}
+
+.bg-bg-card.rounded-xl.p-5:hover::before {
+  opacity: 1;
+}
+
+/* ── Heatmap — constellation cells ──────────────────────────────────── */
 .heatmap-cell {
-  transition: all 0.15s ease;
-}
-.heatmap-cell:hover {
-  transform: scale(1.8);
-  z-index: 10;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 3px !important;
 }
 
+.heatmap-cell:hover {
+  transform: scale(2);
+  z-index: 10;
+  box-shadow: 0 0 8px rgba(123, 108, 246, 0.5);
+}
+
+/* ── Entrance Animations ────────────────────────────────────────────── */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
+
 .animate-in {
-  animation: fadeInUp 0.4s ease forwards;
+  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+/* Stagger children */
+.animate-in:nth-child(1) { animation-delay: 0ms; }
+.animate-in:nth-child(2) { animation-delay: 60ms; }
+.animate-in:nth-child(3) { animation-delay: 120ms; }
+.animate-in:nth-child(4) { animation-delay: 180ms; }
+.animate-in:nth-child(5) { animation-delay: 240ms; }
+.animate-in:nth-child(6) { animation-delay: 300ms; }
+.animate-in:nth-child(7) { animation-delay: 360ms; }
+.animate-in:nth-child(8) { animation-delay: 420ms; }
 
 @keyframes countUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.count-up {
-  animation: countUp 0.6s ease forwards;
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
+.count-up {
+  animation: countUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Headings — editorial feel with Instrument Serif ────────────────── */
+h1, h2, .text-3xl, .text-2xl, .text-5xl {
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
+}
+
+/* Keep stat values in Space Grotesk (numbers) */
+.count-up {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The ✦ star icon — pulsing glow ─────────────────────────────────── */
+.text-accent {
+  text-shadow: 0 0 12px rgba(123, 108, 246, 0.5);
+}
+
+/* ── Loading screen — cosmic pulse ──────────────────────────────────── */
+.bg-accent.rounded-full.transition-all {
+  box-shadow: 0 0 16px rgba(123, 108, 246, 0.4);
+}
+
+/* Progress bar track gets subtle glow */
+.bg-border.rounded-full.overflow-hidden {
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Drop zone — cosmic portal ──────────────────────────────────────── */
+.border-dashed {
+  border-style: dashed !important;
+  background: linear-gradient(
+    170deg,
+    rgba(12, 12, 30, 0.9),
+    rgba(16, 14, 40, 0.8)
+  ) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.border-dashed::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(123, 108, 246, 0.04),
+    transparent 70%
+  );
+  transition: opacity 0.5s ease;
+}
+
+.border-dashed:hover::before {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(123, 108, 246, 0.1),
+    transparent 70%
+  );
+}
+
+/* Active drag state */
+.border-accent.scale-\[1\.02\] {
+  box-shadow:
+    0 0 40px rgba(123, 108, 246, 0.15),
+    0 0 80px rgba(123, 108, 246, 0.05);
+}
+
+/* ── Search input — subtle cosmic glow on focus ─────────────────────── */
+input[type="text"]:focus,
+input[type="date"]:focus,
+select:focus {
+  box-shadow: 0 0 0 2px rgba(123, 108, 246, 0.1), 0 0 20px rgba(123, 108, 246, 0.06);
+}
+
+input[type="text"],
+input[type="date"],
+select {
+  background: rgba(10, 10, 24, 0.8) !important;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* ── Session list items — subtle star-line effect ───────────────────── */
+.divide-border > button {
+  position: relative;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.divide-border > button:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(123, 108, 246, 0.04),
+    rgba(12, 12, 30, 0)
+  ) !important;
+}
+
+/* The arrow indicator */
+.divide-border > button .text-text\/40,
+.divide-border > button .text-xs:last-child {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.divide-border > button:hover .text-text\/40 {
+  transform: translateX(3px);
+}
+
+/* ── Session messages — subtle role differentiation ─────────────────── */
+/* User message bubble */
+.bg-green\/5 {
+  background: linear-gradient(
+    135deg,
+    rgba(62, 232, 168, 0.04),
+    rgba(62, 232, 168, 0.02)
+  ) !important;
+  border-color: rgba(62, 232, 168, 0.1) !important;
+}
+
+/* Claude message bubble */
+.bg-bg-card.border.border-border.text-text {
+  background: linear-gradient(
+    135deg,
+    rgba(12, 12, 30, 0.9),
+    rgba(20, 18, 42, 0.7)
+  ) !important;
+}
+
+/* Role avatar rings */
+.bg-green\/10 {
+  box-shadow: 0 0 8px rgba(62, 232, 168, 0.15);
+}
+
+.bg-accent\/10 {
+  box-shadow: 0 0 8px rgba(123, 108, 246, 0.15);
+}
+
+/* ── Tool use badges — soft glow ────────────────────────────────────── */
+.bg-amber\/10 {
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 6px rgba(240, 192, 64, 0.08);
+  transition: all 0.2s ease;
+}
+
+.bg-amber\/10:hover {
+  background: rgba(240, 192, 64, 0.15) !important;
+  box-shadow: 0 0 10px rgba(240, 192, 64, 0.12);
+}
+
+/* ── Highlight ring for search result jump ──────────────────────────── */
+.ring-amber\/40 {
+  box-shadow: 0 0 20px rgba(240, 192, 64, 0.1);
+}
+
+/* ── Search highlight marks ─────────────────────────────────────────── */
+mark {
+  background: rgba(240, 192, 64, 0.15) !important;
+  color: var(--color-amber) !important;
+  border-radius: 3px;
+  padding: 1px 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* ── Hour chart bars — aurora gradient ──────────────────────────────── */
+.bg-accent\/50 {
+  background: linear-gradient(
+    180deg,
+    rgba(123, 108, 246, 0.6),
+    rgba(80, 180, 200, 0.3)
+  ) !important;
+}
+
+.bg-accent\/20 {
+  background: linear-gradient(
+    180deg,
+    rgba(123, 108, 246, 0.25),
+    rgba(80, 180, 200, 0.1)
+  ) !important;
+}
+
+.group-hover\:bg-accent\/80:hover,
+.group:hover .group-hover\:bg-accent\/80 {
+  background: linear-gradient(
+    180deg,
+    rgba(123, 108, 246, 0.85),
+    rgba(80, 180, 200, 0.4)
+  ) !important;
+  box-shadow: 0 -4px 12px rgba(123, 108, 246, 0.2);
+}
+
+/* ── Tools bar chart — warm aurora ──────────────────────────────────── */
+.bg-amber\/40 {
+  background: linear-gradient(
+    90deg,
+    rgba(240, 192, 64, 0.35),
+    rgba(232, 112, 168, 0.2)
+  ) !important;
+  border-radius: 9999px;
+}
+
+/* ── Word cloud — glow on hover ─────────────────────────────────────── */
+.text-accent:hover,
+.text-green:hover,
+.text-amber:hover,
+.text-rose:hover,
+.text-cyan:hover {
+  filter: brightness(1.2);
+}
+
+/* ── Tooltip popups — glass morphism ────────────────────────────────── */
+.group-hover\:opacity-100 {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(12, 12, 30, 0.9) !important;
+  border: 1px solid rgba(100, 100, 200, 0.15) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Code blocks (markdown content) — deep space ────────────────────── */
 .markdown-content pre {
-  background: #1a1a25;
-  border-radius: 8px;
-  padding: 12px;
+  background: rgba(8, 8, 20, 0.9);
+  border: 1px solid rgba(80, 70, 160, 0.12);
+  border-radius: 10px;
+  padding: 14px;
   overflow-x: auto;
   font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+
 .markdown-content code {
-  background: #1a1a25;
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: rgba(123, 108, 246, 0.08);
+  padding: 2px 7px;
+  border-radius: 5px;
   font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--color-accent);
 }
+
 .markdown-content pre code {
   background: none;
   padding: 0;
+  color: inherit;
+}
+
+/* ── Keyboard shortcut badges ───────────────────────────────────────── */
+kbd {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  background: rgba(10, 10, 24, 0.8) !important;
+  border: 1px solid rgba(80, 70, 160, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── Buttons — subtle lift on hover ─────────────────────────────────── */
+button {
+  transition: all 0.25s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Back button hover */
+button .flex.items-center.gap-2 {
+  transition: transform 0.2s ease;
+}
+
+/* ── Spinner — cosmic spin ──────────────────────────────────────────── */
+.animate-spin {
+  border-color: rgba(123, 108, 246, 0.3);
+  border-top-color: var(--color-accent);
+  box-shadow: 0 0 16px rgba(123, 108, 246, 0.2);
+}
+
+/* ── Accent bar/progress fills — glow ───────────────────────────────── */
+.bg-accent {
+  box-shadow: 0 0 12px rgba(123, 108, 246, 0.3);
+}
+
+/* ── Selection color ────────────────────────────────────────────────── */
+::selection {
+  background: rgba(123, 108, 246, 0.3);
+  color: #fff;
+}
+
+/* ── Smooth scrolling ───────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Constellation connector lines between stat cards ───────────────── */
+/* Done via a subtle top-border glow on the grid container */
+.grid.grid-cols-2 {
+  position: relative;
+}
+
+.grid.grid-cols-2::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(123, 108, 246, 0.03), transparent);
+  border-radius: 12px;
+}
+
+/* ── Responsive adjustments ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body::after {
+    /* Reduce star count on mobile for performance */
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, var(--star-color), transparent),
+      radial-gradient(1px 1px at 40% 8%, var(--star-color), transparent),
+      radial-gradient(1px 1px at 70% 22%, var(--star-color), transparent),
+      radial-gradient(1px 1px at 85% 78%, var(--star-color), transparent),
+      radial-gradient(1.5px 1.5px at 48% 30%, rgba(160, 180, 255, 0.8), transparent),
+      radial-gradient(2px 2px at 50% 50%, rgba(200, 180, 255, 0.9), transparent);
+  }
+}
+
+/* ── Print styles — clean ───────────────────────────────────────────── */
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+  .bg-bg-card {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
 }

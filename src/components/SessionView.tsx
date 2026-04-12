@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react'
 import { ArrowLeft, User, Bot, Clock, Zap } from 'lucide-react'
 import type { Session } from '../types'
 
 interface SessionViewProps {
   session: Session
   onBack: () => void
+  highlightMessageIndex?: number
 }
 
 function formatTime(ts: string): string {
@@ -14,7 +16,20 @@ function formatTime(ts: string): string {
   })
 }
 
-export function SessionView({ session, onBack }: SessionViewProps) {
+export function SessionView({ session, onBack, highlightMessageIndex }: SessionViewProps) {
+  const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+  useEffect(() => {
+    if (highlightMessageIndex != null) {
+      const el = messageRefs.current.get(highlightMessageIndex)
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 100)
+      }
+    }
+  }, [highlightMessageIndex])
+
   return (
     <div className="min-h-screen max-w-4xl mx-auto p-6">
       {/* Header */}
@@ -51,10 +66,14 @@ export function SessionView({ session, onBack }: SessionViewProps) {
       <div className="space-y-4">
         {session.messages.map((msg, i) => {
           const isUser = msg.role === 'user'
+          const isHighlighted = highlightMessageIndex === i
           return (
             <div
               key={i}
-              className="animate-in flex gap-3"
+              ref={(el) => { if (el) messageRefs.current.set(i, el); else messageRefs.current.delete(i) }}
+              className={`animate-in flex gap-3 rounded-xl transition-colors ${
+                isHighlighted ? 'ring-2 ring-amber/40 bg-amber/5' : ''
+              }`}
               style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
             >
               <div
