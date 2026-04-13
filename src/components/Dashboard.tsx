@@ -81,7 +81,7 @@ export function Dashboard({ sessions, onSelectSession, onOpenSearch, onOpenWrapp
       <div className="flex items-center justify-between mb-8 animate-in">
         <div>
           <h1 className="text-3xl font-bold text-text-bright flex items-center gap-2">
-            <span className="text-accent">✦</span> Promptale
+            <span className="text-accent">✦</span> Memradar
           </h1>
           <p className="text-text text-sm mt-1">
             {stats.totalSessions}개의 세션에서 발견한 당신의 이야기

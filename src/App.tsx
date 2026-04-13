@@ -106,7 +106,7 @@ function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-3xl font-bold text-text-bright flex items-center gap-2">
-          <span className="text-accent">✦</span> Promptale
+          <span className="text-accent">✦</span> Memradar
         </div>
         <div className="w-64 h-2 bg-border rounded-full overflow-hidden">
           <div

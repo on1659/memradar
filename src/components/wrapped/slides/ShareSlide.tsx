@@ -24,7 +24,7 @@ export function ShareSlide({ personality, stats, codingLabel, topModel }: Props)
       const url = await toPng(cardRef.current, { pixelRatio: 2 })
       const a = document.createElement('a')
       a.href = url
-      a.download = 'promptale-wrapped.png'
+      a.download = 'memradar-wrapped.png'
       a.click()
     } catch {
       // fallback: ignore
@@ -38,9 +38,9 @@ export function ShareSlide({ personality, stats, codingLabel, topModel }: Props)
     try {
       const url = await toPng(cardRef.current, { pixelRatio: 2 })
       const blob = await (await fetch(url)).blob()
-      const file = new File([blob], 'promptale-wrapped.png', { type: 'image/png' })
+      const file = new File([blob], 'memradar-wrapped.png', { type: 'image/png' })
       if (navigator.share) {
-        await navigator.share({ files: [file], title: 'My Promptale Wrapped' })
+        await navigator.share({ files: [file], title: 'My Memradar Wrapped' })
       } else {
         handleDownload()
       }
@@ -53,7 +53,7 @@ export function ShareSlide({ personality, stats, codingLabel, topModel }: Props)
   return (
     <SlideLayout gradient="from-[#06060e] via-[#0c0818] to-[#06060e]">
       <FadeInText className="text-accent/60 text-sm tracking-widest uppercase mb-6">
-        Share Your Promptale
+        Share Your Memradar
       </FadeInText>
 
       {/* Shareable card */}
@@ -70,7 +70,7 @@ export function ShareSlide({ personality, stats, codingLabel, topModel }: Props)
         }}
       >
         <div className="text-center">
-          <div className="text-xs text-accent/50 tracking-widest mb-4">✦ PROMPTALE WRAPPED</div>
+          <div className="text-xs text-accent/50 tracking-widest mb-4">✦ MEMRADAR WRAPPED</div>
           <div className="text-5xl mb-3">{personality.emoji}</div>
           <div className="text-2xl font-bold text-text-bright mb-1" style={{ fontFamily: "'Instrument Serif', serif" }}>
             {personality.title}
@@ -97,7 +97,7 @@ export function ShareSlide({ personality, stats, codingLabel, topModel }: Props)
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/5 text-[10px] text-text/30">
-            promptale.dev
+            memradar.dev
           </div>
         </div>
       </motion.div>

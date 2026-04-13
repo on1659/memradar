@@ -65,7 +65,7 @@ src/
 │   │   ├── SearchFilters.tsx
 │   │   ├── SearchResults.tsx
 │   │   └── SearchResultCard.tsx
-│   ├── wrapped/             # Promptale Wrapped
+│   ├── wrapped/             # Memradar Wrapped
 │   │   ├── WrappedView.tsx
 │   │   └── slides/
 │   │       ├── IntroSlide.tsx

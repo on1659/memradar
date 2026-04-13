@@ -2,7 +2,7 @@
 
 ## Current Snapshot
 
-- Promptale is already beyond a concept-only MVP and has a working dashboard/session viewer flow.
+- Memradar is already beyond a concept-only MVP and has a working dashboard/session viewer flow.
 - The strongest product hook is still "turn AI coding history into a story you want to revisit and share."
 - Claude added roadmap, architecture, and feature spec docs under `docs/`.
 
@@ -10,8 +10,8 @@
 
 - Keep the roadmap broad if implementation cost is acceptable.
 - Keep execution order narrow and opinionated.
-- Treat `Promptale Wrapped` as the first "wow" feature.
-- Treat `search` as the first retention feature that makes Promptale feel like a real archive tool.
+- Treat `Memradar Wrapped` as the first "wow" feature.
+- Treat `search` as the first retention feature that makes Memradar feel like a real archive tool.
 - Keep `Session Replay` as a follow-up differentiator, not necessarily the first build after foundation work.
 
 ## Roadmap Update Applied By Codex
@@ -31,7 +31,7 @@
 
 1. Stabilize current app quality:
    text/encoding cleanup, basic polish, lint/build hygiene.
-2. Ship `Promptale Wrapped`.
+2. Ship `Memradar Wrapped`.
 3. Ship `기록 검색`.
 4. Ship `세션 리플레이`.
 5. Re-evaluate provider expansion and AI insight features after initial product signal.

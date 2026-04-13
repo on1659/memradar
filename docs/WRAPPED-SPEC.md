@@ -1,4 +1,4 @@
-# Promptale Wrapped — 상세 기획
+# Memradar Wrapped — 상세 기획
 
 > Spotify Wrapped 스타일의 AI 코딩 연말결산
 
@@ -87,7 +87,7 @@
   - 토큰 사용량 높음
   - "고요한 밤에 깊이 있는 작업을 하는 타입"
 
-### Slide 10: "Share your Promptale"
+### Slide 10: "Share your Memradar"
 - 전체 요약 카드 (1장 이미지로 생성)
 - 포함 정보: 성격 유형, 총 세션, 즐겨 쓴 모델, 코딩 시간대
 - 버튼: "이미지 저장", "트위터에 공유", "링크 복사"

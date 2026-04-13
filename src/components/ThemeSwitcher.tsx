@@ -24,14 +24,14 @@ function applyTheme(theme: string, accent: string) {
   document.documentElement.setAttribute('data-theme', theme)
   document.documentElement.setAttribute('data-accent', accent)
   try {
-    localStorage.setItem('promptale-theme', theme)
-    localStorage.setItem('promptale-accent', accent)
+    localStorage.setItem('memradar-theme', theme)
+    localStorage.setItem('memradar-accent', accent)
   } catch { /* ignore */ }
 }
 
 export function useTheme() {
-  const [theme, setTheme] = useState(() => getStored('promptale-theme', 'dark'))
-  const [accent, setAccent] = useState(() => getStored('promptale-accent', 'indigo'))
+  const [theme, setTheme] = useState(() => getStored('memradar-theme', 'dark'))
+  const [accent, setAccent] = useState(() => getStored('memradar-accent', 'indigo'))
 
   useEffect(() => { applyTheme(theme, accent) }, [theme, accent])
 

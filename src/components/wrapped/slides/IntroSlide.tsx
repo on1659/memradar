@@ -13,7 +13,7 @@ export function IntroSlide({ firstDate, totalSessions }: Props) {
   return (
     <SlideLayout gradient="from-[#06060e] via-[#0a0a20] to-[#0e0820]">
       <FadeInText className="text-accent/60 text-sm tracking-widest uppercase mb-8">
-        Your Promptale
+        Your Memradar
       </FadeInText>
       <FadeInText delay={0.3} className="text-5xl md:text-7xl font-bold text-text-bright mb-6 text-center" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
         당신의 이야기가<br />시작된 날

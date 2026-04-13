@@ -1,8 +1,22 @@
 {
-  "name": "promptale",
-  "private": true,
-  "version": "0.0.0",
+  "name": "memradar",
+  "private": false,
+  "version": "0.1.0",
+  "description": "AI 코딩 세션 로그를 시각화하는 로컬 레이더. npx memradar로 실행.",
+  "keywords": ["claude", "ai", "session", "log", "viewer", "analytics"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/on1659/memradar"
+  },
   "type": "module",
+  "bin": {
+    "memradar": "./cli/index.mjs"
+  },
+  "files": [
+    "dist",
+    "cli"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

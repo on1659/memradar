@@ -1,10 +1,10 @@
-# Promptale Roadmap
+# Memradar Roadmap
 
 > 당신의 AI 대화가 들려주는 이야기
 
 ## Vision
 
-기존 AI 대화 뷰어들은 전부 **실용적/기능적** 도구. Promptale은 **스토리텔링과 재미**로 차별화한다.
+기존 AI 대화 뷰어들은 전부 **실용적/기능적** 도구. Memradar은 **스토리텔링과 재미**로 차별화한다.
 핵심 전략: Spotify Wrapped 같은 "AI 코딩 연말결산"이 킬러 피처.
 
 ---
@@ -31,7 +31,7 @@
 
 | # | 항목 | 설명 | 상태 |
 |---|------|------|------|
-| 2.1 | **Promptale Wrapped** | Spotify Wrapped 스타일 AI 코딩 결산 (10개 슬라이드) | ⬜ |
+| 2.1 | **Memradar Wrapped** | Spotify Wrapped 스타일 AI 코딩 결산 (10개 슬라이드) | ⬜ |
 | 2.2 | 기록 검색 | 세션/메시지 풀텍스트 검색, 모델/툴/프로젝트/날짜 필터, 결과 스니펫/하이라이트 | ⬜ |
 | 2.3 | 세션 리플레이 | 대화를 영상처럼 재생, 타임라인 스크러버 | ⬜ |
 | 2.4 | 코드 진화 트래커 | 파일이 세션 동안 어떻게 변했는지 diff 시각화 | ⬜ |
@@ -49,7 +49,7 @@
 | 3.1 | 멀티 프로바이더 | Gemini CLI, Cursor, Copilot, Aider | ⬜ |
 | 3.2 | AI 인사이트 | BYOK(Bring Your Own Key)로 세션 요약/패턴 분석 | ⬜ |
 | 3.3 | 공유 리포트 | 자체 포함 HTML 리포트 내보내기 | ⬜ |
-| 3.4 | CLI 도구 | `npx promptale` — 로컬 서버 & 브라우저 오픈 | ⬜ |
+| 3.4 | CLI 도구 | `npx memradar` — 로컬 서버 & 브라우저 오픈 | ⬜ |
 
 ---
 

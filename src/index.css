@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   PROMPTALE — Multi-theme System
+   MEMRADAR — Multi-theme System
    4 backgrounds × 5 accents = 20 combinations
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -133,6 +133,17 @@ h1, h2 {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--t-border) transparent;
+}
+
+/* ── Radar sweep ──────────────────────────────────────────────────── */
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.radar-sweep-group {
+  animation: radarSweep 4s linear infinite;
+  transform-origin: center center;
 }
 
 /* ── Animations ────────────────────────────────────────────────────── */
