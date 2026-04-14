@@ -1,121 +1,40 @@
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { FolderOpen, Terminal, Copy, Check, Radar, ChevronDown } from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type MouseEvent,
+} from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, Copy, FolderOpen, Shield, Terminal } from 'lucide-react'
 
 interface DropZoneProps {
   onFilesLoaded: (files: { name: string; content: string }[]) => void
 }
 
-function createSeededRandom(seed: number) {
-  let current = seed
-  return () => {
-    current = (current * 1664525 + 1013904223) >>> 0
-    return current / 0x100000000
-  }
+interface CandidateFile {
+  file: File
+  relativePath?: string
 }
 
-/* ── Radar background ─────────────────────────────────────────────── */
+const COMMAND = 'npx memradar'
 
-function RadarBG() {
-  const rings = [120, 200, 280, 360]
-  const blips = useMemo(() => {
-    const random = createSeededRandom(42)
-    return Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      angle: random() * 360,
-      radius: 80 + random() * 260,
-      delay: random() * 4,
-      size: 2 + random() * 3,
-      repeatDelay: 2 + random() * 3,
-    }))
-  }, [])
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-      <svg
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-        width="800" height="800" viewBox="-400 -400 800 800"
-        style={{ opacity: 0.12 }}
-      >
-        {/* concentric rings */}
-        {rings.map((r) => (
-          <circle key={r} cx="0" cy="0" r={r} fill="none"
-            stroke="var(--t-accent)" strokeWidth="1"
-            strokeDasharray="4 6" opacity={1 - r / 500}
-          />
-        ))}
-        {/* crosshairs */}
-        <line x1="-380" y1="0" x2="380" y2="0" stroke="var(--t-accent)" strokeWidth="0.5" opacity="0.4" />
-        <line x1="0" y1="-380" x2="0" y2="380" stroke="var(--t-accent)" strokeWidth="0.5" opacity="0.4" />
-        {/* sweep */}
-        <g className="radar-sweep-group">
-          <defs>
-            <linearGradient id="sweep-grad" gradientTransform="rotate(0)">
-              <stop offset="0%" stopColor="var(--t-accent)" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="var(--t-accent)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d="M0,0 L0,-360 A360,360 0 0,1 254.6,-254.6 Z" fill="url(#sweep-grad)" className="radar-sweep" />
-        </g>
-      </svg>
-
-      {/* blips */}
-      {blips.map((b) => {
-        const x = Math.cos((b.angle * Math.PI) / 180) * b.radius
-        const y = Math.sin((b.angle * Math.PI) / 180) * b.radius
-        return (
-          <motion.div
-            key={b.id}
-            className="absolute rounded-full bg-accent"
-            style={{
-              width: b.size,
-              height: b.size,
-              left: `calc(50% + ${x}px)`,
-              top: `calc(50% + ${y}px)`,
-              boxShadow: `0 0 ${b.size * 3}px var(--t-accent)`,
-            }}
-            animate={{
-              opacity: [0, 0.9, 0.9, 0],
-              scale: [0.5, 1.2, 1, 0.5],
-            }}
-            transition={{
-              duration: 3,
-              delay: b.delay,
-              repeat: Infinity,
-              repeatDelay: b.repeatDelay,
-            }}
-          />
-        )
-      })}
-
-      {/* gradient vignette */}
-      <div className="absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at center, transparent 30%, var(--t-bg) 75%)`,
-        }}
-      />
-    </div>
-  )
-}
-
-/* ── Scan-line overlay ────────────────────────────────────────────── */
-
-function ScanLine() {
-  return (
-    <motion.div
-      className="absolute left-0 right-0 h-[2px] pointer-events-none z-10"
-      style={{
-        background: `linear-gradient(90deg, transparent, var(--t-accent), transparent)`,
-        boxShadow: `0 0 20px 4px var(--t-accent)`,
-        opacity: 0.3,
-      }}
-      animate={{ top: ['0%', '100%'] }}
-      transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-    />
-  )
-}
-
-/* ── Main DropZone ────────────────────────────────────────────────── */
+const QUICK_STEPS = [
+  {
+    title: '터미널 열기',
+    body: 'PowerShell, CMD, iTerm 어디서든 괜찮아요.',
+  },
+  {
+    title: '그대로 붙여넣기',
+    body: '`npx memradar` 한 줄만 실행하면 됩니다.',
+  },
+  {
+    title: '바로 분석 보기',
+    body: '.claude 세션을 찾아 브라우저로 열어줍니다.',
+  },
+]
 
 export function DropZone({ onFilesLoaded }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -132,17 +51,23 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
   }, [])
 
   const readFiles = useCallback(
-    async (fileList: FileList | File[]) => {
+    async (fileList: FileList | CandidateFile[]) => {
       setLoading(true)
       setError('')
       setFileCount(0)
-      const files: { name: string; content: string }[] = []
-      const arr = Array.from(fileList)
 
-      for (const file of arr) {
-        if (file.name.endsWith('.jsonl')) {
-          const content = await file.text()
-          files.push({ name: file.name, content })
+      const files: { name: string; content: string }[] = []
+      const candidates = Array.isArray(fileList)
+        ? fileList
+        : Array.from(fileList, (file) => ({
+            file,
+            relativePath: file.webkitRelativePath,
+          }))
+
+      for (const candidate of candidates) {
+        if (isClaudeSessionJsonl(candidate.file, candidate.relativePath)) {
+          const content = await candidate.file.text()
+          files.push({ name: candidate.file.name, content })
           setFileCount(files.length)
         }
       }
@@ -150,24 +75,28 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
       if (files.length > 0) {
         onFilesLoaded(files)
       } else {
-        setError(`${arr.length}개 파일 중 .jsonl 세션 파일을 찾지 못했습니다. .claude 폴더를 선택해주세요.`)
+        setError(
+          `${candidates.length}개 항목을 확인했지만 Claude 세션 파일을 찾지 못했습니다. 가능하면 \`.claude/projects\` 폴더를 선택해 주세요.`
+        )
       }
+
       setLoading(false)
     },
     [onFilesLoaded]
   )
 
   const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
+    async (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault()
       setIsDragging(false)
 
       const items = e.dataTransfer.items
-      const allFiles: File[] = []
+      const allFiles: CandidateFile[] = []
 
       if (items) {
         const entries: FileSystemEntry[] = []
-        for (let i = 0; i < items.length; i++) {
+
+        for (let i = 0; i < items.length; i += 1) {
           const entry = items[i].webkitGetAsEntry?.()
           if (entry) entries.push(entry)
         }
@@ -177,9 +106,9 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
             const file = await new Promise<File>((resolve) =>
               (entry as FileSystemFileEntry).file(resolve)
             )
-            if (file.name.endsWith('.jsonl')) allFiles.push(file)
+            allFiles.push({ file, relativePath: entry.name })
           } else if (entry.isDirectory) {
-            const dirFiles = await readDirectory(entry as FileSystemDirectoryEntry)
+            const dirFiles = await readDirectory(entry as FileSystemDirectoryEntry, entry.name)
             allFiles.push(...dirFiles)
           }
         }
@@ -193,280 +122,358 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
   )
 
   const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) readFiles(e.target.files)
+    (e: ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        void readFiles(e.target.files)
+      }
     },
     [readFiles]
   )
 
   const isWin = typeof navigator !== 'undefined' && navigator.platform.startsWith('Win')
+  const folderPath = isWin ? 'C:\\Users\\{username}\\.claude\\projects' : '~/.claude/projects'
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
-      <RadarBG />
-      <ScanLine />
-
-      {/* Hero */}
-      <motion.div
-        className="relative z-20 text-center mb-10 px-4"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      >
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--t-accent)_12%,transparent),transparent_40%),linear-gradient(180deg,color-mix(in_srgb,var(--t-bg-card)_82%,transparent),var(--t-bg)_72%)] px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl flex-col justify-center">
         <motion.div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs tracking-widest uppercase mb-6"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          className="mb-8 text-center lg:mb-10 lg:text-left"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
         >
-          <Radar className="w-3.5 h-3.5" />
-          AI Session Scanner
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/8 px-3 py-1 text-xs font-medium tracking-[0.18em] text-accent uppercase">
+            <Terminal className="h-3.5 w-3.5" />
+            Copy First Start
+          </div>
+          <h1 className="mb-3 text-5xl font-bold tracking-tight text-text-bright sm:text-6xl">
+            <span className="text-accent">Mem</span>radar
+          </h1>
+          <p className="mx-auto max-w-2xl text-base leading-7 text-text sm:text-lg lg:mx-0">
+            첫 화면에서 바로 실행할 수 있게 바꿨습니다. 터미널에 복붙할 명령어를 가장 먼저 보여주고,
+            폴더 연결은 필요할 때만 쓰는 보조 방식으로 내려뒀어요.
+          </p>
         </motion.div>
 
-        <h1 className="text-6xl sm:text-7xl font-bold text-text-bright tracking-tight mb-4">
-          <span className="text-accent">Mem</span>radar
-        </h1>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+          <motion.section
+            className="rounded-[28px] border border-border/70 bg-bg-card/88 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur sm:p-8"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.45 }}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-accent">추천 시작 방식</p>
+                <h2 className="mt-2 text-2xl font-semibold text-text-bright sm:text-3xl">
+                  복붙 후 엔터만 누르세요
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-text sm:text-base">
+                  클릭하면 전체 선택되고, 버튼을 누르면 바로 복사됩니다. 꾸민 카드보다 실제 명령어가
+                  먼저 보이도록 정리했습니다.
+                </p>
+              </div>
+              <div className="self-start rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                가장 빠른 시작
+              </div>
+            </div>
 
-        <motion.p
-          className="text-lg sm:text-xl text-text max-w-lg mx-auto leading-relaxed"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-        >
-          당신의 AI 대화가 들려주는 이야기
-        </motion.p>
-      </motion.div>
+            <div className="mt-6">
+              <CopyCommand command={COMMAND} />
+            </div>
 
-      {/* Drop zone card */}
-      <motion.div
-        className="relative z-20 w-full max-w-md mx-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => folderInputRef.current?.click()}
-          className="relative cursor-pointer group"
-        >
-          {/* glow effect */}
-          <div className={`absolute -inset-[1px] rounded-2xl transition-opacity duration-500 ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'}`}
-            style={{ background: `linear-gradient(135deg, var(--t-accent), transparent, var(--t-accent))`, filter: 'blur(8px)' }}
-          />
-
-          <div className={`
-            relative rounded-2xl border backdrop-blur-sm p-8 sm:p-10 text-center
-            transition-all duration-300
-            ${isDragging
-              ? 'border-accent bg-accent/10 scale-[1.01]'
-              : 'border-border/60 bg-bg-card/80 hover:border-accent/30'}
-          `}>
-            <AnimatePresence mode="wait">
-              {loading ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex flex-col items-center gap-4 py-4"
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {QUICK_STEPS.map((step, index) => (
+                <div
+                  key={step.title}
+                  className="rounded-2xl border border-border/60 bg-bg/35 px-4 py-4"
                 >
-                  {/* radar spinner */}
-                  <div className="relative w-16 h-16">
-                    <div className="absolute inset-0 rounded-full border border-accent/30" />
-                    <div className="absolute inset-2 rounded-full border border-accent/20" />
-                    <div className="absolute inset-4 rounded-full border border-accent/10" />
+                  <div className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent/12 text-sm font-semibold text-accent">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm font-semibold text-text-bright">{step.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-text">{step.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-accent/10 bg-accent/6 px-4 py-4">
+              <div className="mt-0.5 rounded-full bg-green/12 p-2 text-green">
+                <Shield className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-bright">로컬 실행</p>
+                <p className="mt-1 text-sm leading-6 text-text">
+                  세션 데이터는 현재 PC에서만 읽습니다. 복붙해서 확인하고 바로 닫아도 됩니다.
+                </p>
+              </div>
+            </div>
+          </motion.section>
+
+          <motion.aside
+            className="space-y-5"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.45 }}
+          >
+            <section className="rounded-[28px] border border-border/70 bg-bg-card/84 p-5 backdrop-blur sm:p-6">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl border border-accent/20 bg-accent/10 p-3 text-accent">
+                  <FolderOpen className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-accent">보조 방식</p>
+                  <h3 className="mt-1 text-xl font-semibold text-text-bright">직접 폴더 연결</h3>
+                  <p className="mt-2 text-sm leading-6 text-text">
+                    자동 실행이 안 되면 여기서 `.claude/projects` 폴더를 선택해도 됩니다.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setIsDragging(true)
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => void handleDrop(e)}
+                className={`mt-5 rounded-3xl border-2 border-dashed p-5 transition-all duration-200 ${
+                  isDragging
+                    ? 'border-accent bg-accent/8'
+                    : 'border-border/70 bg-bg/35 hover:border-accent/30 hover:bg-bg/55'
+                }`}
+              >
+                <AnimatePresence mode="wait">
+                  {loading ? (
                     <motion.div
-                      className="absolute inset-0"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      key="loading"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="space-y-3 py-3"
                     >
-                      <div className="absolute top-1/2 left-1/2 w-1/2 h-[2px] origin-left"
-                        style={{ background: `linear-gradient(90deg, var(--t-accent), transparent)` }}
+                      <p className="text-base font-semibold text-text-bright">세션 파일 확인 중...</p>
+                      <p className="text-sm text-text">
+                        {fileCount > 0 ? `${fileCount}개 세션을 읽었습니다.` : '.jsonl 파일을 찾는 중입니다.'}
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="idle"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => folderInputRef.current?.click()}
+                        className="w-full rounded-2xl border border-border/70 bg-bg-card/72 px-4 py-4 text-left transition hover:border-accent/30 hover:bg-bg-card"
+                      >
+                        <p className="text-base font-semibold text-text-bright">폴더 선택하기</p>
+                        <p className="mt-1 text-sm leading-6 text-text">
+                          클릭하거나 드래그해서 Claude 세션 `.jsonl`이 들어있는 폴더를 연결하세요.
+                        </p>
+                      </button>
+
+                      {error && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-4 rounded-2xl border border-rose/20 bg-rose/8 px-4 py-3 text-sm leading-6 text-rose"
+                        >
+                          {error}
+                        </motion.p>
+                      )}
+
+                      <input
+                        ref={folderInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleInputChange}
                       />
                     </motion.div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-text-bright font-medium">스캔 중...</p>
-                    {fileCount > 0 && (
-                      <p className="text-sm text-accent mt-1">{fileCount}개 세션 발견</p>
-                    )}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="idle"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <motion.div
-                    className="mx-auto mb-5 w-14 h-14 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center"
-                    whileHover={{ scale: 1.05, rotate: -3 }}
-                    transition={{ type: 'spring', stiffness: 400 }}
-                  >
-                    <FolderOpen className={`w-7 h-7 transition-colors duration-300 ${isDragging ? 'text-accent' : 'text-accent/70'}`} />
-                  </motion.div>
-
-                  <p className="text-text-bright font-medium text-lg mb-2">
-                    <code className="text-accent font-mono">.claude</code> 폴더 연결
-                  </p>
-                  <p className="text-sm text-text leading-relaxed">
-                    드래그하거나 클릭하여 폴더를 선택하세요<br />
-                    <span className="text-text/50">.jsonl 세션 파일을 자동으로 찾습니다</span>
-                  </p>
-
-                  {error && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-sm text-rose mt-4 px-3 py-2 rounded-lg bg-rose/5 border border-rose/10"
-                    >
-                      {error}
-                    </motion.p>
                   )}
+                </AnimatePresence>
+              </div>
 
-                  <input
-                    ref={folderInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleInputChange}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+              <div className="mt-4 rounded-2xl border border-border/60 bg-bg/35 px-4 py-4">
+                <p className="text-xs font-semibold tracking-[0.16em] text-text/60 uppercase">
+                  찾는 기본 위치
+                </p>
+                <code className="mt-3 block overflow-x-auto rounded-xl bg-bg-card/88 px-3 py-3 font-mono text-sm text-accent">
+                  {folderPath}
+                </code>
+                <p className="mt-3 text-sm leading-6 text-text">
+                  `.claude` 루트를 골라도 `projects` 아래 세션만 사용하고, `subagents` 같은 보조 폴더는 건너뜁니다.
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border border-border/70 bg-bg-card/84 p-5 backdrop-blur sm:p-6">
+              <p className="text-sm font-semibold text-accent">왜 이렇게 바꿨나</p>
+              <ul className="mt-3 space-y-3 text-sm leading-6 text-text">
+                <li>처음 들어온 사람이 해야 할 행동이 하나로 보이게 정리했습니다.</li>
+                <li>명령어를 작은 코드칩이 아니라 크게 선택 가능한 입력창으로 바꿨습니다.</li>
+                <li>드래그 앤 드롭은 필요할 때 쓰는 대안으로 남겨뒀습니다.</li>
+              </ul>
+            </section>
+          </motion.aside>
         </div>
-
-        {/* path hint */}
-        <motion.p
-          className="text-center text-xs text-text/40 mt-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          <code className="text-accent/50">
-            {isWin ? 'C:\\Users\\{username}\\.claude' : '~/.claude'}
-          </code>
-        </motion.p>
-      </motion.div>
-
-      {/* divider */}
-      <motion.div
-        className="relative z-20 flex items-center gap-4 w-full max-w-md mx-4 my-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.9 }}
-      >
-        <div className="flex-1 h-px bg-border/50" />
-        <span className="text-xs text-text/30 uppercase tracking-widest">or</span>
-        <div className="flex-1 h-px bg-border/50" />
-      </motion.div>
-
-      {/* CLI card */}
-      <motion.div
-        className="relative z-20 w-full max-w-md mx-4"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1, duration: 0.6 }}
-      >
-        <div className="rounded-xl border border-border/40 bg-bg-card/60 backdrop-blur-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Terminal className="w-4 h-4 text-accent/70" />
-            <span className="text-sm font-medium text-text-bright">자동 스캔</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent/70 uppercase tracking-wider">
-              추천
-            </span>
-          </div>
-          <p className="text-sm text-text/70 mb-3">
-            터미널에서 실행하면 로그를 자동으로 찾아 분석합니다.
-          </p>
-          <CopyCommand command="npx memradar" />
-          <div className="flex items-center gap-1.5 mt-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
-            <p className="text-[11px] text-text/35">
-              로컬 실행 — 데이터가 PC 밖으로 나가지 않습니다
-            </p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* scroll indicator */}
-      <motion.div
-        className="absolute bottom-6 z-20"
-        animate={{ y: [0, 6, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        <ChevronDown className="w-5 h-5 text-text/20" />
-      </motion.div>
+      </div>
     </div>
   )
 }
-
-/* ── CopyCommand ──────────────────────────────────────────────────── */
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false)
+  const commandInputRef = useRef<HTMLInputElement>(null)
 
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigator.clipboard.writeText(command)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const selectCommand = useCallback(() => {
+    const input = commandInputRef.current
+    if (!input) return
+    input.focus()
+    input.select()
+    input.setSelectionRange(0, input.value.length)
+  }, [])
+
+  const handleCopy = useCallback(async () => {
+    selectCommand()
+
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setCopied(false)
+    }
+  }, [command, selectCommand])
+
+  const handleInputClick = useCallback(() => {
+    selectCommand()
+  }, [selectCommand])
+
+  const handleShellClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest('button')) return
+      selectCommand()
+    },
+    [selectCommand]
+  )
 
   return (
-    <div
-      onClick={handleCopy}
-      className="flex items-center justify-between bg-bg/60 rounded-lg px-4 py-2.5 cursor-pointer hover:bg-bg-hover transition-all duration-200 group border border-border/30 hover:border-accent/20"
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-accent/40 text-xs">$</span>
-        <code className="text-sm text-accent font-mono">{command}</code>
+    <div className="rounded-[28px] border border-accent/18 bg-[#0c1220] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-medium tracking-[0.18em] text-text/55 uppercase">
+          <Terminal className="h-3.5 w-3.5 text-accent" />
+          Terminal Command
+        </div>
+        <div className="rounded-full border border-accent/18 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent">
+          클릭하면 전체 선택
+        </div>
       </div>
-      <button className="text-text/30 group-hover:text-text/60 transition-colors">
-        <AnimatePresence mode="wait">
-          {copied ? (
-            <motion.div key="check" initial={{ scale: 0.5 }} animate={{ scale: 1 }}>
-              <Check className="w-4 h-4 text-green" />
-            </motion.div>
-          ) : (
-            <motion.div key="copy" initial={{ scale: 0.5 }} animate={{ scale: 1 }}>
-              <Copy className="w-4 h-4" />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </button>
+
+      <div
+        onClick={handleShellClick}
+        className="rounded-2xl border border-accent/12 bg-black/24 p-3 sm:p-4"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <span className="text-sm font-medium text-accent/70">$</span>
+          <input
+            ref={commandInputRef}
+            readOnly
+            value={command}
+            onClick={handleInputClick}
+            onFocus={handleInputClick}
+            aria-label="memradar command"
+            className="min-w-0 flex-1 bg-transparent font-mono text-base text-text-bright outline-none sm:text-lg"
+          />
+          <button
+            type="button"
+            onClick={() => void handleCopy()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent/18 bg-accent/10 px-4 py-2.5 text-sm font-medium text-text-bright transition hover:border-accent/32 hover:bg-accent/14"
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              {copied ? (
+                <motion.span
+                  key="copied"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  className="inline-flex items-center gap-2"
+                >
+                  <Check className="h-4 w-4 text-green" />
+                  복사됨
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="copy"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  className="inline-flex items-center gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  복사하기
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm leading-6 text-text">
+        그대로 붙여넣고 Enter를 누르면 `.claude/projects` 아래 세션 로그를 찾아서 분석 화면을 엽니다.
+      </p>
     </div>
   )
 }
 
-/* ── Directory reader ─────────────────────────────────────────────── */
+function normalizeRelativePath(relativePath?: string) {
+  return (relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()
+}
 
-async function readDirectory(dirEntry: FileSystemDirectoryEntry): Promise<File[]> {
-  const files: File[] = []
+function isClaudeSessionJsonl(file: File, relativePath?: string) {
+  if (!file.name.endsWith('.jsonl')) return false
+
+  const normalizedPath = normalizeRelativePath(relativePath)
+  if (!normalizedPath) return true
+  if (normalizedPath.includes('/subagents/')) return false
+
+  const segments = normalizedPath.split('/').filter(Boolean)
+  const firstSegment = segments[0]
+  if (segments.includes('projects')) return true
+  if (firstSegment === '.claude' || firstSegment === 'claude') return false
+
+  return true
+}
+
+async function readDirectory(
+  dirEntry: FileSystemDirectoryEntry,
+  currentPath = dirEntry.name
+): Promise<CandidateFile[]> {
+  const files: CandidateFile[] = []
   const reader = dirEntry.createReader()
 
   const readEntries = (): Promise<FileSystemEntry[]> =>
     new Promise((resolve) => reader.readEntries(resolve))
 
   let entries = await readEntries()
+
   while (entries.length > 0) {
     for (const entry of entries) {
+      const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name
+
       if (entry.isFile && entry.name.endsWith('.jsonl')) {
         const file = await new Promise<File>((resolve) =>
           (entry as FileSystemFileEntry).file(resolve)
         )
-        files.push(file)
+        files.push({ file, relativePath: entryPath })
       } else if (entry.isDirectory) {
-        const subFiles = await readDirectory(entry as FileSystemDirectoryEntry)
+        const subFiles = await readDirectory(entry as FileSystemDirectoryEntry, entryPath)
         files.push(...subFiles)
       }
     }
+
     entries = await readEntries()
   }
 
