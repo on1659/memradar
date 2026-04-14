@@ -61,6 +61,8 @@ export interface Stats {
   hourlyActivity: number[]
   dailyActivity: Record<string, number>
   topWords: [string, number][]
+  topWordsUser: [string, number][]
+  topWordsAssistant: [string, number][]
   longestSession: Session | null
   busiestDay: string
 }

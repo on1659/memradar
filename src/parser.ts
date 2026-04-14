@@ -18,7 +18,7 @@ function extractToolUses(content: string | ContentBlock[]): string[] {
 
 export function parseJsonl(text: string, fileName: string): Session | null {
   const lines = text.trim().split('\n')
-  const messages: ParsedMessage[] = []
+  const rawMessages: ParsedMessage[] = []
   let sessionId = ''
   let cwd = ''
   let version = ''
@@ -34,7 +34,8 @@ export function parseJsonl(text: string, fileName: string): Session | null {
       if (!raw.message?.role) continue
 
       const text = extractText(raw.message.content)
-      if (!text.trim()) continue
+      const toolUses = extractToolUses(raw.message.content)
+      if (!text.trim() && toolUses.length === 0) continue
 
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId
       if (!cwd && raw.cwd) cwd = raw.cwd
@@ -42,7 +43,7 @@ export function parseJsonl(text: string, fileName: string): Session | null {
       if (!model && raw.message.model) model = raw.message.model
 
       const usage = raw.message.usage
-      messages.push({
+      rawMessages.push({
         role: raw.message.role,
         text,
         timestamp: raw.timestamp || '',
@@ -53,14 +54,37 @@ export function parseJsonl(text: string, fileName: string): Session | null {
               output: usage.output_tokens || 0,
             }
           : undefined,
-        toolUses: extractToolUses(raw.message.content),
+        toolUses,
       })
     } catch {
       // skip malformed lines
     }
   }
 
-  if (messages.length === 0) return null
+  if (rawMessages.length === 0) return null
+
+  // Merge consecutive same-role messages into turns
+  const messages: ParsedMessage[] = []
+  for (const msg of rawMessages) {
+    const prev = messages[messages.length - 1]
+    if (prev && prev.role === msg.role) {
+      // Merge into previous message
+      prev.text += '\n\n' + msg.text
+      prev.timestamp = prev.timestamp || msg.timestamp
+      if (msg.tokens) {
+        if (prev.tokens) {
+          prev.tokens.input += msg.tokens.input
+          prev.tokens.output += msg.tokens.output
+        } else {
+          prev.tokens = { ...msg.tokens }
+        }
+      }
+      prev.toolUses = [...prev.toolUses, ...msg.toolUses]
+      if (!prev.model && msg.model) prev.model = msg.model
+    } else {
+      messages.push({ ...msg, tokens: msg.tokens ? { ...msg.tokens } : undefined, toolUses: [...msg.toolUses] })
+    }
+  }
 
   const totalTokens = messages.reduce(
     (acc, m) => ({
@@ -88,6 +112,7 @@ export function parseJsonl(text: string, fileName: string): Session | null {
 }
 
 const STOP_WORDS = new Set([
+  // English
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
   'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
   'should', 'may', 'might', 'shall', 'can', 'need', 'dare', 'ought',
@@ -101,6 +126,15 @@ const STOP_WORDS = new Set([
   'these', 'those', 'it', 'its', 'i', 'me', 'my', 'we', 'our', 'you',
   'your', 'he', 'him', 'his', 'she', 'her', 'they', 'them', 'their',
   'what', 'which', 'who', 'whom', 'up', 'about', 'also', 'like',
+  'let', 'use', 'using', 'make', 'new', 'file', 'code', 'run', 'set',
+  // Korean common particles/endings
+  '이', '그', '저', '것', '수', '등', '때', '더', '안', '좀', '잘',
+  '이런', '그런', '저런', '하는', '하고', '해서', '하면', '해도',
+  '있는', '없는', '되는', '하는데', '인데', '건데', '거야', '거임',
+  '으로', '에서', '까지', '부터', '처럼', '만큼', '대로', '마다',
+  '하다', '있다', '없다', '되다', '보다', '같다', '나다', '주다',
+  '말고', '말이', '거기', '여기', '어디', '이거', '그거', '저거',
+  '근데', '그리고', '그래서', '하지만', '그런데', '그러면', '아니면',
 ])
 
 export function computeStats(sessions: Session[]): Stats {
@@ -108,7 +142,8 @@ export function computeStats(sessions: Session[]): Stats {
   const dailyActivity: Record<string, number> = {}
   const modelsUsed: Record<string, number> = {}
   const toolsUsed: Record<string, number> = {}
-  const wordCount: Record<string, number> = {}
+  const userWordCount: Record<string, number> = {}
+  const assistantWordCount: Record<string, number> = {}
   let totalMessages = 0
 
   for (const session of sessions) {
@@ -130,19 +165,25 @@ export function computeStats(sessions: Session[]): Stats {
         toolsUsed[tool] = (toolsUsed[tool] || 0) + 1
       }
 
-      if (msg.role === 'user') {
-        const words = msg.text.toLowerCase().match(/[a-z가-힣]+/g) || []
-        for (const w of words) {
-          if (w.length < 2 || STOP_WORDS.has(w)) continue
-          wordCount[w] = (wordCount[w] || 0) + 1
-        }
+      const wc = msg.role === 'user' ? userWordCount : assistantWordCount
+      const words = msg.text.toLowerCase().match(/[a-z가-힣]+/g) || []
+      for (const w of words) {
+        if (w.length < 2 || STOP_WORDS.has(w)) continue
+        wc[w] = (wc[w] || 0) + 1
       }
     }
   }
 
-  const topWords = Object.entries(wordCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 30)
+  const toTop30 = (wc: Record<string, number>) =>
+    Object.entries(wc).sort((a, b) => b[1] - a[1]).slice(0, 30)
+
+  const allWordCount: Record<string, number> = {}
+  for (const [w, c] of Object.entries(userWordCount)) allWordCount[w] = (allWordCount[w] || 0) + c
+  for (const [w, c] of Object.entries(assistantWordCount)) allWordCount[w] = (allWordCount[w] || 0) + c
+
+  const topWords = toTop30(allWordCount)
+  const topWordsUser = toTop30(userWordCount)
+  const topWordsAssistant = toTop30(assistantWordCount)
 
   const totalTokens = sessions.reduce(
     (acc, s) => ({
@@ -169,6 +210,8 @@ export function computeStats(sessions: Session[]): Stats {
     hourlyActivity,
     dailyActivity,
     topWords,
+    topWordsUser,
+    topWordsAssistant,
     longestSession,
     busiestDay,
   }

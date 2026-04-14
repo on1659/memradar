@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { getModelLabel } from '../../../lib/personality'
+import { shortModelName } from '../../../lib/modelNames'
 
 interface Props {
   modelsUsed: Record<string, number>
@@ -19,7 +20,7 @@ export function ModelSlide({ modelsUsed }: Props) {
         Your Favorite Model
       </FadeInText>
       <FadeInText delay={0.3} className="text-4xl md:text-6xl font-bold text-text-bright mb-4 text-center" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
-        {topModel[0]}
+        {shortModelName(topModel[0])}
       </FadeInText>
       <FadeInText delay={0.6} className="text-lg text-accent mb-8">
         {getModelLabel(topModel[0])}
@@ -36,7 +37,7 @@ export function ModelSlide({ modelsUsed }: Props) {
               transition={{ delay: 0.8 + i * 0.15 }}
               className="flex items-center gap-3"
             >
-              <span className="text-xs text-text/60 w-32 truncate text-right">{model}</span>
+              <span className="text-xs text-text/60 w-32 truncate text-right">{shortModelName(model)}</span>
               <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-accent/60 rounded-full"

@@ -6,18 +6,29 @@ interface DropZoneProps {
   onFilesLoaded: (files: { name: string; content: string }[]) => void
 }
 
+function createSeededRandom(seed: number) {
+  let current = seed
+  return () => {
+    current = (current * 1664525 + 1013904223) >>> 0
+    return current / 0x100000000
+  }
+}
+
 /* ── Radar background ─────────────────────────────────────────────── */
 
 function RadarBG() {
   const rings = [120, 200, 280, 360]
-  const blips = useMemo(() =>
-    Array.from({ length: 8 }, (_, i) => ({
+  const blips = useMemo(() => {
+    const random = createSeededRandom(42)
+    return Array.from({ length: 8 }, (_, i) => ({
       id: i,
-      angle: Math.random() * 360,
-      radius: 80 + Math.random() * 260,
-      delay: Math.random() * 4,
-      size: 2 + Math.random() * 3,
-    })), [])
+      angle: random() * 360,
+      radius: 80 + random() * 260,
+      delay: random() * 4,
+      size: 2 + random() * 3,
+      repeatDelay: 2 + random() * 3,
+    }))
+  }, [])
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
@@ -71,7 +82,7 @@ function RadarBG() {
               duration: 3,
               delay: b.delay,
               repeat: Infinity,
-              repeatDelay: 2 + Math.random() * 3,
+              repeatDelay: b.repeatDelay,
             }}
           />
         )

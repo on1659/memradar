@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ArrowLeft, User, Bot, Clock, Zap } from 'lucide-react'
 import type { Session } from '../types'
+import { shortModelName } from '../lib/modelNames'
 
 interface SessionViewProps {
   session: Session
@@ -56,7 +57,7 @@ export function SessionView({ session, onBack, highlightMessageIndex }: SessionV
               {(session.totalTokens.input + session.totalTokens.output).toLocaleString()} 토큰
             </span>
             <span>{session.messageCount.user + session.messageCount.assistant}개 메시지</span>
-            {session.model && <span className="text-accent/60">{session.model}</span>}
+            {session.model && <span className="text-accent/60">{shortModelName(session.model)}</span>}
             {session.cwd && <span className="truncate max-w-[200px]">{session.cwd}</span>}
           </div>
         </div>

@@ -34,6 +34,20 @@ npm install
 npm run dev
 ```
 
+## Testing
+
+```bash
+npm run test:harness
+```
+
+The harness runs lint, a production build, a deterministic CLI smoke check, and Playwright browser smoke tests against `vite preview`.
+
+For automation and CI, the CLI supports:
+
+- `MEMRADAR_PROJECTS_DIR` to point at a fixture log directory
+- `MEMRADAR_OUTPUT_HTML` to choose the generated HTML path
+- `MEMRADAR_NO_OPEN=1` to skip opening a browser window
+
 ## Tech Stack
 
 - React + TypeScript

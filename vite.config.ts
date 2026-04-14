@@ -1,11 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 
-function sessionApiPlugin() {
+function sessionApiPlugin(): Plugin {
   const claudeDir = path.join(os.homedir(), '.claude', 'projects')
 
   function findJsonlFiles(dir: string, files: string[] = []): string[] {
@@ -25,8 +26,8 @@ function sessionApiPlugin() {
 
   return {
     name: 'session-api',
-    configureServer(server: any) {
-      server.middlewares.use('/api/sessions', (_req: any, res: any) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/api/sessions', (_req: IncomingMessage, res: ServerResponse) => {
         const files = findJsonlFiles(claudeDir)
         const sessions = files.map((f) => ({
           path: f,
@@ -38,8 +39,8 @@ function sessionApiPlugin() {
         res.end(JSON.stringify(sessions))
       })
 
-      server.middlewares.use('/api/session-content', (req: any, res: any) => {
-        const url = new URL(req.url, 'http://localhost')
+      server.middlewares.use('/api/session-content', (req: IncomingMessage, res: ServerResponse) => {
+        const url = new URL(req.url || '/', 'http://localhost')
         const filePath = url.searchParams.get('path')
         if (!filePath || !filePath.endsWith('.jsonl') || !filePath.startsWith(claudeDir)) {
           res.statusCode = 400

@@ -8,7 +8,6 @@ import { IntroSlide } from './slides/IntroSlide'
 import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
 import { HoursSlide } from './slides/HoursSlide'
-import { ToolsSlide } from './slides/ToolsSlide'
 import { PersonalitySlide } from './slides/PersonalitySlide'
 import { ShareSlide } from './slides/ShareSlide'
 
@@ -44,7 +43,6 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
     <ModelSlide key="model" modelsUsed={stats.modelsUsed} />,
     <HoursSlide key="hours" stats={stats} />,
-    <ToolsSlide key="tools" toolsUsed={stats.toolsUsed} />,
     <PersonalitySlide key="personality" personality={personality} />,
     <ShareSlide key="share" personality={personality} stats={stats} codingLabel={codingTime.label} topModel={topModel} />,
   ]
@@ -68,7 +66,6 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       className="relative w-full h-screen overflow-hidden"
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
     >
       <AnimatePresence mode="wait">
         {slides[slideIndex]}

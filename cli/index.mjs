@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -9,18 +8,9 @@ import { exec } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const distDir = path.join(__dirname, '..', 'dist')
-const claudeDir = path.join(os.homedir(), '.claude', 'projects')
-const PORT = parseInt(process.env.PORT || '3456', 10)
-
-const MIME = {
-  '.html': 'text/html',
-  '.js': 'application/javascript',
-  '.css': 'text/css',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-}
+const projectsDir = process.env.MEMRADAR_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
+const outPath = process.env.MEMRADAR_OUTPUT_HTML || path.join(os.tmpdir(), 'memradar.html')
+const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
 
 function findJsonlFiles(dir, files = []) {
   try {
@@ -33,83 +23,200 @@ function findJsonlFiles(dir, files = []) {
         files.push(fullPath)
       }
     }
-  } catch { /* skip inaccessible dirs */ }
+  } catch {
+    // Skip inaccessible directories.
+  }
   return files
 }
 
-function openBrowser(url) {
-  const cmd = process.platform === 'win32' ? `start ${url}`
-    : process.platform === 'darwin' ? `open ${url}`
-    : `xdg-open ${url}`
+function openBrowser(filePath) {
+  const cmd = process.platform === 'win32'
+    ? `start "" "${filePath}"`
+    : process.platform === 'darwin'
+      ? `open "${filePath}"`
+      : `xdg-open "${filePath}"`
   exec(cmd)
 }
 
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`)
+function extractText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.filter((block) => block.type === 'text' && block.text).map((block) => block.text).join('\n')
+}
 
-  // API: list sessions
-  if (url.pathname === '/api/sessions') {
-    const files = findJsonlFiles(claudeDir)
-    const sessions = files.map((f) => ({
-      path: f,
-      name: path.basename(f),
-      project: path.basename(path.dirname(f)),
-      size: fs.statSync(f).size,
-    }))
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(sessions))
-    return
-  }
+function extractToolUses(content) {
+  if (typeof content === 'string' || !Array.isArray(content)) return []
+  return content.filter((block) => block.type === 'tool_use' && block.name).map((block) => block.name)
+}
 
-  // API: read session content
-  if (url.pathname === '/api/session-content') {
-    const filePath = url.searchParams.get('path')
-    if (!filePath || !filePath.endsWith('.jsonl') || !filePath.startsWith(claudeDir)) {
-      res.writeHead(400)
-      res.end('Invalid path')
-      return
-    }
+function parseJsonl(text, fileName) {
+  const lines = text.trim().split('\n')
+  const messages = []
+  let sessionId = ''
+  let cwd = ''
+  let version = ''
+  let model = ''
+
+  for (const line of lines) {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8')
-      res.writeHead(200, { 'Content-Type': 'text/plain' })
-      res.end(content)
+      const raw = JSON.parse(line)
+      if (raw.type === 'file-history-snapshot') continue
+      if (raw.isMeta || raw.isSidechain) continue
+      if (!raw.message?.role) continue
+
+      const textContent = extractText(raw.message.content)
+      if (!textContent.trim()) continue
+
+      if (!sessionId && raw.sessionId) sessionId = raw.sessionId
+      if (!cwd && raw.cwd) cwd = raw.cwd
+      if (!version && raw.version) version = raw.version
+      if (!model && raw.message.model) model = raw.message.model
+
+      const usage = raw.message.usage
+      messages.push({
+        role: raw.message.role,
+        text: textContent,
+        timestamp: raw.timestamp || '',
+        model: raw.message.model,
+        tokens: usage
+          ? {
+              input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+              output: usage.output_tokens || 0,
+            }
+          : undefined,
+        toolUses: extractToolUses(raw.message.content),
+      })
     } catch {
-      res.writeHead(404)
-      res.end('Not found')
+      // Skip invalid JSONL lines.
     }
-    return
   }
 
-  // Static file serving
-  let filePath = path.join(distDir, url.pathname === '/' ? 'index.html' : url.pathname)
+  if (messages.length === 0) return null
 
-  // SPA fallback
-  if (!fs.existsSync(filePath)) {
-    filePath = path.join(distDir, 'index.html')
+  const merged = []
+  for (const message of messages) {
+    const previous = merged[merged.length - 1]
+    if (previous && previous.role === message.role) {
+      previous.text += '\n\n' + message.text
+      previous.timestamp = previous.timestamp || message.timestamp
+      if (message.tokens) {
+        if (previous.tokens) {
+          previous.tokens.input += message.tokens.input
+          previous.tokens.output += message.tokens.output
+        } else {
+          previous.tokens = { ...message.tokens }
+        }
+      }
+      previous.toolUses = [...previous.toolUses, ...message.toolUses]
+      if (!previous.model && message.model) previous.model = message.model
+    } else {
+      merged.push({
+        ...message,
+        tokens: message.tokens ? { ...message.tokens } : undefined,
+        toolUses: [...message.toolUses],
+      })
+    }
   }
 
+  const totalTokens = merged.reduce((accumulator, message) => ({
+    input: accumulator.input + (message.tokens?.input || 0),
+    output: accumulator.output + (message.tokens?.output || 0),
+  }), { input: 0, output: 0 })
+
+  return {
+    id: sessionId || fileName,
+    fileName,
+    messages: merged,
+    startTime: merged[0]?.timestamp || '',
+    endTime: merged[merged.length - 1]?.timestamp || '',
+    cwd,
+    version,
+    model,
+    totalTokens,
+    messageCount: {
+      user: merged.filter((message) => message.role === 'user').length,
+      assistant: merged.filter((message) => message.role === 'assistant').length,
+    },
+  }
+}
+
+if (!fs.existsSync(distDir)) {
+  console.error('dist/ folder not found. Run `npm run build` first.')
+  process.exit(1)
+}
+
+const files = findJsonlFiles(projectsDir)
+console.log()
+console.log('  Memradar')
+console.log('  ------------------------------')
+console.log(`  Log dir:   ${projectsDir}`)
+console.log(`  Sessions:  ${files.length}`)
+
+if (files.length === 0) {
+  console.log('  No session files found.')
+  console.log('  ------------------------------')
+  process.exit(0)
+}
+
+console.log('  Parsing sessions...')
+const sessions = []
+for (const file of files) {
   try {
-    const content = fs.readFileSync(filePath)
-    const ext = path.extname(filePath)
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' })
-    res.end(content)
+    const content = fs.readFileSync(file, 'utf-8')
+    const session = parseJsonl(content, path.basename(file))
+    if (session) sessions.push(session)
   } catch {
-    res.writeHead(404)
-    res.end('Not found')
+    // Skip unreadable files.
   }
-})
+}
+console.log(`  Parsed:    ${sessions.length}`)
 
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`
-  console.log()
-  console.log(`  ✦ Memradar`)
-  console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-  console.log(`  로컬 서버:  ${url}`)
-  console.log(`  로그 경로:  ${claudeDir}`)
-  const files = findJsonlFiles(claudeDir)
-  console.log(`  발견된 세션: ${files.length}개`)
-  console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-  console.log(`  종료: Ctrl+C`)
-  console.log()
-  openBrowser(url)
-})
+const assetsDir = path.join(distDir, 'assets')
+if (!fs.existsSync(assetsDir)) {
+  console.error('dist/assets folder not found. Run `npm run build` first.')
+  process.exit(1)
+}
+
+const assetFiles = fs.readdirSync(assetsDir)
+const jsFile = assetFiles.find((file) => file.endsWith('.js'))
+const cssFile = assetFiles.find((file) => file.endsWith('.css'))
+
+if (!jsFile || !cssFile) {
+  console.error('Built JS/CSS assets are missing from dist/assets. Run `npm run build` again.')
+  process.exit(1)
+}
+
+const jsContent = fs.readFileSync(path.join(assetsDir, jsFile), 'utf-8')
+const cssContent = fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8')
+
+const safeJson = JSON.stringify(sessions).replace(/<\/script/gi, '<\\/script')
+const safeJs = jsContent.replace(/<\/script/gi, '<\\/script')
+
+const html = `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memradar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
+    <style>${cssContent}</style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>window.__MEMRADAR_SESSIONS__=${safeJson};</script>
+    <script type="module">${safeJs}</script>
+  </body>
+</html>`
+
+fs.writeFileSync(outPath, html, 'utf-8')
+
+const sizeMB = (Buffer.byteLength(html, 'utf-8') / 1024 / 1024).toFixed(1)
+console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
+console.log('  ------------------------------')
+console.log()
+
+if (shouldOpenBrowser) {
+  openBrowser(outPath)
+}

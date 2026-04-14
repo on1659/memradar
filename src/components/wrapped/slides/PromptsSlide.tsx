@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { SlideLayout, AnimatedNumber, FadeInText } from './SlideLayout'
 
@@ -7,6 +8,20 @@ interface Props {
 
 export function PromptsSlide({ totalPrompts }: Props) {
   const bookEquiv = Math.round(totalPrompts * 50 / 60000)
+  const particles = useMemo(() => {
+    const randomAt = (index: number, salt: number) => {
+      const value = Math.sin((index + 1) * (salt + 1) * 12.9898) * 43758.5453
+      return value - Math.floor(value)
+    }
+
+    return Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: `${randomAt(i, 1) * 100}%`,
+      top: `${randomAt(i, 2) * 100}%`,
+      delay: 1 + randomAt(i, 3) * 2,
+      repeatDelay: randomAt(i, 4) * 3,
+    }))
+  }, [])
 
   return (
     <SlideLayout gradient="from-[#06060e] via-[#100820] to-[#06060e]">
@@ -30,13 +45,13 @@ export function PromptsSlide({ totalPrompts }: Props) {
         animate={{ opacity: 0.3 }}
         transition={{ delay: 1, duration: 1 }}
       >
-        {Array.from({ length: 20 }).map((_, i) => (
+        {particles.map((particle) => (
           <motion.div
-            key={i}
+            key={particle.id}
             className="absolute w-1 h-1 bg-accent rounded-full"
-            style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
+            style={{ left: particle.left, top: particle.top }}
             animate={{ scale: [0, 1.5, 0], opacity: [0, 1, 0] }}
-            transition={{ duration: 2, delay: 1 + Math.random() * 2, repeat: Infinity, repeatDelay: Math.random() * 3 }}
+            transition={{ duration: 2, delay: particle.delay, repeat: Infinity, repeatDelay: particle.repeatDelay }}
           />
         ))}
       </motion.div>

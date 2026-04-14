@@ -1,9 +1,16 @@
 {
   "name": "memradar",
   "private": false,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "AI 코딩 세션 로그를 시각화하는 로컬 레이더. npx memradar로 실행.",
-  "keywords": ["claude", "ai", "session", "log", "viewer", "analytics"],
+  "keywords": [
+    "claude",
+    "ai",
+    "session",
+    "log",
+    "viewer",
+    "analytics"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -21,7 +28,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:cli": "node tests/harness-cli.mjs",
+    "test:e2e": "playwright test",
+    "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:e2e",
+    "test": "npm run test:harness"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -33,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
