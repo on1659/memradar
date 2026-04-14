@@ -51,7 +51,7 @@ function extractToolUses(content) {
 
 function parseJsonl(text, fileName) {
   const lines = text.trim().split('\n')
-  const messages = []
+  const rawMessages = []
   let sessionId = ''
   let cwd = ''
   let version = ''
@@ -65,7 +65,8 @@ function parseJsonl(text, fileName) {
       if (!raw.message?.role) continue
 
       const textContent = extractText(raw.message.content)
-      if (!textContent.trim()) continue
+      const toolUses = extractToolUses(raw.message.content)
+      if (!textContent.trim() && toolUses.length === 0) continue
 
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId
       if (!cwd && raw.cwd) cwd = raw.cwd
@@ -73,7 +74,7 @@ function parseJsonl(text, fileName) {
       if (!model && raw.message.model) model = raw.message.model
 
       const usage = raw.message.usage
-      messages.push({
+      rawMessages.push({
         role: raw.message.role,
         text: textContent,
         timestamp: raw.timestamp || '',
@@ -84,17 +85,17 @@ function parseJsonl(text, fileName) {
               output: usage.output_tokens || 0,
             }
           : undefined,
-        toolUses: extractToolUses(raw.message.content),
+        toolUses,
       })
     } catch {
       // Skip invalid JSONL lines.
     }
   }
 
-  if (messages.length === 0) return null
+  if (rawMessages.length === 0) return null
 
   const merged = []
-  for (const message of messages) {
+  for (const message of rawMessages) {
     const previous = merged[merged.length - 1]
     if (previous && previous.role === message.role) {
       previous.text += '\n\n' + message.text

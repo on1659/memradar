@@ -24,5 +24,6 @@ dist-ssr
 *.sw?
 
 .vercel
+.npmrc
 test-results/
 tests/screenshot-full.png
