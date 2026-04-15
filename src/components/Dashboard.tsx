@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightLeft,
   BarChart3,
+  Bell,
   Brain,
   Calendar,
   CircleHelp,
@@ -18,12 +19,14 @@ import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { WordCloud } from './WordCloud'
+import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
 
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
   onOpenSearch: () => void
   onOpenWrapped?: () => void
+  onOpenPersonality?: () => void
   onRefresh?: () => void
   refreshing?: boolean
   themeProps: {
@@ -241,11 +244,129 @@ const TOOL_DESC: Record<string, string> = {
   NotebookEdit: '노트북 수정',
 }
 
+const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+function DayOfWeekPattern({
+  values,
+  mode,
+  total,
+}: {
+  values: number[]
+  mode: 'count' | 'ratio'
+  total: number
+}) {
+  const max = Math.max(...values, 1)
+  const bestDay = values.indexOf(Math.max(...values))
+
+  return (
+    <div className="dashboard-card-body-compact space-y-1.5">
+      <div className="mb-1 flex justify-end">
+        <span className="rounded-full border border-border/70 bg-bg px-2 py-0.5 text-[10px] text-text/55">
+          {mode === 'count' ? '절대값' : '비율'}
+        </span>
+      </div>
+      {DAY_OF_WEEK_LABELS.map((label, index) => {
+        const count = values[index]
+        const ratio = total > 0 ? (count / total) * 100 : 0
+        const width = mode === 'count'
+          ? Math.round((count / max) * 100)
+          : count > 0
+            ? Math.max(6, Math.round(ratio))
+            : 0
+        const valueLabel = mode === 'count'
+          ? count.toLocaleString()
+          : `${ratio.toFixed(1)}%`
+
+        return (
+          <div key={label} className="flex items-center gap-1.5">
+            <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
+              {label}
+            </span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className={`h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
+                style={{ width: `${width}%` }}
+              />
+            </div>
+            <span className={`w-10 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/40'}`}>
+              {valueLabel}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+void DayOfWeekPattern
+
+function DayOfWeekPatternPanel({
+  values,
+  mode,
+  total,
+  pinned,
+  onTogglePinned,
+}: {
+  values: number[]
+  mode: 'count' | 'ratio'
+  total: number
+  pinned: boolean
+  onTogglePinned: () => void
+}) {
+  const max = Math.max(...values, 1)
+  const bestDay = values.indexOf(Math.max(...values))
+
+  return (
+    <div className="dashboard-card-body-compact space-y-1.5">
+      <div className="mb-2 flex justify-end pr-0.5">
+        <button
+          type="button"
+          aria-pressed={pinned}
+          onClick={onTogglePinned}
+          className={`rounded-full border px-2.5 py-1 text-[10px] transition-all ${
+            pinned
+              ? 'translate-y-px border-accent/50 bg-accent/12 text-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]'
+              : 'border-border/70 bg-bg text-text/55 hover:border-accent/25 hover:text-text-bright'
+          }`}
+        >
+          고정
+        </button>
+      </div>
+      {DAY_OF_WEEK_LABELS.map((label, index) => {
+        const count = values[index]
+        const ratio = total > 0 ? (count / total) * 100 : 0
+        const width = Math.round((count / max) * 100)
+        const valueLabel = mode === 'count'
+          ? count.toLocaleString()
+          : `${ratio.toFixed(1)}%`
+
+        return (
+          <div key={`${label}-${mode}`} className="flex items-center gap-1.5">
+            <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
+              {label}
+            </span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className={`h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
+                style={{ width: `${width}%` }}
+              />
+            </div>
+            <span className={`w-10 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/40'}`}>
+              {valueLabel}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Dashboard({
   sessions,
   onSelectSession,
   onOpenSearch,
   onOpenWrapped,
+  onOpenPersonality,
   onRefresh,
   refreshing,
   themeProps,
@@ -253,6 +374,9 @@ export function Dashboard({
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const [sessionFilter, setSessionFilter] = useState('')
   const [showLeastBusy, setShowLeastBusy] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
+  const [dayPatternPinned, setDayPatternPinned] = useState(false)
 
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
@@ -357,6 +481,21 @@ export function Dashboard({
     return days
   }, [stats])
 
+  const dayPatternTotal = useMemo(
+    () => dayOfWeekActivity.reduce((sum, value) => sum + value, 0),
+    [dayOfWeekActivity]
+  )
+
+  useEffect(() => {
+    if (dayPatternPinned) return
+
+    const timer = window.setInterval(() => {
+      setDayPatternMode((prev) => prev === 'count' ? 'ratio' : 'count')
+    }, 10000)
+
+    return () => window.clearInterval(timer)
+  }, [dayPatternPinned])
+
   const busyDay = showLeastBusy ? leastBusyDay : stats.busiestDay
   const busyDayCount = busyDay ? stats.dailyActivity[busyDay] : 0
 
@@ -376,7 +515,7 @@ export function Dashboard({
             <button
               onClick={onRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright disabled:opacity-50"
+              className="order-1 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright disabled:opacity-50"
               title="세션 새로고침"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -385,28 +524,51 @@ export function Dashboard({
           {onOpenWrapped && (
             <button
               onClick={onOpenWrapped}
-              className="dashboard-button-attention flex items-center gap-2 rounded-lg border border-accent/20 bg-accent/10 px-4 py-2 text-sm text-accent transition-colors hover:bg-accent/20"
+              className="dashboard-button-attention order-4 flex items-center gap-2 rounded-lg border border-accent/20 bg-accent/10 px-4 py-2 text-sm text-accent transition-colors hover:bg-accent/20"
             >
               <span className="dashboard-button-attention-icon">✦</span>
               <span className="hidden sm:inline">Wrapped</span>
             </button>
           )}
           <button
+            onClick={() => setUpdatesOpen(true)}
+            className="order-2 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+          >
+            <Bell className="h-4 w-4" />
+            <span className="hidden sm:inline">새소식</span>
+            <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              {latestProductUpdate.version}
+            </span>
+          </button>
+          {onOpenPersonality && (
+            <button
+              onClick={onOpenPersonality}
+              className="order-3 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+            >
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">성향</span>
+            </button>
+          )}
+          <button
             onClick={onOpenSearch}
-            className="flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+            className="order-5 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
           >
             <Search className="h-4 w-4" />
             <span className="hidden sm:inline">검색</span>
             <kbd className="ml-1 hidden rounded bg-bg px-1.5 py-0.5 text-[10px] text-text/30 sm:inline">Ctrl+K</kbd>
           </button>
-          <ThemeSwitcher
-            theme={themeProps.theme}
-            accent={themeProps.accent}
-            onThemeChange={themeProps.setTheme}
-            onAccentChange={themeProps.setAccent}
-          />
+          <div className="order-6">
+            <ThemeSwitcher
+              theme={themeProps.theme}
+              accent={themeProps.accent}
+              onThemeChange={themeProps.setTheme}
+              onAccentChange={themeProps.setAccent}
+            />
+          </div>
         </div>
       </div>
+
+      <UpdatesPopover open={updatesOpen} onClose={() => setUpdatesOpen(false)} />
 
       <div className="dashboard-stats-grid animate-in">
         <div className="dashboard-card">
@@ -517,7 +679,14 @@ export function Dashboard({
             <Calendar className="h-3.5 w-3.5 text-cyan" />
             요일별 패턴
           </h3>
-          {(() => {
+          <DayOfWeekPatternPanel
+            values={dayOfWeekActivity}
+            mode={dayPatternMode}
+            total={dayPatternTotal}
+            pinned={dayPatternPinned}
+            onTogglePinned={() => setDayPatternPinned((prev) => !prev)}
+          />
+          {false && (() => {
             const labels = ['일', '월', '화', '수', '목', '금', '토']
             const max = Math.max(...dayOfWeekActivity, 1)
             const bestDay = dayOfWeekActivity.indexOf(Math.max(...dayOfWeekActivity))

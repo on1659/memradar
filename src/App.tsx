@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
+import { PersonalityView } from './components/PersonalityView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import type { Session } from './types'
@@ -21,6 +22,7 @@ type View =
   | { type: 'session'; session: Session; highlightMessageIndex?: number }
   | { type: 'search' }
   | { type: 'wrapped' }
+  | { type: 'personality' }
 
 function App() {
   const themeProps = useTheme()
@@ -130,6 +132,8 @@ function App() {
         setView({ type: 'search' })
       } else if (state.viewType === 'wrapped') {
         setView({ type: 'wrapped' })
+      } else if (state.viewType === 'personality') {
+        setView({ type: 'personality' })
       } else {
         setView({ type: 'dashboard' })
       }
@@ -201,6 +205,15 @@ function App() {
     )
   }
 
+  if (view.type === 'personality') {
+    return (
+      <PersonalityView
+        sessions={sessions}
+        onBack={() => navigate({ type: 'dashboard' })}
+      />
+    )
+  }
+
   if (view.type === 'search') {
     return (
       <SearchView
@@ -219,6 +232,7 @@ function App() {
       onSelectSession={(session) => navigate({ type: 'session', session })}
       onOpenSearch={() => navigate({ type: 'search' })}
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
+      onOpenPersonality={() => navigate({ type: 'personality' })}
       onRefresh={() => loadSessions(true)}
       refreshing={refreshing}
       themeProps={themeProps}

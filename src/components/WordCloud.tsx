@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface WordCloudProps {
   words: [string, number][]
@@ -18,14 +19,13 @@ type TooltipState = {
   count: number
   x: number
   y: number
-  originX: number
-  originY: number
 }
 
+const TOOLTIP_OFFSET = 14
+const TOOLTIP_HALF_WIDTH = 72
+
 function Cloud({ words }: { words: [string, number][] }) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [hovered, setHovered] = useState<TooltipState | null>(null)
-  const [suppressed, setSuppressed] = useState(false)
 
   if (words.length === 0) {
     return <p className="text-sm text-text/40">데이터가 충분하지 않습니다</p>
@@ -35,59 +35,41 @@ function Cloud({ words }: { words: [string, number][] }) {
   const minCount = words[words.length - 1]?.[1] || 1
   const range = maxCount - minCount || 1
 
-  const showTooltip = (event: React.MouseEvent<HTMLSpanElement>, word: string, count: number) => {
-    if (suppressed) return
-
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top - 14
-
+  const updateTooltip = (event: React.MouseEvent<HTMLSpanElement>, word: string, count: number) => {
     setHovered({
       word,
       count,
-      x,
-      y,
-      originX: event.clientX,
-      originY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
     })
   }
 
-  const handleWordMove = (event: React.MouseEvent<HTMLSpanElement>) => {
-    if (!hovered) return
-
-    const movedX = event.clientX - hovered.originX
-    const movedY = event.clientY - hovered.originY
-
-    if (Math.hypot(movedX, movedY) > 8) {
-      setHovered(null)
-      setSuppressed(true)
-    }
-  }
+  const tooltipLeft = hovered
+    ? Math.min(Math.max(hovered.x, TOOLTIP_HALF_WIDTH), window.innerWidth - TOOLTIP_HALF_WIDTH)
+    : 0
+  const tooltipTop = hovered
+    ? Math.max(hovered.y - TOOLTIP_OFFSET, 18)
+    : 0
 
   return (
-    <div
-      ref={containerRef}
-      className="relative"
-      onMouseLeave={() => {
-        setHovered(null)
-        setSuppressed(false)
-      }}
-    >
-      {hovered && (
-        <div
-          className="dashboard-tooltip pointer-events-none absolute rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-xs text-text-bright shadow-lg"
-          style={{
-            left: hovered.x,
-            top: hovered.y,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <span className="font-medium">{hovered.word}</span>
-          <span className="ml-2 text-text/70">{hovered.count}번</span>
-        </div>
-      )}
+    <div className="relative">
+      {hovered && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="dashboard-tooltip pointer-events-none fixed rounded-lg border border-border bg-bg-hover px-3 py-1.5 text-center text-xs text-text-bright shadow-lg"
+              style={{
+                left: tooltipLeft,
+                top: tooltipTop,
+                transform: 'translate(-50%, -100%)',
+                zIndex: 120,
+              }}
+            >
+              <div className="whitespace-nowrap font-medium">{hovered.word}</div>
+              <div className="whitespace-nowrap text-text/70">{hovered.count}번</div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <div className="flex min-h-[160px] flex-wrap items-baseline justify-center gap-x-3 gap-y-1 py-2">
         {words.slice(0, 30).map(([word, count], i) => {
@@ -107,8 +89,8 @@ function Cloud({ words }: { words: [string, number][] }) {
                 lineHeight: 1.2,
               }}
               className="cursor-default whitespace-nowrap transition-opacity hover:opacity-100"
-              onMouseEnter={(event) => showTooltip(event, word, count)}
-              onMouseMove={handleWordMove}
+              onMouseEnter={(event) => updateTooltip(event, word, count)}
+              onMouseMove={(event) => updateTooltip(event, word, count)}
               onMouseLeave={() => setHovered(null)}
             >
               {word}

@@ -9,6 +9,7 @@ import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
 import { HoursSlide } from './slides/HoursSlide'
 import { PersonalitySlide } from './slides/PersonalitySlide'
+import { UsageSlide } from './slides/UsageSlide'
 import { ShareSlide } from './slides/ShareSlide'
 
 interface WrappedViewProps {
@@ -44,6 +45,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     <ModelSlide key="model" modelsUsed={stats.modelsUsed} />,
     <HoursSlide key="hours" stats={stats} />,
     <PersonalitySlide key="personality" personality={personality} />,
+    <UsageSlide key="usage" sessions={sessions} />,
     <ShareSlide key="share" personality={personality} stats={stats} codingLabel={codingTime.label} topModel={topModel} />,
   ]
 

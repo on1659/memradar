@@ -10,6 +10,19 @@ interface HeatmapCell {
   day: number
 }
 
+interface MonthMarker {
+  label: string
+  col: number
+}
+
+function toDayKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function toMonthLabel(date: Date) {
+  return `${date.getMonth() + 1}월`
+}
+
 export function Heatmap({ dailyActivity }: HeatmapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
@@ -27,27 +40,35 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
     return () => resizeObserver.disconnect()
   }, [])
 
-  const { weeks, maxCount, months } = useMemo(() => {
+  const { weeks, months, maxCount } = useMemo(() => {
+    const activeDates = Object.entries(dailyActivity)
+      .filter(([, count]) => count > 0)
+      .map(([date]) => date)
+      .sort()
+
     const today = new Date()
-    const start = new Date(today)
+    today.setHours(0, 0, 0, 0)
 
-    start.setMonth(start.getMonth() - 5)
-    start.setDate(1)
-    start.setDate(start.getDate() - start.getDay())
+    const firstActive = activeDates[0] ? new Date(activeDates[0]) : new Date(today)
+    firstActive.setHours(0, 0, 0, 0)
 
-    const weeks: HeatmapCell[][] = []
+    const builtWeeks: HeatmapCell[][] = []
     let currentWeek: HeatmapCell[] = []
     let peak = 0
 
-    const cursor = new Date(start)
+    const cursor = new Date(firstActive)
     while (cursor <= today) {
-      const key = cursor.toISOString().slice(0, 10)
+      const key = toDayKey(cursor)
       const count = dailyActivity[key] || 0
       peak = Math.max(peak, count)
-      currentWeek.push({ date: key, count, day: cursor.getDay() })
+      currentWeek.push({
+        date: key,
+        count,
+        day: cursor.getDay(),
+      })
 
       if (cursor.getDay() === 6) {
-        weeks.push(currentWeek)
+        builtWeeks.push(currentWeek)
         currentWeek = []
       }
 
@@ -55,28 +76,43 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
     }
 
     if (currentWeek.length > 0) {
-      weeks.push(currentWeek)
+      builtWeeks.push(currentWeek)
     }
 
-    const months: { label: string; col: number }[] = []
-    let previousMonth = -1
+    const rawMonths: MonthMarker[] = []
+    let lastMonthKey = ''
 
-    weeks.forEach((week, index) => {
-      const firstDay = week[0]
-      if (!firstDay) return
+    builtWeeks.forEach((week, index) => {
+      const marker = week.find((cell) => cell.date.slice(0, 7) !== lastMonthKey)
+      if (!marker) return
 
-      const month = new Date(firstDay.date).getMonth()
-      if (month !== previousMonth) {
-        months.push({
-          label: new Date(firstDay.date).toLocaleDateString('ko-KR', { month: 'short' }),
-          col: index,
-        })
-        previousMonth = month
-      }
+      rawMonths.push({
+        label: toMonthLabel(new Date(marker.date)),
+        col: index,
+      })
+      lastMonthKey = marker.date.slice(0, 7)
     })
 
-    return { weeks, maxCount: peak, months }
+    const minLabelGap = builtWeeks.length <= 10 ? 4 : builtWeeks.length <= 18 ? 3 : 2
+    const filteredMonths = rawMonths.filter((month, index) => {
+      if (index === 0) return true
+      return month.col - rawMonths[index - 1].col >= minLabelGap
+    })
+
+    return {
+      weeks: builtWeeks,
+      months: filteredMonths,
+      maxCount: peak,
+    }
   }, [dailyActivity])
+
+  const labelWidth = 24
+  const gap = 4
+  const numWeeks = weeks.length || 1
+  const usableWidth = Math.max(containerWidth - labelWidth - gap * (numWeeks - 1), 0)
+  const cellSize = containerWidth > 0
+    ? Math.max(12, Math.min(16, Math.floor(usableWidth / numWeeks)))
+    : 14
 
   const getColor = (count: number) => {
     if (count === 0) return 'bg-white/5'
@@ -87,13 +123,6 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
     if (ratio < 0.75) return 'bg-accent/60'
     return 'bg-accent/90'
   }
-
-  const labelWidth = 24
-  const gap = 4
-  const numWeeks = weeks.length || 1
-  const cellSize = containerWidth > 0
-    ? Math.max(12, Math.min(18, Math.floor((containerWidth - labelWidth - gap * (numWeeks - 1)) / numWeeks)))
-    : 14
 
   const dayLabels = ['', '월', '', '수', '', '금', '']
 
@@ -134,6 +163,7 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
               <div key={weekIndex} className="flex flex-col" style={{ gap: `${gap}px` }}>
                 {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
                   const cell = week.find((entry) => entry.day === dayIndex)
+
                   if (!cell) {
                     return <div key={dayIndex} style={{ width: cellSize, height: cellSize }} />
                   }
