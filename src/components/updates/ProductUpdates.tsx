@@ -189,4 +189,6 @@ export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
   )
 }
 
+// re-export for Dashboard
+// eslint-disable-next-line react-refresh/only-export-components
 export { latestProductUpdate }

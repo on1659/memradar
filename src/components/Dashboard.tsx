@@ -229,21 +229,6 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
   )
 }
 
-const TOOL_DESC: Record<string, string> = {
-  Read: '파일 읽기',
-  Write: '파일 쓰기',
-  Edit: '파일 수정',
-  Bash: '터미널 명령',
-  Glob: '파일 검색',
-  Grep: '코드 검색',
-  Agent: '서브에이전트',
-  WebSearch: '웹 검색',
-  WebFetch: '웹 요청',
-  AskUserQuestion: '사용자 질문',
-  TodoWrite: 'TODO 작성',
-  NotebookEdit: '노트북 수정',
-}
-
 const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
 function DayOfWeekPattern({
@@ -411,11 +396,6 @@ export function Dashboard({
     const total = entries.reduce((sum, [, value]) => sum + value, 0)
     return Math.round(total / entries.length)
   }, [stats])
-
-  const topTools = useMemo(
-    () => Object.entries(stats.toolsUsed).sort((a, b) => b[1] - a[1]).slice(0, 8),
-    [stats]
-  )
 
   const topModels = useMemo(
     () => Object.entries(stats.modelsUsed).sort((a, b) => b[1] - a[1]),
@@ -686,32 +666,6 @@ export function Dashboard({
             pinned={dayPatternPinned}
             onTogglePinned={() => setDayPatternPinned((prev) => !prev)}
           />
-          {false && (() => {
-            const labels = ['일', '월', '화', '수', '목', '금', '토']
-            const max = Math.max(...dayOfWeekActivity, 1)
-            const bestDay = dayOfWeekActivity.indexOf(Math.max(...dayOfWeekActivity))
-
-            return (
-              <div className="dashboard-card-body-compact space-y-1.5">
-                {labels.map((label, index) => (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
-                      {label}
-                    </span>
-                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-                      <div
-                        className={`h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
-                        style={{ width: `${Math.round((dayOfWeekActivity[index] / max) * 100)}%` }}
-                      />
-                    </div>
-                    <span className={`w-6 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/40'}`}>
-                      {dayOfWeekActivity[index]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
         </div>
       </div>
 
@@ -748,30 +702,6 @@ export function Dashboard({
         </div>
       </div>
 
-      {false && (
-        <div className="dashboard-card dashboard-card-roomy animate-in mb-8">
-          <h2 className="mb-4 text-sm font-semibold text-text-bright">AI가 사용한 도구</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {topTools.map(([tool, count]) => {
-              const max = topTools[0][1]
-              const pct = Math.round((count / max) * 100)
-
-              return (
-                <div key={tool} className="rounded-lg border border-border/50 bg-bg p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-bright">{tool}</span>
-                    <span className="text-xs text-text/40">{count}회</span>
-                  </div>
-                  <div className="mb-2 text-[10px] text-text/40">{TOOL_DESC[tool] || '기타 도구'}</div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
-                    <div className="h-full rounded-full bg-accent/40" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       <div className="dashboard-card dashboard-card-flush animate-in">
         <div className="border-b border-border p-6">

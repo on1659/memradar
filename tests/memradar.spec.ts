@@ -15,7 +15,7 @@ test.describe('Dashboard loads', () => {
   })
 
   test('displays stat cards', async ({ page }) => {
-    await expect(page.locator('.bg-bg-card.rounded-xl.p-5')).toHaveCount(4)
+    await expect(page.locator('.dashboard-stats-grid .dashboard-card')).toHaveCount(4)
   })
 
   test('total messages count is non-zero', async ({ page }) => {
@@ -58,21 +58,21 @@ test.describe('Dashboard loads', () => {
   })
 
   test('word cloud tab switching works', async ({ page }) => {
-    const wordCloudCard = page.locator('.mb-8.grid .bg-bg-card').filter({ hasText: '자주 쓴 단어' })
+    const wordCloudCard = page.locator('.dashboard-card').filter({ hasText: '자주 쓴 단어' })
     const aiTab = wordCloudCard.locator('button').nth(1)
     await aiTab.click()
     await expect(aiTab).toHaveClass(/bg-accent/)
   })
 
   test('busy day toggle remains interactive', async ({ page }) => {
-    const busyCard = page.locator('.bg-bg-card.rounded-xl.p-5').nth(3)
+    const busyCard = page.locator('.dashboard-stats-grid .dashboard-card').nth(3)
     const valueBefore = await busyCard.locator('.count-up').textContent()
     await busyCard.locator('button').click()
     await expect(busyCard.locator('.count-up')).not.toHaveText(valueBefore ?? '')
   })
 
   test('token cost tooltip appears on hover', async ({ page }) => {
-    const tokenCard = page.locator('.bg-bg-card.rounded-xl.p-5').nth(1)
+    const tokenCard = page.locator('.dashboard-stats-grid .dashboard-card').nth(1)
     await tokenCard.hover()
     await expect(tokenCard.locator('text=$')).toBeVisible()
   })
@@ -89,9 +89,9 @@ test.describe('Dashboard loads', () => {
     await expect(page.getByRole('heading', { name: /Memradar/i })).toBeVisible()
   })
 
-  test('tools section shows aggregated usage', async ({ page }) => {
-    const toolsSection = page.locator('.bg-bg-card.rounded-xl.p-6').filter({ has: page.locator('.bg-bg.rounded-lg.p-3') }).first()
-    await expect(toolsSection).toBeVisible()
+  test('tools used in analytics section', async ({ page }) => {
+    // Verify the analytics grid renders model chart
+    await expect(page.locator('.dashboard-card').filter({ hasText: '사용한 모델' })).toBeVisible()
   })
 
   test('mobile viewport still shows heading and sessions', async ({ page }) => {

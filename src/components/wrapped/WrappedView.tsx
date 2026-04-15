@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import type { Session, Stats } from '../../types'
 import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
+import { analyzeUsageTopCategories, getUsageHeadline } from '../../lib/usageProfile'
 import { IntroSlide } from './slides/IntroSlide'
 import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
@@ -39,6 +40,15 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     return sorted[0]?.[0] || 'Unknown'
   }, [stats])
 
+  const topUsageCategory = useMemo(
+    () => analyzeUsageTopCategories(sessions, 1)[0] ?? null,
+    [sessions]
+  )
+  const usageHeadline = useMemo(
+    () => getUsageHeadline(topUsageCategory),
+    [topUsageCategory]
+  )
+
   const slides = [
     <IntroSlide key="intro" firstDate={sortedSessions[0]?.startTime || ''} totalSessions={stats.totalSessions} />,
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
@@ -46,7 +56,14 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     <HoursSlide key="hours" stats={stats} />,
     <PersonalitySlide key="personality" personality={personality} />,
     <UsageSlide key="usage" sessions={sessions} />,
-    <ShareSlide key="share" personality={personality} stats={stats} codingLabel={codingTime.label} topModel={topModel} />,
+    <ShareSlide
+      key="share"
+      personality={personality}
+      stats={stats}
+      codingLabel={codingTime.label}
+      topModel={topModel}
+      usageHeadline={usageHeadline}
+    />,
   ]
 
   const canPrev = slideIndex > 0
