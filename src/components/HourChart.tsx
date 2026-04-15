@@ -25,7 +25,7 @@ export function HourChart({ data }: HourChartProps) {
               style={{ height: '100%' }}
             >
               <div
-                className={`w-full rounded-sm transition-all ${
+                className={`dashboard-hour-bar w-full rounded-sm transition-all ${
                   isNight ? 'bg-accent/20' : 'bg-accent/50'
                 } group-hover:bg-accent`}
                 style={{ height: `${barHeight}%`, minHeight: '2px' }}

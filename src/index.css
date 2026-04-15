@@ -219,6 +219,27 @@ h1, h2 {
   justify-content: center;
 }
 
+.wrapped-surface {
+  --t-bg: #06060e;
+  --t-bg-card: #11101d;
+  --t-bg-hover: #1b1730;
+  --t-border: rgba(255, 255, 255, 0.12);
+  --t-text: #b7b0c9;
+  --t-text-bright: #f3efff;
+  --t-accent: #7b6cf6;
+  --t-accent-dim: #6254db;
+  --color-bg: var(--t-bg);
+  --color-bg-card: var(--t-bg-card);
+  --color-bg-hover: var(--t-bg-hover);
+  --color-border: var(--t-border);
+  --color-text: var(--t-text);
+  --color-text-bright: var(--t-text-bright);
+  --color-accent: var(--t-accent);
+  --color-accent-dim: var(--t-accent-dim);
+  color: var(--t-text);
+}
+
+
 .dashboard-heatmap-body {
   display: flex;
   flex: 1;
@@ -344,6 +365,24 @@ h1, h2 {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes dashboardCycleDrop {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px);
+    filter: blur(5px);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(2px);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
 @keyframes dashboardButtonPulse {
   0%, 72%, 100% {
     box-shadow: 0 0 0 0 transparent;
@@ -381,8 +420,219 @@ h1, h2 {
   }
 }
 
+@keyframes dashboardBrandStamp {
+  0%, 64%, 100% {
+    transform: translateY(0);
+    text-shadow: none;
+  }
+  7% {
+    transform: translateY(-4px);
+    text-shadow: 0 8px 18px color-mix(in srgb, var(--t-accent) 18%, transparent);
+  }
+  13% {
+    transform: translateY(1px);
+  }
+  18% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashboardBrandSpark {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+  9% {
+    transform: translateY(-2px) scale(1.12) rotate(12deg);
+    opacity: 1;
+  }
+  17% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes loadingBrandLetter {
+  0%, 78%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  4% {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  58% {
+    transform: translateY(-3px);
+  }
+  64% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes loadingBrandSpark {
+  0%, 76%, 100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  5% {
+    opacity: 0;
+    transform: scale(0.75) rotate(-20deg);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  56% {
+    transform: scale(1.12) rotate(10deg);
+  }
+  64% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes loadingStatusRotate {
+  0%, 6% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  12%, 29% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  36%, 100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
 .count-up {
   animation: countUp 0.5s ease forwards;
+}
+
+.loading-brand-spark {
+  display: inline-flex;
+  animation: loadingBrandSpark 7.2s cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+}
+
+.loading-brand-letter {
+  display: inline-block;
+  animation: loadingBrandLetter 7.2s cubic-bezier(0.16, 1, 0.3, 1) infinite both;
+}
+
+.loading-status-rotator {
+  position: relative;
+  width: 16rem;
+  text-align: center;
+}
+
+.loading-status-rotator span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: loadingStatusRotate 9s ease-in-out infinite;
+}
+
+.loading-status-rotator span:nth-child(2) {
+  animation-delay: 3s;
+}
+
+.loading-status-rotator span:nth-child(3) {
+  animation-delay: 6s;
+}
+
+.dashboard-cycle-drop {
+  animation: dashboardCycleDrop 1.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dashboard-pattern-bar {
+  transition:
+    width 1.45s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.2s ease;
+}
+
+.dashboard-hover-grow {
+  transform-origin: center;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    background-color 0.18s ease,
+    filter 0.18s ease;
+}
+
+.dashboard-hover-grow:hover {
+  transform: scale(1.08);
+  filter: brightness(1.08);
+}
+
+.dashboard-donut-slice {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    filter 0.18s ease;
+}
+
+.dashboard-donut-slice:hover {
+  transform: scale(1.06);
+  opacity: 1;
+  filter: brightness(1.12) drop-shadow(0 8px 14px color-mix(in srgb, var(--t-accent) 18%, transparent));
+}
+
+.dashboard-hour-bar {
+  transform-origin: bottom center;
+}
+
+.group:hover .dashboard-hour-bar {
+  transform: scaleX(1.22) scaleY(1.06);
+  filter: brightness(1.12);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--t-accent) 18%, transparent);
+}
+
+.dashboard-pattern-row {
+  transform-origin: center;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.18s ease;
+}
+
+.dashboard-pattern-row:hover {
+  transform: scale(1.045);
+  background: color-mix(in srgb, var(--t-accent) 8%, transparent);
+}
+
+.dashboard-pattern-row span {
+  display: inline-block;
+  transform-origin: center;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s ease;
+}
+
+.dashboard-pattern-row:hover span {
+  transform: scale(1.08);
+}
+
+.dashboard-pattern-row:hover .dashboard-pattern-bar {
+  transform: scaleY(1.28);
+  filter: brightness(1.12);
+}
+
+.dashboard-brand-mark {
+  display: inline-flex;
+  animation: dashboardBrandSpark 4.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.dashboard-brand-letter {
+  display: inline-block;
+  animation: dashboardBrandStamp 4.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: bottom center;
 }
 
 /* ── Card hover ────────────────────────────────────────────────────── */
@@ -473,8 +723,18 @@ button:active { transform: scale(0.98); }
 @media (prefers-reduced-motion: reduce) {
   .dashboard-button-attention,
   .dashboard-button-attention-soft,
-  .dashboard-button-attention-icon {
+  .dashboard-button-attention-icon,
+  .loading-brand-spark,
+  .loading-brand-letter,
+  .loading-status-rotator span,
+  .dashboard-cycle-drop,
+  .dashboard-brand-mark,
+  .dashboard-brand-letter {
     animation: none !important;
+  }
+
+  .dashboard-pattern-bar {
+    transition: none !important;
   }
 }
 

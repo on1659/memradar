@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowRightLeft,
   BarChart3,
   Bell,
   Brain,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { Session, Stats } from '../types'
 import { computeStats } from '../parser'
+import { useI18n } from '../i18n'
 import { shortModelName } from '../lib/modelNames'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
@@ -171,6 +171,7 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
         key={model}
         d={d}
         fill={color}
+        className="dashboard-donut-slice"
         opacity={0.8}
         onMouseEnter={() => setHoveredModel({ label, raw: model, percent: Math.round(pct * 100), color })}
         onMouseLeave={() => setHoveredModel(null)}
@@ -183,7 +184,7 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
   return (
     <div className="relative flex items-center gap-4">
       {hoveredModel && (
-        <div className="pointer-events-none absolute left-3 top-0 z-10 rounded-full border border-border bg-bg-hover px-3 py-1 text-xs text-text-bright shadow-lg">
+        <div className="pointer-events-none absolute -top-8 left-3 z-10 rounded-full border border-border bg-bg-hover px-3 py-1 text-xs text-text-bright shadow-lg">
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: hoveredModel.color }} />
             <span>{hoveredModel.label}</span>
@@ -208,7 +209,7 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
         {data.slice(0, 5).map(([model, count], index) => (
           <div
             key={model}
-            className="flex items-center gap-2 text-sm"
+            className="dashboard-hover-grow flex items-center gap-2 rounded-lg px-1 py-0.5 text-sm"
             onMouseEnter={() =>
               setHoveredModel({
                 label: shortModelName(model),
@@ -230,6 +231,28 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
 }
 
 const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+const BRAND_LETTERS = 'Memradar'.split('')
+
+function DashboardBrand() {
+  return (
+    <h1 className="dashboard-brand-title flex items-center gap-2 text-3xl font-bold text-text-bright">
+      <span className="dashboard-brand-mark text-accent">✦</span>
+      <span aria-label="Memradar" className="inline-flex">
+        {BRAND_LETTERS.map((letter, index) => (
+          <span
+            key={`${letter}-${index}`}
+            className="dashboard-brand-letter"
+            style={{ animationDelay: `${index * 48}ms` }}
+            aria-hidden="true"
+          >
+            {letter}
+          </span>
+        ))}
+      </span>
+    </h1>
+  )
+}
 
 function DayOfWeekPattern({
   values,
@@ -326,13 +349,17 @@ function DayOfWeekPatternPanel({
           : `${ratio.toFixed(1)}%`
 
         return (
-          <div key={`${label}-${mode}`} className="flex items-center gap-1.5">
+          <div
+            key={`${label}-${mode}`}
+            className="dashboard-cycle-drop dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5"
+            style={{ animationDelay: `${index * 55}ms` }}
+          >
             <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
               {label}
             </span>
             <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
               <div
-                className={`h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
+                className={`dashboard-pattern-bar h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
                 style={{ width: `${width}%` }}
               />
             </div>
@@ -356,9 +383,11 @@ export function Dashboard({
   refreshing,
   themeProps,
 }: DashboardProps) {
+  const { t } = useI18n()
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const [sessionFilter, setSessionFilter] = useState('')
   const [showLeastBusy, setShowLeastBusy] = useState(false)
+  const [busyDayPinned, setBusyDayPinned] = useState(false)
   const [updatesOpen, setUpdatesOpen] = useState(false)
   const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
   const [dayPatternPinned, setDayPatternPinned] = useState(false)
@@ -476,6 +505,17 @@ export function Dashboard({
     return () => window.clearInterval(timer)
   }, [dayPatternPinned])
 
+  useEffect(() => {
+    if (busyDayPinned) return
+    if (!stats.busiestDay || !leastBusyDay || stats.busiestDay === leastBusyDay) return
+
+    const timer = window.setInterval(() => {
+      setShowLeastBusy((prev) => !prev)
+    }, 10000)
+
+    return () => window.clearInterval(timer)
+  }, [busyDayPinned, leastBusyDay, stats.busiestDay])
+
   const busyDay = showLeastBusy ? leastBusyDay : stats.busiestDay
   const busyDayCount = busyDay ? stats.dailyActivity[busyDay] : 0
 
@@ -483,20 +523,18 @@ export function Dashboard({
     <div className="dashboard-shell">
       <div className="animate-in mb-5 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold text-text-bright">
-            <span className="text-accent">✦</span> Memradar
-          </h1>
+          <DashboardBrand />
           <p className="mt-1 text-sm text-text">
-            {stats.totalSessions}개의 세션에서 발견한 당신의 이야기
+            {t('dashboard.subtitle', { count: stats.totalSessions })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-[min(100vw-3rem,42rem)] flex-wrap items-center justify-end gap-2">
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={refreshing}
-              className="order-1 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright disabled:opacity-50"
-              title="세션 새로고침"
+              className="order-1 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright disabled:opacity-50"
+              title={t('dashboard.refresh')}
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -504,18 +542,18 @@ export function Dashboard({
           {onOpenWrapped && (
             <button
               onClick={onOpenWrapped}
-              className="dashboard-button-attention order-4 flex items-center gap-2 rounded-lg border border-accent/20 bg-accent/10 px-4 py-2 text-sm text-accent transition-colors hover:bg-accent/20"
+              className="dashboard-button-attention order-3 flex h-9 items-center gap-2 rounded-xl bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
             >
               <span className="dashboard-button-attention-icon">✦</span>
-              <span className="hidden sm:inline">Wrapped</span>
+              <span className="hidden sm:inline">{t('dashboard.wrapped')}</span>
             </button>
           )}
           <button
             onClick={() => setUpdatesOpen(true)}
-            className="order-2 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+            className="order-2 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
           >
             <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">새소식</span>
+              <span className="hidden sm:inline">{t('dashboard.news')}</span>
             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
               {latestProductUpdate.version}
             </span>
@@ -523,21 +561,26 @@ export function Dashboard({
           {onOpenPersonality && (
             <button
               onClick={onOpenPersonality}
-              className="order-3 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+              className="group relative order-4 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"
+              title={t('dashboard.personality')}
             >
               <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline">성향</span>
+              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-hover px-2.5 py-1.5 text-xs text-text-bright opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                {t('dashboard.personality')}
+              </span>
             </button>
           )}
           <button
             onClick={onOpenSearch}
-            className="order-5 flex items-center gap-2 rounded-lg border border-border bg-bg-card px-4 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
+            className="order-6 flex h-9 basis-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm text-text transition-colors hover:border-accent/30 hover:bg-bg-hover hover:text-text-bright"
           >
-            <Search className="h-4 w-4" />
-            <span className="hidden sm:inline">검색</span>
-            <kbd className="ml-1 hidden rounded bg-bg px-1.5 py-0.5 text-[10px] text-text/30 sm:inline">Ctrl+K</kbd>
+            <span className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('dashboard.search')}</span>
+            </span>
+            <kbd className="hidden rounded bg-bg px-1.5 py-0.5 text-[10px] text-text/30 sm:inline">Ctrl+K</kbd>
           </button>
-          <div className="order-6">
+          <div className="order-5">
             <ThemeSwitcher
               theme={themeProps.theme}
               accent={themeProps.accent}
@@ -604,18 +647,25 @@ export function Dashboard({
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-rose" />
-              <span className="text-sm text-text">{showLeastBusy ? '한가한 날' : '바쁜 날'}</span>
+              <span key={`${busyDay}-label`} className="dashboard-cycle-drop text-sm text-text">
+                {showLeastBusy ? '한가한 날' : '바쁜 날'}
+              </span>
             </div>
             <button
-              onClick={() => setShowLeastBusy(!showLeastBusy)}
-              className="dashboard-button-attention-soft flex items-center gap-1 rounded border border-border bg-bg px-2 py-0.5 text-[10px] text-text/60 transition-colors hover:border-accent/30 hover:text-accent"
+              type="button"
+              aria-pressed={busyDayPinned}
+              onClick={() => setBusyDayPinned((prev) => !prev)}
+              className={`rounded-full border px-2.5 py-1 text-[10px] transition-all ${
+                busyDayPinned
+                  ? 'translate-y-px border-accent/50 bg-accent/12 text-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]'
+                  : 'dashboard-button-attention-soft border-border/70 bg-bg text-text/55 hover:border-accent/25 hover:text-text-bright'
+              }`}
             >
-              <ArrowRightLeft className="dashboard-button-attention-icon h-3 w-3" />
-              전환
+              고정
             </button>
           </div>
-          <div className="count-up text-2xl font-bold text-text-bright">{busyDay || '-'}</div>
-          <div className="mt-1 text-xs text-text/60">{busyDay ? `${busyDayCount}개 메시지` : ''}</div>
+          <div key={`${busyDay}-date`} className="dashboard-cycle-drop text-2xl font-bold text-text-bright">{busyDay || '-'}</div>
+          <div key={`${busyDay}-count`} className="dashboard-cycle-drop mt-1 text-xs text-text/60">{busyDay ? `${busyDayCount}개 메시지` : ''}</div>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { WrappedView } from './components/wrapped/WrappedView'
 import { PersonalityView } from './components/PersonalityView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
+import { useI18n } from './i18n'
 import type { Session } from './types'
 
 declare global {
@@ -24,8 +25,31 @@ type View =
   | { type: 'wrapped' }
   | { type: 'personality' }
 
+function viewFromHash(hash: string, sessions: Session[]): View | null {
+  if (!hash || hash === '#') return null
+
+  const rawHash = hash.slice(1)
+  if (rawHash === 'dashboard') return { type: 'dashboard' }
+  if (rawHash === 'search') return { type: 'search' }
+  if (rawHash === 'wrapped') return { type: 'wrapped' }
+  if (rawHash === 'personality') return { type: 'personality' }
+
+  if (rawHash.startsWith('session/')) {
+    const sessionId = decodeURIComponent(rawHash.slice('session/'.length))
+    const session = sessions.find((s) => s.id === sessionId)
+    return session ? { type: 'session', session } : null
+  }
+
+  return null
+}
+
+function getInitialDataView(sessions: Session[]): View {
+  return viewFromHash(location.hash, sessions) || { type: 'wrapped' }
+}
+
 function App() {
   const themeProps = useTheme()
+  const { t } = useI18n()
   const [sessions, setSessions] = useState<Session[]>([])
   const [view, setView] = useState<View>({ type: 'loading' })
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 })
@@ -39,7 +63,7 @@ function App() {
       const embedded = window.__MEMRADAR_SESSIONS__
       if (embedded && embedded.length > 0) {
         setSessions(embedded)
-        setView({ type: 'dashboard' })
+        setView(getInitialDataView(embedded))
         return
       }
 
@@ -78,7 +102,7 @@ function App() {
       }
 
       setSessions(parsed)
-      if (!isRefresh) setView({ type: 'dashboard' })
+      if (!isRefresh) setView(getInitialDataView(parsed))
     } catch {
       if (!isRefresh) setView({ type: 'drop' })
     } finally {
@@ -102,7 +126,7 @@ function App() {
       const newSessions = parsed.filter((s) => !existingIds.has(s.id))
       return [...prev, ...newSessions]
     })
-    setView({ type: 'dashboard' })
+    setView(getInitialDataView(parsed))
   }, [])
 
   // Navigate with hash routing for browser back button support
@@ -122,6 +146,11 @@ function App() {
   useEffect(() => {
     function handlePopState(e: PopStateEvent) {
       const state = e.state
+      const hashView = viewFromHash(location.hash, sessions)
+      if (hashView && (!state || !state.viewType)) {
+        setView(hashView)
+        return
+      }
       if (!state || !state.viewType || state.viewType === 'dashboard') {
         setView({ type: 'dashboard' })
       } else if (state.viewType === 'session' && state.sessionId) {
@@ -162,10 +191,24 @@ function App() {
   }, [sessions.length])
 
   if (view.type === 'loading') {
+    const brandLetters = 'Memradar'.split('')
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-3xl font-bold text-text-bright flex items-center gap-2">
-          <span className="text-accent">✦</span> Memradar
+          <span className="loading-brand-spark text-accent">✦</span>
+          <span aria-label="Memradar" className="inline-flex">
+            {brandLetters.map((letter, index) => (
+              <span
+                key={`${letter}-${index}`}
+                className="loading-brand-letter"
+                style={{ animationDelay: `${index * 70}ms` }}
+                aria-hidden="true"
+              >
+                {letter}
+              </span>
+            ))}
+          </span>
         </div>
         <div className="w-64 h-2 bg-border rounded-full overflow-hidden">
           <div
@@ -175,9 +218,14 @@ function App() {
         </div>
         <p className="text-sm text-text">
           {loadProgress.total > 0
-            ? `세션 로딩 중... ${loadProgress.loaded} / ${loadProgress.total}`
-            : '세션 파일 검색 중...'}
+            ? t('app.loading.progress', { loaded: loadProgress.loaded, total: loadProgress.total })
+            : t('app.loading.searching')}
         </p>
+        <div className="loading-status-rotator h-5 text-xs text-text/50">
+          <span>{t('app.loading.status.memory')}</span>
+          <span>{t('app.loading.status.flow')}</span>
+          <span>{t('app.loading.status.wrapped')}</span>
+        </div>
       </div>
     )
   }

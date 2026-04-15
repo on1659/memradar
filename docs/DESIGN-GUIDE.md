@@ -26,6 +26,13 @@
 - Large panels such as theme pickers must render above the app shell via portal or equivalent top-level layering.
 - Small tooltips may stay local to the component, but they must follow the shared dashboard tooltip layer.
 
+## Theme rules
+
+- Keep theme color definitions centralized in `src/theme/themePresets.ts`.
+- `index.css` may keep CSS variable fallbacks, but new theme colors should be added to the preset file first.
+- Wrapped uses an independent dark story palette. Do not let Wrapped text or cards inherit light/paper theme colors.
+- Avoid changing theme application logic and color definitions in the same patch unless doing a dedicated theme refactor.
+
 ## Motion affordance rules
 
 - Buttons that need a stronger click cue may use a subtle periodic animation.

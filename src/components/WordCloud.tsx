@@ -88,7 +88,7 @@ function Cloud({ words }: { words: [string, number][] }) {
                 opacity,
                 lineHeight: 1.2,
               }}
-              className="cursor-default whitespace-nowrap transition-opacity hover:opacity-100"
+              className="dashboard-hover-grow inline-block cursor-default whitespace-nowrap transition-opacity hover:opacity-100"
               onMouseEnter={(event) => updateTooltip(event, word, count)}
               onMouseMove={(event) => updateTooltip(event, word, count)}
               onMouseLeave={() => setHovered(null)}

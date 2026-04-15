@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { motion } from 'framer-motion'
-import { Camera, Download, MessageCircle, Send, Share2, X } from 'lucide-react'
+import { Camera, Download, LayoutDashboard, MessageCircle, Send, Share2, X } from 'lucide-react'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { shortModelName } from '../../../lib/modelNames'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
@@ -13,6 +13,7 @@ interface Props {
   codingLabel: string
   topModel: string
   usageHeadline: string
+  onOpenDashboard?: () => void
 }
 
 type SharePlatform = 'threads'
@@ -23,6 +24,7 @@ export function ShareSlide({
   codingLabel,
   topModel,
   usageHeadline,
+  onOpenDashboard,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
@@ -350,7 +352,7 @@ export function ShareSlide({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="mt-6 flex items-center justify-center gap-3"
+        className="mt-8 flex items-center justify-center gap-3"
       >
         <button
           onClick={handleDownload}
@@ -371,8 +373,24 @@ export function ShareSlide({
         </button>
       </motion.div>
 
+      {onOpenDashboard && (
+        <FadeInText delay={0.9} className="mt-5">
+          <button
+            onClick={onOpenDashboard}
+            data-wrapped-control="true"
+            className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-xs font-semibold text-text-bright transition-all hover:-translate-y-0.5 hover:border-accent/55 hover:bg-accent/20"
+          >
+            <LayoutDashboard className="h-4 w-4 text-accent" />
+            <span>전체 보기로 돌아가기</span>
+          </button>
+        </FadeInText>
+      )}
+
       {shareMenuOpen && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm">
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
+          data-wrapped-control="true"
+        >
           <motion.div
             initial={{ opacity: 0, y: 14, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -431,7 +449,10 @@ export function ShareSlide({
       )}
 
       {comingSoonOpen && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm">
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm"
+          data-wrapped-control="true"
+        >
           <motion.div
             initial={{ opacity: 0, y: 14, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -451,11 +472,11 @@ export function ShareSlide({
         </div>
       )}
 
-      <FadeInText delay={0.95} className="mt-3 text-xs tracking-[0.24em] text-text/30">
+      <FadeInText delay={0.95} className="mt-6 text-xs tracking-[0.24em] text-text/30">
         Made in 이더
       </FadeInText>
 
-      <FadeInText delay={1} className="mt-3 min-h-[2.5rem] text-center text-xs leading-relaxed text-text/35">
+      <FadeInText delay={1} className="mt-5 min-h-[3.5rem] pb-10 text-center text-xs leading-relaxed text-text/35">
         {shareStatus ?? '공유하기를 누르면 X, Threads, Instagram 중 하나를 고를 수 있어요.'}
       </FadeInText>
     </SlideLayout>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, MoonStar, Palette, Sparkles, SunMedium } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 const THEMES = [
   {
@@ -41,6 +42,28 @@ const ACCENTS = [
   { id: 'violet', label: '바이올렛', color: '#8b5cf6' },
 ] as const
 
+const THEME_LABEL_KEYS = {
+  dark: 'theme.dark.label',
+  night: 'theme.night.label',
+  light: 'theme.light.label',
+  paper: 'theme.paper.label',
+} as const
+
+const THEME_DESCRIPTION_KEYS = {
+  dark: 'theme.dark.description',
+  night: 'theme.night.description',
+  light: 'theme.light.description',
+  paper: 'theme.paper.description',
+} as const
+
+const ACCENT_LABEL_KEYS = {
+  indigo: 'accent.indigo',
+  teal: 'accent.teal',
+  rose: 'accent.rose',
+  amber: 'accent.amber',
+  violet: 'accent.violet',
+} as const
+
 type Step = 'theme' | 'accent'
 
 interface ThemeSwitcherProps {
@@ -51,11 +74,13 @@ interface ThemeSwitcherProps {
 }
 
 export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: ThemeSwitcherProps) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>('theme')
 
   const currentTheme = THEMES.find((item) => item.id === theme) ?? THEMES[0]
   const currentAccent = ACCENTS.find((item) => item.id === accent) ?? ACCENTS[0]
+  const CurrentThemeIcon = currentTheme.icon
 
   const openPanel = () => {
     setOpen((prev) => {
@@ -73,10 +98,10 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
         <div className="mb-4 flex items-center justify-between">
           <div>
             <div className="text-xs text-text/45">
-              {step === 'theme' ? '화면 모드 선택' : '포인트 색 선택'}
+              {step === 'theme' ? t('theme.mode.select') : t('theme.accent.select')}
             </div>
             <div className="mt-1 text-sm font-semibold text-text-bright">
-              {step === 'theme' ? '테마 스타일' : 'Accent Color'}
+              {step === 'theme' ? t('theme.style') : t('theme.accentColor')}
             </div>
           </div>
 
@@ -87,7 +112,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
               className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text/70 transition-colors hover:border-accent/30 hover:text-text-bright"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              뒤로
+              {t('theme.back')}
             </button>
           ) : (
             <button
@@ -95,7 +120,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
               onClick={() => setOpen(false)}
               className="rounded-lg border border-border px-2 py-1 text-xs text-text/70 transition-colors hover:border-accent/30 hover:text-text-bright"
             >
-              닫기
+              {t('theme.close')}
             </button>
           )}
         </div>
@@ -110,8 +135,8 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
                 : 'border-border/70 hover:border-accent/25 hover:bg-bg-hover'
             }`}
           >
-            <div className="text-[10px] text-text/45">현재 모드</div>
-            <div className="mt-1 text-xs font-medium text-text-bright">{currentTheme.label}</div>
+            <div className="text-[10px] text-text/45">{t('theme.currentMode')}</div>
+            <div className="mt-1 text-xs font-medium text-text-bright">{t(THEME_LABEL_KEYS[currentTheme.id])}</div>
           </button>
 
           <button
@@ -123,10 +148,10 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
                 : 'border-border/70 hover:border-accent/25 hover:bg-bg-hover'
             }`}
           >
-            <div className="text-[10px] text-text/45">포인트 색</div>
+            <div className="text-[10px] text-text/45">{t('theme.accentColor')}</div>
             <div className="mt-1 flex items-center gap-2 text-xs font-medium text-text-bright">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: currentAccent.color }} />
-              {currentAccent.label}
+              {t(ACCENT_LABEL_KEYS[currentAccent.id])}
             </div>
           </button>
         </div>
@@ -158,8 +183,8 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
                     <Icon className={`h-4 w-4 ${item.id === 'light' || item.id === 'paper' ? 'text-slate-700' : 'text-white'}`} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-text-bright">{item.label}</div>
-                    <div className="text-xs text-text/55">{item.description}</div>
+                    <div className="text-sm font-medium text-text-bright">{t(THEME_LABEL_KEYS[item.id])}</div>
+                    <div className="text-xs text-text/55">{t(THEME_DESCRIPTION_KEYS[item.id])}</div>
                   </div>
                 </button>
               )
@@ -187,7 +212,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
                     }}
                   >
                     <span className="h-3 w-3 rounded-full" style={{ background: item.color }} />
-                    {item.label}
+                    {t(ACCENT_LABEL_KEYS[item.id])}
                   </button>
                 )
               })}
@@ -198,7 +223,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
               onClick={() => setStep('theme')}
               className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
             >
-              다른 모드로 다시 선택
+              {t('theme.reselectMode')}
             </button>
           </div>
         )}
@@ -207,16 +232,18 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
   )
 
   return (
-    <div className="relative">
+    <div className="group relative">
       <button
         type="button"
         onClick={openPanel}
-        className="flex items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-2 text-text transition-colors hover:border-accent/30 hover:text-text-bright"
-        title="테마 변경"
+        className="flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"
+        title={t('theme.change')}
       >
-        <Palette className="h-4 w-4" />
-        <span className="hidden text-sm sm:inline">{currentTheme.label}</span>
+        <CurrentThemeIcon className="h-4 w-4" />
       </button>
+      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-hover px-2.5 py-1.5 text-xs text-text-bright opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+        {t('theme.change')}
+      </span>
 
       {open && typeof document !== 'undefined' ? createPortal(panel, document.body) : null}
     </div>

@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom'
+import { useEffect } from 'react'
 import { Bell, Palette, Search, Sparkles, Wrench, X } from 'lucide-react'
 import { latestProductUpdate, productUpdates, type ProductUpdate } from '../../content/productUpdates'
+import { useI18n } from '../../i18n'
 
 const UPDATE_META: Record<ProductUpdate['category'], { icon: typeof Sparkles; accent: string; soft: string; label: string }> = {
   dashboard: {
@@ -154,6 +156,19 @@ interface UpdatesPopoverProps {
 }
 
 export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
+  const { t } = useI18n()
+
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
   if (!open || typeof document === 'undefined') return null
 
   return createPortal(
@@ -164,7 +179,7 @@ export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs text-text/45">대시보드 헤더 후보</div>
-            <div className="mt-1 text-sm font-semibold text-text-bright">새소식 팝오버</div>
+            <div className="mt-1 text-sm font-semibold text-text-bright">{t('dashboard.news')}</div>
             <p className="mt-2 text-xs leading-5 text-text/60">
               메인 화면은 가볍게 두고, 궁금한 사람만 눌러서 업데이트를 보는 방식입니다.
             </p>

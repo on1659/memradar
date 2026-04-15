@@ -13,7 +13,7 @@ export function SlideLayout({ children, gradient = 'from-bg via-bg to-bg' }: Sli
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
-      className={`min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br ${gradient} relative overflow-hidden`}
+      className={`wrapped-surface absolute inset-0 flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#06060e] bg-gradient-to-br p-8 ${gradient}`}
     >
       {children}
     </motion.div>

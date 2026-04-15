@@ -35,6 +35,21 @@ interface TypeDef {
   caution: string
 }
 
+const READ_TOOL_HINTS = ['read', 'grep', 'glob', 'ls', 'search', 'fetch', 'view']
+const EXECUTE_TOOL_HINTS = ['write', 'edit', 'multiedit', 'bash', 'todowrite', 'notebookedit']
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0.5
+  return Math.max(0, Math.min(1, value))
+}
+
+function countToolsByHints(toolsUsed: Record<string, number>, hints: string[]): number {
+  return Object.entries(toolsUsed).reduce((total, [toolName, count]) => {
+    const normalized = toolName.toLowerCase().replace(/[^a-z]/g, '')
+    return hints.some((hint) => normalized.includes(hint)) ? total + count : total
+  }, 0)
+}
+
 const TYPE_DEFS: Record<TypeCode, TypeDef> = {
   RDM: {
     title: '심해 잠수부',
@@ -121,16 +136,14 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
     return { type: 'EWS', axes: defaultAxes, ...TYPE_DEFS.EWS }
   }
 
-  const totalTools = Object.values(stats.toolsUsed).reduce((a, b) => a + b, 0) || 1
-  const readTools = (stats.toolsUsed['Read'] || 0) + (stats.toolsUsed['Grep'] || 0) + (stats.toolsUsed['Glob'] || 0)
-  const writeTools = (stats.toolsUsed['Write'] || 0) + (stats.toolsUsed['Edit'] || 0) + (stats.toolsUsed['Bash'] || 0)
-  const readRatio = readTools / totalTools
-  const writeRatio = writeTools / totalTools
+  const readTools = countToolsByHints(stats.toolsUsed, READ_TOOL_HINTS)
+  const executeTools = countToolsByHints(stats.toolsUsed, EXECUTE_TOOL_HINTS)
 
   // Axis 1: Style — Reader vs Executor
   // 0 = pure reader, 1 = pure executor
-  const styleRaw = writeRatio / (readRatio + writeRatio || 1)
-  const styleValue = Math.max(0, Math.min(1, styleRaw))
+  const styleTotal = readTools + executeTools
+  const styleRaw = styleTotal > 0 ? executeTools / styleTotal : 0.5
+  const styleValue = clamp01(styleRaw)
 
   // Axis 2: Scope — Deep vs Wide
   const uniqueTools = Object.keys(stats.toolsUsed).length
@@ -141,7 +154,7 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
     Math.min(uniqueProjects / 5, 1) * 0.3 +
     Math.min(modelVariety / 4, 1) * 0.3
   )
-  const scopeValue = Math.max(0, Math.min(1, diversityScore))
+  const scopeValue = clamp01(diversityScore)
 
   // Axis 3: Rhythm — Marathon vs Sprint
   const durations = sessions
@@ -152,7 +165,7 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
   // Short & frequent = sprint, Long & steady = marathon
   // >30min avg = marathon territory, <10min = sprint territory
   const marathonScore = Math.min(avgDurationMins / 30, 1)
-  const rhythmValue = 1 - Math.max(0, Math.min(1, marathonScore)) // 0=marathon, 1=sprint
+  const rhythmValue = 1 - clamp01(marathonScore) // 0=marathon, 1=sprint
 
   const axes: Record<AxisKey, AxisScore> = {
     style: { label: ['읽기형', '실행형'], value: styleValue },

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, SkipForward, X } from 'lucide-react'
 import type { Session, Stats } from '../../types'
 import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
@@ -18,8 +18,12 @@ interface WrappedViewProps {
   onClose: () => void
 }
 
+const INTERACTIVE_SELECTOR =
+  'button,a,input,textarea,select,[role="button"],[data-wrapped-control="true"]'
+
 export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   const [slideIndex, setSlideIndex] = useState(0)
+  const [dashboardPromptOpen, setDashboardPromptOpen] = useState(false)
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
@@ -63,26 +67,56 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       codingLabel={codingTime.label}
       topModel={topModel}
       usageHeadline={usageHeadline}
+      onOpenDashboard={onClose}
     />,
   ]
 
   const canPrev = slideIndex > 0
   const canNext = slideIndex < slides.length - 1
+  const lastSlideIndex = slides.length - 1
+
+  function goNext() {
+    if (canNext) setSlideIndex((i) => Math.min(i + 1, lastSlideIndex))
+  }
+
+  function goPrev() {
+    if (canPrev) setSlideIndex((i) => Math.max(i - 1, 0))
+  }
+
+  function handleSurfaceClick(e: React.MouseEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement
+    if (target.closest(INTERACTIVE_SELECTOR)) return
+
+    if (canNext) {
+      goNext()
+      return
+    }
+
+    setDashboardPromptOpen(true)
+  }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowRight' || e.key === ' ') {
       e.preventDefault()
-      if (canNext) setSlideIndex((i) => i + 1)
+      goNext()
     }
     if (e.key === 'ArrowLeft') {
-      if (canPrev) setSlideIndex((i) => i - 1)
+      goPrev()
     }
-    if (e.key === 'Escape') onClose()
+    if (e.key === 'End') {
+      e.preventDefault()
+      setSlideIndex(lastSlideIndex)
+    }
+    if (e.key === 'Escape') {
+      if (dashboardPromptOpen) setDashboardPromptOpen(false)
+      else onClose()
+    }
   }
 
   return (
     <div
-      className="relative w-full h-screen overflow-hidden"
+      className="wrapped-surface relative h-screen w-full cursor-pointer overflow-hidden bg-[#06060e] text-text"
+      onClick={handleSurfaceClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -90,14 +124,17 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
         {slides[slideIndex]}
       </AnimatePresence>
 
-      {/* Navigation */}
-      <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-4 z-10">
+      <div
+        className="absolute bottom-6 left-0 right-0 z-10 flex cursor-default items-center justify-center gap-4"
+        data-wrapped-control="true"
+      >
         <button
-          onClick={() => canPrev && setSlideIndex((i) => i - 1)}
+          onClick={goPrev}
           disabled={!canPrev}
-          className="p-2 rounded-full bg-white/5 text-text hover:bg-white/10 transition-colors disabled:opacity-20"
+          className="rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10 disabled:opacity-20"
+          aria-label="이전 슬라이드"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="h-5 w-5" />
         </button>
 
         <div className="flex gap-1.5">
@@ -105,32 +142,79 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
             <button
               key={i}
               onClick={() => setSlideIndex(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === slideIndex ? 'bg-accent w-6' : 'bg-white/15 hover:bg-white/25'
+              className={`h-2 rounded-full transition-all ${
+                i === slideIndex ? 'w-6 bg-accent' : 'w-2 bg-white/15 hover:bg-white/25'
               }`}
+              aria-label={`${i + 1}번째 슬라이드로 이동`}
             />
           ))}
         </div>
 
         <button
-          onClick={() => canNext && setSlideIndex((i) => i + 1)}
+          onClick={goNext}
           disabled={!canNext}
-          className="p-2 rounded-full bg-white/5 text-text hover:bg-white/10 transition-colors disabled:opacity-20"
+          className="rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10 disabled:opacity-20"
+          aria-label="다음 슬라이드"
         >
-          <ArrowRight className="w-5 h-5" />
+          <ArrowRight className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Close button */}
+      {canNext && (
+        <button
+          onClick={() => setSlideIndex(lastSlideIndex)}
+          data-wrapped-control="true"
+          className="absolute right-16 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-text transition-colors hover:border-accent/30 hover:bg-white/10 hover:text-text-bright"
+          aria-label="마지막 슬라이드로 건너뛰기"
+        >
+          <span>스킵</span>
+          <SkipForward className="h-4 w-4" />
+        </button>
+      )}
+
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/5 text-text hover:bg-white/10 transition-colors z-10"
+        data-wrapped-control="true"
+        className="absolute right-4 top-4 z-10 rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10"
+        aria-label="전체 보기로 돌아가기"
       >
-        <X className="w-5 h-5" />
+        <X className="h-5 w-5" />
       </button>
 
-      {/* Progress */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/5 z-10">
+      {dashboardPromptOpen && (
+        <div
+          className="absolute inset-0 z-50 flex cursor-default items-center justify-center bg-black/60 px-6 backdrop-blur-sm"
+          data-wrapped-control="true"
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-accent/25 bg-[#11101d] p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+              <ArrowRight className="h-5 w-5" />
+            </div>
+            <div className="text-lg font-semibold text-text-bright">
+              전체 분석 화면으로 이동할까요?
+            </div>
+            <div className="mt-2 text-sm leading-relaxed text-text/55">
+              이동하면 Wrapped를 닫고 세션, 토큰, 활동 패턴이 모인 대시보드로 돌아갑니다.
+            </div>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={() => setDashboardPromptOpen(false)}
+                className="flex-1 rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-text transition-colors hover:bg-white/10"
+              >
+                Wrapped 계속 보기
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dim"
+              >
+                대시보드로 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute left-0 right-0 top-0 z-10 h-0.5 bg-white/5">
         <div
           className="h-full bg-accent/50 transition-all duration-500"
           style={{ width: `${((slideIndex + 1) / slides.length) * 100}%` }}
