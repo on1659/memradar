@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, SkipForward, X } from 'lucide-react'
 import type { Session, Stats } from '../../types'
@@ -24,6 +24,7 @@ const INTERACTIVE_SELECTOR =
 export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   const [slideIndex, setSlideIndex] = useState(0)
   const [dashboardPromptOpen, setDashboardPromptOpen] = useState(false)
+  const [dashboardPromptReady, setDashboardPromptReady] = useState(false)
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
@@ -75,6 +76,19 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   const canNext = slideIndex < slides.length - 1
   const lastSlideIndex = slides.length - 1
 
+  useEffect(() => {
+    setDashboardPromptOpen(false)
+    setDashboardPromptReady(false)
+
+    if (slideIndex !== lastSlideIndex) return
+
+    const timer = window.setTimeout(() => {
+      setDashboardPromptReady(true)
+    }, 2500)
+
+    return () => window.clearTimeout(timer)
+  }, [lastSlideIndex, slideIndex])
+
   function goNext() {
     if (canNext) setSlideIndex((i) => Math.min(i + 1, lastSlideIndex))
   }
@@ -92,7 +106,9 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       return
     }
 
-    setDashboardPromptOpen(true)
+    if (dashboardPromptReady) {
+      setDashboardPromptOpen(true)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -115,7 +131,9 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
 
   return (
     <div
-      className="wrapped-surface relative h-screen w-full cursor-pointer overflow-hidden bg-[#06060e] text-text"
+      className={`wrapped-surface relative h-screen w-full overflow-hidden bg-[#06060e] text-text ${
+        canNext || dashboardPromptReady ? 'cursor-pointer' : 'cursor-default'
+      }`}
       onClick={handleSurfaceClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
