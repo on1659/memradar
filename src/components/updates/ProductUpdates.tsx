@@ -198,6 +198,7 @@ export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
             <UpdateItem key={update.id} update={update} compact showHighlights />
           ))}
         </div>
+
       </div>
     </>,
     document.body

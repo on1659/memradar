@@ -41,8 +41,8 @@ export const productUpdates: ProductUpdate[] = [
     version: 'v0.1.1',
     date: '2026-04-13',
     title: '탐색 플로우 확장',
-    summary: '세션 검색, Wrapped, 로컬 로그 자동 불러오기까지 연결해 첫 사용 흐름을 매끄럽게 만들었어요.',
-    highlights: ['세션 검색 뷰 추가', 'Wrapped 경험 확장', '로컬 로그 자동 로드'],
+    summary: '세션 검색, Code Report, 로컬 로그 자동 불러오기까지 연결해 첫 사용 흐름을 매끄럽게 만들었어요.',
+    highlights: ['세션 검색 뷰 추가', 'Code Report 경험 확장', '로컬 로그 자동 로드'],
     category: 'workflow',
   },
 ]
