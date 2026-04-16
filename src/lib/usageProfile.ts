@@ -16,7 +16,7 @@ const USAGE_CATEGORIES: UsageCategory[] = [
   {
     id: 'feature',
     title: '만능 빌더',
-    subtitle: '기능을 붙이고 형태를 만드는 타입',
+    subtitle: '기획부터 구현까지, 빈칸을 결과물로 바꾸는 타입',
     emoji: '🛠️',
     keywords: ['만들', '추가', '구현', '개발', 'implement', 'create', 'build', 'add', 'feature', '기능', '페이지', 'component', '컴포넌트', 'api', 'endpoint', 'route'],
   },
@@ -106,6 +106,7 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
 }
 
 export function getUsageHeadline(category: UsageCategoryScore | null | undefined): string {
-  if (!category) return '당신의 클로드는 아직 탐색 중이에요'
-  return `당신의 클로드는 ${category.title}형`
+  if (!category) return '당신의 AI 활용 스타일은 아직 탐색 중이에요'
+  if (category.id === 'feature') return '아이디어를 기능으로 연결하는 빌더형'
+  return `당신의 AI 활용 스타일은 ${category.title}형`
 }
