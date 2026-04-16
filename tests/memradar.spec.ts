@@ -6,7 +6,7 @@ test.describe('Dashboard loads', () => {
     await page.addInitScript((sessions) => {
       ;(window as Window & { __MEMRADAR_SESSIONS__?: unknown }).__MEMRADAR_SESSIONS__ = sessions
     }, fixtureSessions)
-    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page.goto('/#dashboard', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: /Memradar/i })).toBeVisible()
   })
 
@@ -66,9 +66,10 @@ test.describe('Dashboard loads', () => {
 
   test('busy day toggle remains interactive', async ({ page }) => {
     const busyCard = page.locator('.dashboard-stats-grid .dashboard-card').nth(3)
-    const valueBefore = await busyCard.locator('.count-up').textContent()
-    await busyCard.locator('button').click()
-    await expect(busyCard.locator('.count-up')).not.toHaveText(valueBefore ?? '')
+    const pinButton = busyCard.getByRole('button')
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'false')
+    await pinButton.click()
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('token cost tooltip appears on hover', async ({ page }) => {
