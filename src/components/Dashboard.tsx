@@ -383,6 +383,7 @@ export function Dashboard({
   useEffect(() => {
     if (sourceSessions[tokenSource].length > 0) return
     if (sourceSessions.claude.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- correct stale selection when the chosen source becomes empty
       setTokenSource('claude')
       return
     }

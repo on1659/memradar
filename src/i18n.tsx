@@ -180,6 +180,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook co-located with provider intentionally
 export function useI18n() {
   const context = useContext(I18nContext)
   if (!context) {

@@ -92,6 +92,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   const lastSlideIndex = slides.length - 1
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient prompt state when slide index changes
     setDashboardPromptOpen(false)
     setDashboardPromptReady(false)
 
