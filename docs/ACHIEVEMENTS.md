@@ -1,5 +1,7 @@
 # Achievement / Badge System
 
+> ⬜ **Phase 2 계획 문서**. 현재 Memradar 에는 아직 업적·뱃지 시스템이 구현돼 있지 않다. 이 문서는 구현 시 따를 기획·데이터 구조·UI 규칙을 정의한다. 전체 로드맵은 [ROADMAP.md §2.5](./ROADMAP.md) 참고.
+
 ## 업적 목록
 
 ### Tier 1: 입문 (쉬움)

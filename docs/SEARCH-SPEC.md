@@ -1,12 +1,14 @@
-# Search MVP 상세 기획
+# Search MVP — 상세 기획
 
-> Memradar를 "보는 툴"에서 "다시 찾는 아카이브"로 바꾸는 기능
+> Memradar 를 "보는 툴"에서 "다시 찾는 아카이브"로 바꾸는 기능
+
+현재 상태: 기본 풀텍스트 검색은 동작 (Phase A), 필터·정렬 일부는 진행 중이다. 상세 로드맵은 [ROADMAP.md §2.2](./ROADMAP.md) 참고.
 
 ## 컨셉
 
-사용자가 쌓아둔 AI 대화 기록 안에서 원하는 작업, 질문, 파일, 도구 사용 흔적을 빠르게 다시 찾을 수 있게 한다.
+사용자가 쌓아둔 AI 대화 기록 안에서 원하는 작업·질문·파일·도구 사용 흔적을 빠르게 다시 찾을 수 있게 한다.
 
-Wrapped가 처음의 "와"를 만드는 기능이라면, Search는 계속 돌아오게 만드는 기능이다.
+Code Report 가 처음의 "와"를 만드는 기능이라면, Search 는 계속 돌아오게 만드는 기능이다.
 
 ---
 
@@ -32,7 +34,7 @@ Wrapped가 처음의 "와"를 만드는 기능이라면, Search는 계속 돌아
 - `useEffect`
 - `vercel deploy`
 - `read_file`
-- `D:\Work\vibe`
+- `~/projects/my-app`
 
 ### 2. 필터
 
@@ -243,4 +245,3 @@ interface SearchRecord {
 - IndexedDB 기반 검색 캐시
 - 결과 그룹핑 고도화
 - 성능 최적화
-
