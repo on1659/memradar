@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
+import { useI18n } from '../../../i18n'
 
 interface Props {
   personality: PersonalityResult
@@ -53,7 +54,36 @@ function TooltipLabel({
   )
 }
 
+function getAxisHandleCopy(
+  axis: PersonalityResult['axes'][AxisKey],
+  locale: 'ko' | 'en'
+) {
+  const pct = Math.max(0, Math.min(100, Math.round(axis.value * 100)))
+  const leftPct = 100 - pct
+  const rightPct = pct
+  const leaningRight = axis.value >= 0.5
+  const balanced = Math.abs(axis.value - 0.5) < 0.04
+  const dominantLabel = leaningRight ? axis.label[1] : axis.label[0]
+
+  if (locale === 'ko') {
+    return {
+      title: balanced ? '현재 위치: 균형형' : `현재 위치: ${dominantLabel}`,
+      description: balanced
+        ? `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%로 두 성향이 거의 비슷해요.`
+        : `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%로 ${dominantLabel} 쪽이 조금 더 강해요.`,
+    }
+  }
+
+  return {
+    title: balanced ? 'Current position: balanced' : `Current position: ${dominantLabel}`,
+    description: balanced
+      ? `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%, so both tendencies are nearly even.`
+      : `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%, leaning slightly toward ${dominantLabel}.`,
+  }
+}
+
 export function PersonalitySlide({ personality }: Props) {
+  const { locale } = useI18n()
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
 
   return (
@@ -94,6 +124,14 @@ export function PersonalitySlide({ personality }: Props) {
           const leftPct = 100 - pct
           const rightPct = pct
           const handlePct = Math.max(2, Math.min(98, pct))
+          const handleTooltip = getAxisHandleCopy(axis, locale)
+          const handleTooltipAlignClass = handlePct > 14 && handlePct < 86 ? '-translate-x-1/2' : ''
+          const handleTooltipStyle =
+            handlePct <= 14
+              ? { left: 0 }
+              : handlePct >= 86
+                ? { right: 0 }
+                : { left: `${handlePct}%` }
           return (
             <motion.div
               key={key}
@@ -111,27 +149,36 @@ export function PersonalitySlide({ personality }: Props) {
                   <span className="ml-1 text-[10px] font-normal text-text/35">{rightPct}%</span>
                 </TooltipLabel>
               </div>
-              <div className="relative h-2 rounded-full bg-white/5">
-                <motion.div
-                  className={`absolute top-0 h-full rounded-full ${AXIS_COLORS[key]}`}
-                  style={axis.value >= 0.5
-                    ? { left: '50%', width: 0 }
-                    : { right: '50%', width: 0 }
-                  }
-                  animate={axis.value >= 0.5
-                    ? { width: `${pct - 50}%` }
-                    : { width: `${50 - pct}%` }
-                  }
-                  transition={{ delay: 1.5 + i * 0.15, duration: 0.6 }}
-                />
-                <div className="absolute top-0 left-1/2 w-px h-full bg-white/20" />
-                <motion.div
-                  className="absolute top-1/2 z-10 h-3 w-3 rounded-full border border-white/50 bg-text-bright shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
-                  style={{ marginLeft: '-6px', marginTop: '-6px' }}
-                  initial={{ left: '50%' }}
-                  animate={{ left: `${handlePct}%` }}
-                  transition={{ delay: 1.5 + i * 0.15, duration: 0.6 }}
-                />
+              <div className="group relative cursor-help">
+                <span
+                  className={`pointer-events-none absolute bottom-full z-20 mb-3 w-52 whitespace-normal rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 ${handleTooltipAlignClass}`}
+                  style={handleTooltipStyle}
+                >
+                  <span className="block font-semibold text-text-bright">{handleTooltip.title}</span>
+                  <span className="mt-1 block text-text/75">{handleTooltip.description}</span>
+                </span>
+                <div className="relative h-2 rounded-full bg-white/5 transition-colors group-hover:bg-white/10">
+                  <motion.div
+                    className={`absolute top-0 h-full rounded-full ${AXIS_COLORS[key]}`}
+                    style={axis.value >= 0.5
+                      ? { left: '50%', width: 0 }
+                      : { right: '50%', width: 0 }
+                    }
+                    animate={axis.value >= 0.5
+                      ? { width: `${pct - 50}%` }
+                      : { width: `${50 - pct}%` }
+                    }
+                    transition={{ delay: 1.5 + i * 0.15, duration: 0.6 }}
+                  />
+                  <div className="absolute top-0 left-1/2 w-px h-full bg-white/20" />
+                  <motion.div
+                    className="absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 bg-text-bright shadow-[0_0_0_3px_rgba(255,255,255,0.08)] transition-transform group-hover:scale-125"
+                    initial={{ left: '50%' }}
+                    animate={{ left: `${handlePct}%` }}
+                    transition={{ delay: 1.5 + i * 0.15, duration: 0.6 }}
+                    aria-hidden="true"
+                  />
+                </div>
               </div>
             </motion.div>
           )

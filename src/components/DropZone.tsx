@@ -24,23 +24,29 @@ const COMMAND = 'npx memradar'
 const QUICK_STEPS = [
   {
     title: '터미널 열기',
-    body: 'PowerShell, CMD, iTerm 어디서든 괜찮아요.',
+    body: 'PowerShell, CMD, iTerm 어디서든 시작할 수 있어요.',
   },
   {
-    title: '그대로 붙여넣기',
-    body: '`npx memradar` 한 줄만 실행하면 됩니다.',
+    title: '명령어 실행',
+    body: '`npx memradar` 한 줄이면 Claude와 Codex 로그를 함께 찾습니다.',
   },
   {
     title: '바로 분석 보기',
-    body: '.claude 세션을 찾아 브라우저로 열어줍니다.',
+    body: '브라우저가 열리면 바로 대화 기록과 코드 리포트를 볼 수 있어요.',
   },
 ]
+
+const GUIDE_OPTIONS = [
+  { id: 'claude', label: 'Claude' },
+  { id: 'codex', label: 'Codex' },
+] as const
 
 export function DropZone({ onFilesLoaded }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fileCount, setFileCount] = useState(0)
+  const [guideSource, setGuideSource] = useState<'claude' | 'codex'>('claude')
   const folderInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -65,7 +71,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
           }))
 
       for (const candidate of candidates) {
-        if (isClaudeSessionJsonl(candidate.file, candidate.relativePath)) {
+        if (isSessionLogJsonl(candidate.file, candidate.relativePath)) {
           const content = await candidate.file.text()
           files.push({ name: candidate.file.name, content })
           setFileCount(files.length)
@@ -76,7 +82,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
         onFilesLoaded(files)
       } else {
         setError(
-          `${candidates.length}개 항목을 확인했지만 Claude 세션 파일을 찾지 못했습니다. 가능하면 \`.claude/projects\` 폴더를 선택해 주세요.`
+          `${candidates.length}개 항목을 확인했지만 Claude 또는 Codex 세션 파일을 찾지 못했습니다. 가능하면 \`.claude/projects\` 또는 \`.codex/sessions\` 폴더를 선택해 주세요.`
         )
       }
 
@@ -131,7 +137,17 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
   )
 
   const isWin = typeof navigator !== 'undefined' && navigator.platform.startsWith('Win')
-  const folderPath = isWin ? 'C:\\Users\\{username}\\.claude\\projects' : '~/.claude/projects'
+  const folderGuide = guideSource === 'claude'
+    ? {
+        path: isWin ? 'C:\\Users\\{username}\\.claude\\projects' : '~/.claude/projects',
+        pickerDescription: 'Claude 세션 `.jsonl` 파일이 들어있는 폴더를 연결하세요.',
+        note: '`.claude` 루트를 골라도 `projects` 아래 세션만 사용하고, `subagents` 같은 보조 폴더는 건너뜁니다.',
+      }
+    : {
+        path: isWin ? 'C:\\Users\\{username}\\.codex\\sessions' : '~/.codex/sessions',
+        pickerDescription: 'Codex 세션 `.jsonl` 파일이 들어있는 폴더를 연결하세요.',
+        note: 'Codex는 보통 `sessions` 아래 로그를 저장합니다. 다른 설정/캐시 폴더는 따로 넣지 않아도 됩니다.',
+      }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--t-accent)_12%,transparent),transparent_40%),linear-gradient(180deg,color-mix(in_srgb,var(--t-bg-card)_82%,transparent),var(--t-bg)_72%)] px-4 py-10 sm:px-6 lg:px-8">
@@ -150,8 +166,11 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
             <span className="text-accent">Mem</span>radar
           </h1>
           <p className="mx-auto max-w-2xl text-base leading-7 text-text sm:text-lg lg:mx-0">
-            첫 화면에서 바로 실행할 수 있게 바꿨습니다. 터미널에 복붙할 명령어를 가장 먼저 보여주고,
-            폴더 연결은 필요할 때만 쓰는 보조 방식으로 내려뒀어요.
+            첫 화면에서는 가장 빠른 시작 방법을 먼저 보여주고, 폴더 연결은 필요할 때만 쓰는 보조 방식으로 정리했습니다.
+            기본 실행은 Claude와 Codex 로그를 함께 찾고, 수동 연결은 둘 중 하나만 골라도 됩니다.
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text/70 lg:mx-0">
+            모바일에서는 확인이 어렵고, Claude나 Codex를 실제로 사용하는 PC에서만 바로 불러와 볼 수 있습니다.
           </p>
         </motion.div>
 
@@ -166,11 +185,10 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
               <div>
                 <p className="text-sm font-semibold text-accent">추천 시작 방식</p>
                 <h2 className="mt-2 text-2xl font-semibold text-text-bright sm:text-3xl">
-                  복붙 후 엔터만 누르세요
+                  복붙 한 번으로 바로 시작
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-text sm:text-base">
-                  클릭하면 전체 선택되고, 버튼을 누르면 바로 복사됩니다. 꾸민 카드보다 실제 명령어가
-                  먼저 보이도록 정리했습니다.
+                  클릭하면 전체 선택되고, 버튼을 누르면 바로 복사됩니다. 첫 화면에서는 실제 명령어가 가장 먼저 보이도록 정리했습니다.
                 </p>
               </div>
               <div className="self-start rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
@@ -204,7 +222,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
               <div>
                 <p className="text-sm font-semibold text-text-bright">로컬 실행</p>
                 <p className="mt-1 text-sm leading-6 text-text">
-                  세션 데이터는 현재 PC에서만 읽습니다. 복붙해서 확인하고 바로 닫아도 됩니다.
+                  세션 데이터는 현재 PC에서만 읽습니다. 모바일보다는 Claude나 Codex를 쓰는 PC에서 확인하는 흐름에 맞춰져 있습니다.
                 </p>
               </div>
             </div>
@@ -225,9 +243,30 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                   <p className="text-sm font-semibold text-accent">보조 방식</p>
                   <h3 className="mt-1 text-xl font-semibold text-text-bright">직접 폴더 연결</h3>
                   <p className="mt-2 text-sm leading-6 text-text">
-                    자동 실행이 안 되면 여기서 `.claude/projects` 폴더를 선택해도 됩니다.
+                    자동 실행이 안 되면 아래에서 Claude 또는 Codex 폴더 하나만 선택해도 됩니다.
+                    두 폴더를 모두 넣을 필요는 없어요.
                   </p>
                 </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {GUIDE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setGuideSource(option.id)}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-all"
+                    style={guideSource === option.id
+                      ? {
+                          color: 'var(--color-text-bright)',
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-bg-hover)',
+                        }
+                      : undefined}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
 
               <div
@@ -271,7 +310,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                       >
                         <p className="text-base font-semibold text-text-bright">폴더 선택하기</p>
                         <p className="mt-1 text-sm leading-6 text-text">
-                          클릭하거나 드래그해서 Claude 세션 `.jsonl`이 들어있는 폴더를 연결하세요.
+                          클릭하거나 드래그해서 {folderGuide.pickerDescription}
                         </p>
                       </button>
 
@@ -301,10 +340,10 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                   찾는 기본 위치
                 </p>
                 <code className="mt-3 block overflow-x-auto rounded-xl bg-bg-card/88 px-3 py-3 font-mono text-sm text-accent">
-                  {folderPath}
+                  {folderGuide.path}
                 </code>
                 <p className="mt-3 text-sm leading-6 text-text">
-                  `.claude` 루트를 골라도 `projects` 아래 세션만 사용하고, `subagents` 같은 보조 폴더는 건너뜁니다.
+                  {folderGuide.note}
                 </p>
               </div>
             </section>
@@ -314,7 +353,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
               <ul className="mt-3 space-y-3 text-sm leading-6 text-text">
                 <li>처음 들어온 사람이 해야 할 행동이 하나로 보이게 정리했습니다.</li>
                 <li>명령어를 작은 코드칩이 아니라 크게 선택 가능한 입력창으로 바꿨습니다.</li>
-                <li>드래그 앤 드롭은 필요할 때 쓰는 대안으로 남겨뒀습니다.</li>
+                <li>폴더 연결은 필요할 때만 여는 보조 흐름으로 내렸고, Claude와 Codex 둘 다 지원하도록 안내를 맞췄습니다.</li>
               </ul>
             </section>
           </motion.aside>
@@ -422,7 +461,8 @@ function CopyCommand({ command }: { command: string }) {
       </div>
 
       <p className="mt-3 text-sm leading-6 text-text">
-        그대로 붙여넣고 Enter를 누르면 `.claude/projects` 아래 세션 로그를 찾아서 분석 화면을 엽니다.
+        그대로 붙여넣고 Enter를 누르면 기본 설정 기준으로 Claude는 `.claude/projects`, Codex는 `.codex/sessions`
+        아래 로그를 같이 찾아서 분석 화면을 엽니다.
       </p>
     </div>
   )
@@ -432,7 +472,7 @@ function normalizeRelativePath(relativePath?: string) {
   return (relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()
 }
 
-function isClaudeSessionJsonl(file: File, relativePath?: string) {
+function isSessionLogJsonl(file: File, relativePath?: string) {
   if (!file.name.endsWith('.jsonl')) return false
 
   const normalizedPath = normalizeRelativePath(relativePath)
@@ -441,8 +481,10 @@ function isClaudeSessionJsonl(file: File, relativePath?: string) {
 
   const segments = normalizedPath.split('/').filter(Boolean)
   const firstSegment = segments[0]
-  if (segments.includes('projects')) return true
-  if (firstSegment === '.claude' || firstSegment === 'claude') return false
+  if (segments.includes('projects') || segments.includes('sessions')) return true
+  if (firstSegment === '.claude' || firstSegment === 'claude' || firstSegment === '.codex' || firstSegment === 'codex') {
+    return false
+  }
 
   return true
 }

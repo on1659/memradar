@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   BarChart3,
   Bell,
   Brain,
   Calendar,
-  CircleHelp,
   MessageSquare,
-  RefreshCw,
-  Search,
   TrendingUp,
   Zap,
 } from 'lucide-react'
@@ -15,20 +12,21 @@ import type { Session, Stats } from '../types'
 import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
 import { shortModelName } from '../lib/modelNames'
+import { calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { WordCloud } from './WordCloud'
 import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
 
+const BLOG_URL = 'https://radarlog.kr'
+const GITHUB_URL = 'https://github.com/on1659/memradar'
+
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
-  onOpenSearch: () => void
   onOpenWrapped?: () => void
   onOpenPersonality?: () => void
-  onRefresh?: () => void
-  refreshing?: boolean
   themeProps: {
     theme: string
     accent: string
@@ -51,6 +49,15 @@ function formatDuration(start: string, end: string): string {
 
   const hours = Math.floor(mins / 60)
   return `${hours}시간 ${mins % 60}분`
+}
+
+function getSessionTotalTokens(session: Session): number {
+  return session.totalTokens.input + session.totalTokens.output + (session.totalTokens.cachedInput || 0)
+}
+
+function getSessionDisplayName(session: Session): string {
+  const rawName = session.fileName.split(/[\\/]/).pop() || session.fileName || session.id
+  return rawName.replace(/\.(jsonl?|txt)$/i, '')
 }
 
 function DonutChart({ data }: { data: [string, number][] }) {
@@ -254,60 +261,6 @@ function DashboardBrand() {
   )
 }
 
-function DayOfWeekPattern({
-  values,
-  mode,
-  total,
-}: {
-  values: number[]
-  mode: 'count' | 'ratio'
-  total: number
-}) {
-  const max = Math.max(...values, 1)
-  const bestDay = values.indexOf(Math.max(...values))
-
-  return (
-    <div className="dashboard-card-body-compact space-y-1.5">
-      <div className="mb-1 flex justify-end">
-        <span className="rounded-full border border-border/70 bg-bg px-2 py-0.5 text-[10px] text-text/55">
-          {mode === 'count' ? '절대값' : '비율'}
-        </span>
-      </div>
-      {DAY_OF_WEEK_LABELS.map((label, index) => {
-        const count = values[index]
-        const ratio = total > 0 ? (count / total) * 100 : 0
-        const width = mode === 'count'
-          ? Math.round((count / max) * 100)
-          : count > 0
-            ? Math.max(6, Math.round(ratio))
-            : 0
-        const valueLabel = mode === 'count'
-          ? count.toLocaleString()
-          : `${ratio.toFixed(1)}%`
-
-        return (
-          <div key={label} className="flex items-center gap-1.5">
-            <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
-              {label}
-            </span>
-            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-              <div
-                className={`h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
-                style={{ width: `${width}%` }}
-              />
-            </div>
-            <span className={`w-10 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/40'}`}>
-              {valueLabel}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-void DayOfWeekPattern
-
 function DayOfWeekPatternPanel({
   values,
   mode,
@@ -325,8 +278,8 @@ function DayOfWeekPatternPanel({
   const bestDay = values.indexOf(Math.max(...values))
 
   return (
-    <div className="dashboard-card-body-compact space-y-1.5">
-      <div className="mb-2 flex justify-end pr-0.5">
+    <div className="dashboard-card-body-compact dashboard-pattern-panel space-y-1.5">
+      <div className="dashboard-pattern-panel-header flex justify-end pr-0.5">
         <button
           type="button"
           aria-pressed={pinned}
@@ -376,14 +329,11 @@ function DayOfWeekPatternPanel({
 export function Dashboard({
   sessions,
   onSelectSession,
-  onOpenSearch,
   onOpenWrapped,
   onOpenPersonality,
-  onRefresh,
-  refreshing,
   themeProps,
 }: DashboardProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const [sessionFilter, setSessionFilter] = useState('')
   const [showLeastBusy, setShowLeastBusy] = useState(false)
@@ -391,27 +341,105 @@ export function Dashboard({
   const [updatesOpen, setUpdatesOpen] = useState(false)
   const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
   const [dayPatternPinned, setDayPatternPinned] = useState(false)
+  const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
+  const [sessionSourceFilter, setSessionSourceFilter] = useState<'all' | 'claude' | 'codex'>('all')
+  const [sessionSort, setSessionSort] = useState<'date' | 'tokens'>('date')
 
   const sortedSessions = useMemo(
-    () => [...sessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
-    [sessions]
+    () =>
+      [...sessions].sort((a, b) => {
+        const dateDiff = new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        if (sessionSort === 'date') return dateDiff
+
+        const tokenDiff = getSessionTotalTokens(b) - getSessionTotalTokens(a)
+        return tokenDiff !== 0 ? tokenDiff : dateDiff
+      }),
+    [sessionSort, sessions]
   )
 
   const filteredSessions = useMemo(() => {
-    if (!sessionFilter.trim()) return sortedSessions
     const query = sessionFilter.toLowerCase()
 
-    return sortedSessions.filter((session) =>
-      session.messages[0]?.text.toLowerCase().includes(query) ||
-      session.messages.some((message) => message.text.toLowerCase().includes(query))
-    )
-  }, [sessionFilter, sortedSessions])
+    return sortedSessions.filter((session) => {
+      const matchesSource = sessionSourceFilter === 'all' || session.source === sessionSourceFilter
+      if (!matchesSource) return false
+      if (!sessionFilter.trim()) return true
 
-  const tokenCost = useMemo(() => {
-    const inputCost = (stats.totalTokens.input / 1_000_000) * 10
-    const outputCost = (stats.totalTokens.output / 1_000_000) * 30
-    return inputCost + outputCost
-  }, [stats])
+      return (
+        session.messages[0]?.text.toLowerCase().includes(query) ||
+        session.messages.some((message) => message.text.toLowerCase().includes(query))
+      )
+    })
+  }, [sessionFilter, sessionSourceFilter, sortedSessions])
+
+  const sourceSessions = useMemo(
+    () => ({
+      claude: sessions.filter((session) => session.source === 'claude'),
+      codex: sessions.filter((session) => session.source === 'codex'),
+    }),
+    [sessions]
+  )
+
+  useEffect(() => {
+    if (sourceSessions[tokenSource].length > 0) return
+    if (sourceSessions.claude.length > 0) {
+      setTokenSource('claude')
+      return
+    }
+    if (sourceSessions.codex.length > 0) {
+      setTokenSource('codex')
+    }
+  }, [sourceSessions, tokenSource])
+
+  const activeTokenSessions = sourceSessions[tokenSource]
+  const activeTokenTotals = useMemo(
+    () => getTokenTotals(activeTokenSessions),
+    [activeTokenSessions]
+  )
+  const claudeEstimatedCost = useMemo(
+    () => calculateSourceCost(sourceSessions.claude),
+    [sourceSessions.claude]
+  )
+  const codexEstimatedCost = useMemo(
+    () => calculateSourceCost(sourceSessions.codex),
+    [sourceSessions.codex]
+  )
+  const totalEstimatedCost = useMemo(
+    () => calculateSourceCost(sessions),
+    [sessions]
+  )
+  const sourceFilterCounts = {
+    all: sessions.length,
+    claude: sourceSessions.claude.length,
+    codex: sourceSessions.codex.length,
+  }
+  const hasBothSources = sourceSessions.claude.length > 0 && sourceSessions.codex.length > 0
+  const tokenSourceColor = getSourceColor(tokenSource)
+  const tokenSourceLabel = tokenSource === 'claude' ? 'Claude' : 'Codex'
+  const displayInputTokens = activeTokenTotals.input + (activeTokenTotals.cachedInput || 0)
+  const isKorean = locale === 'ko'
+  const tokenUsageLabel = isKorean ? '토큰 사용' : 'Token Usage'
+  const tokenCostLabel = isKorean ? 'API 예상 비용' : 'Estimated API cost'
+  const tokenCostTriggerLabel = isKorean ? '예상 비용' : 'Est. cost'
+  const tokenEstimateLabel = isKorean
+    ? hasBothSources ? 'Claude + Codex 합산 추정치' : `${tokenSourceLabel} 기준 추정치`
+    : hasBothSources ? 'Combined estimate across Claude + Codex' : `Estimated from ${tokenSourceLabel} usage`
+  const sessionListTitle = isKorean ? '대화 기록' : 'Conversation history'
+  const sessionSearchPlaceholder = isKorean
+    ? '대화 검색 (이름, 내용)'
+    : 'Search conversations (name, content)'
+  const emptySessionListLabel = isKorean
+    ? '표시할 세션이 없어요. 검색어나 소스 필터를 바꿔보세요.'
+    : 'No sessions match this view. Try changing the search or source filter.'
+  const untitledSessionLabel = isKorean ? '(빈 세션)' : '(Untitled session)'
+  const openSessionLabel = isKorean ? '열기' : 'Open'
+  const allSourceLabel = isKorean ? '전체' : 'All'
+  const sessionNameLabel = isKorean ? '세션 이름' : 'Session name'
+  const sortLabel = isKorean ? '정렬' : 'Sort'
+  const sortByDateLabel = isKorean ? '날짜순' : 'Newest'
+  const sortByTokensLabel = isKorean ? '토큰 사용순' : 'Tokens'
+  const formatSessionCount = (count: number) => (isKorean ? `${count}개` : `${count}`)
+  const formatMessageCount = (count: number) => (isKorean ? `${count}개 메시지` : `${count} messages`)
 
   const leastBusyDay = useMemo(() => {
     const entries = Object.entries(stats.dailyActivity).filter(([, value]) => value > 0)
@@ -431,31 +459,9 @@ export function Dashboard({
     [stats]
   )
 
-  const { currentStreak, longestStreak } = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    let current = 0
+  const longestStreak = useMemo(() => {
     let longest = 0
     let streak = 0
-
-    const cursor = new Date(today)
-    const todayKey = cursor.toISOString().slice(0, 10)
-    const todayHasActivity = (stats.dailyActivity[todayKey] || 0) > 0
-
-    if (!todayHasActivity) cursor.setDate(cursor.getDate() - 1)
-
-    while (true) {
-      const key = cursor.toISOString().slice(0, 10)
-      if ((stats.dailyActivity[key] || 0) > 0) {
-        streak++
-        cursor.setDate(cursor.getDate() - 1)
-      } else {
-        break
-      }
-    }
-
-    current = streak
 
     const dates = Object.keys(stats.dailyActivity).sort()
     if (dates.length > 0) {
@@ -476,7 +482,7 @@ export function Dashboard({
       }
     }
 
-    return { currentStreak: current, longestStreak: longest }
+    return longest
   }, [stats])
 
   const dayOfWeekActivity = useMemo(() => {
@@ -494,6 +500,29 @@ export function Dashboard({
     () => dayOfWeekActivity.reduce((sum, value) => sum + value, 0),
     [dayOfWeekActivity]
   )
+  const activeDayKeys = useMemo(
+    () => Object.entries(stats.dailyActivity)
+      .filter(([, value]) => value > 0)
+      .map(([date]) => date)
+      .sort(),
+    [stats.dailyActivity]
+  )
+  const activeDayCount = activeDayKeys.length
+  const observedDayCount = useMemo(() => {
+    if (activeDayKeys.length === 0) return 0
+
+    const start = new Date(activeDayKeys[0])
+    const end = new Date(activeDayKeys[activeDayKeys.length - 1])
+    start.setHours(0, 0, 0, 0)
+    end.setHours(0, 0, 0, 0)
+
+    return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1)
+  }, [activeDayKeys])
+  const activityDensityRatio = observedDayCount > 0 ? Math.round((activeDayCount / observedDayCount) * 100) : 0
+  const activityDensityTitle = isKorean ? '활동 밀도' : 'Activity density'
+  const activeDayLabel = isKorean ? '활동일' : 'Active days'
+  const observedDayLabel = isKorean ? '관측' : 'Observed'
+  const dayUnitLabel = isKorean ? '일' : 'days'
 
   useEffect(() => {
     if (dayPatternPinned) return
@@ -519,38 +548,111 @@ export function Dashboard({
   const busyDay = showLeastBusy ? leastBusyDay : stats.busiestDay
   const busyDayCount = busyDay ? stats.dailyActivity[busyDay] : 0
 
+  function renderSessionRow(session: Session) {
+    const sourceColor = getSourceColor(session.source)
+    const sourceLabel = session.source === 'claude' ? 'Claude' : 'Codex'
+    const messageCount = session.messageCount.user + session.messageCount.assistant
+    const sessionTokenTotal = getSessionTotalTokens(session)
+    const sessionDisplayName = getSessionDisplayName(session)
+
+    return (
+      <button
+        key={session.id}
+        onClick={() => onSelectSession(session)}
+        className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-bg-hover"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 truncate text-sm font-medium text-text-bright">
+            {session.messages[0]?.text.slice(0, 80) || untitledSessionLabel}
+          </div>
+          <div className="mb-1 truncate text-[11px] text-text/38">
+            {sessionNameLabel} · {sessionDisplayName}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-text/60">
+            <span>{new Date(session.startTime).toLocaleDateString(isKorean ? 'ko-KR' : 'en-US')}</span>
+            <span>{formatMessageCount(messageCount)}</span>
+            {session.startTime && session.endTime && (
+              <span>{formatDuration(session.startTime, session.endTime)}</span>
+            )}
+            <span className="flex flex-wrap items-center gap-1">
+              <span
+                className="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  color: sourceColor.text,
+                  borderColor: sourceColor.border,
+                  background: sourceColor.soft,
+                }}
+              >
+                {sourceLabel}
+              </span>
+              {session.model && (
+                <span className="rounded-full border border-cyan/20 bg-cyan/8 px-2 py-0.5 text-[10px] font-medium text-cyan">
+                  {shortModelName(session.model)}
+                </span>
+              )}
+              <span className="rounded-full border border-text/12 bg-white/4 px-2 py-0.5 text-[10px] font-medium text-text-bright">
+                {formatTokens(sessionTokenTotal)}
+              </span>
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[10px] text-text/28">{openSessionLabel}</div>
+        </div>
+      </button>
+    )
+  }
+
+  const sessionListContent = filteredSessions.length === 0 ? (
+    <div className="px-6 py-16 text-center text-sm text-text/40">
+      {emptySessionListLabel}
+    </div>
+  ) : (
+    filteredSessions.map((session) => renderSessionRow(session))
+  )
+
   return (
     <div className="dashboard-shell">
       <div className="animate-in mb-5 flex items-center justify-between">
         <div>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text/55">
+            <a
+              href={BLOG_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline-offset-3 transition-colors hover:text-text-bright hover:underline"
+            >
+              dev.blog
+            </a>
+            <span className="text-text/25">·</span>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline-offset-3 transition-colors hover:text-text-bright hover:underline"
+            >
+              github
+            </a>
+          </div>
           <DashboardBrand />
           <p className="mt-1 text-sm text-text">
             {t('dashboard.subtitle', { count: stats.totalSessions })}
           </p>
         </div>
         <div className="flex w-[min(100vw-3rem,42rem)] flex-wrap items-center justify-end gap-2">
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={refreshing}
-              className="order-1 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright disabled:opacity-50"
-              title={t('dashboard.refresh')}
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </button>
-          )}
           {onOpenWrapped && (
             <button
               onClick={onOpenWrapped}
-              className="dashboard-button-attention order-3 flex h-9 items-center gap-2 rounded-xl bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
+              className="dashboard-button-attention order-2 flex h-9 items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
             >
-              <span className="dashboard-button-attention-icon">✦</span>
-              <span className="hidden sm:inline">{t('dashboard.wrapped')}</span>
+              <span className="dashboard-button-attention-runner" aria-hidden="true" />
+              <span className="dashboard-button-attention-icon relative z-[1]">✦</span>
+              <span className="relative z-[1] hidden sm:inline">{t('dashboard.wrapped')}</span>
             </button>
           )}
           <button
             onClick={() => setUpdatesOpen(true)}
-            className="order-2 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
+            className="order-1 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
           >
             <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">{t('dashboard.news')}</span>
@@ -561,7 +663,7 @@ export function Dashboard({
           {onOpenPersonality && (
             <button
               onClick={onOpenPersonality}
-              className="group relative order-4 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"
+              className="group relative order-3 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"
               title={t('dashboard.personality')}
             >
               <Brain className="h-4 w-4" />
@@ -570,17 +672,7 @@ export function Dashboard({
               </span>
             </button>
           )}
-          <button
-            onClick={onOpenSearch}
-            className="order-6 flex h-9 basis-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm text-text transition-colors hover:border-accent/30 hover:bg-bg-hover hover:text-text-bright"
-          >
-            <span className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('dashboard.search')}</span>
-            </span>
-            <kbd className="hidden rounded bg-bg px-1.5 py-0.5 text-[10px] text-text/30 sm:inline">Ctrl+K</kbd>
-          </button>
-          <div className="order-5">
+          <div className="order-4">
             <ThemeSwitcher
               theme={themeProps.theme}
               accent={themeProps.accent}
@@ -603,37 +695,90 @@ export function Dashboard({
           <div className="mt-1 text-xs text-text/60">{stats.totalSessions}개 세션 (턴 기준)</div>
         </div>
 
-        <div className="dashboard-card">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-amber" />
-              <span className="text-sm text-text">토큰 사용</span>
+        <div className="dashboard-card dashboard-card-token">
+          <div className="dashboard-token-header">
+            <div className="dashboard-token-title">
+              <Zap className="dashboard-token-title-icon h-4 w-4" aria-hidden="true" />
+              <span className="whitespace-nowrap text-sm text-text">{tokenUsageLabel}</span>
             </div>
-            <div className="group relative">
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-text/55 transition-colors hover:border-accent/30 hover:text-text-bright"
-                aria-label="토큰 사용 안내"
-              >
-                <CircleHelp className="h-3.5 w-3.5" />
-              </button>
-              <div className="dashboard-tooltip-panel pointer-events-none absolute bottom-full right-0 mb-2 w-48 rounded-lg border border-border bg-bg-hover p-3 text-xs text-text/70 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                <div className="flex justify-between gap-3">
-                  <span>API 예상 비용</span>
-                  <span className="font-mono text-text-bright">${tokenCost.toFixed(2)}</span>
+            <div className="dashboard-token-header-actions">
+              <div className="dashboard-token-switch">
+                {(['claude', 'codex'] as const).map((source) => {
+                  const active = tokenSource === source
+                  const disabled = sourceSessions[source].length === 0
+                  const color = getSourceColor(source)
+
+                  return (
+                    <button
+                      key={source}
+                      type="button"
+                      onClick={() => !disabled && setTokenSource(source)}
+                      disabled={disabled}
+                      className="min-w-[4.1rem] rounded-full px-2.5 py-1 text-[10px] font-medium transition-all disabled:cursor-not-allowed disabled:opacity-35"
+                      style={{
+                        color: active ? color.text : undefined,
+                        background: active ? color.soft : undefined,
+                        boxShadow: active ? `inset 0 0 0 1px ${color.border}` : undefined,
+                      }}
+                    >
+                      {source === 'claude' ? 'Claude' : 'Codex'}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="dashboard-token-cost group">
+                <button
+                  type="button"
+                  className="dashboard-token-cost-trigger"
+                  aria-label={tokenCostLabel}
+                >
+                  {tokenCostTriggerLabel}
+                </button>
+                <div className="dashboard-tooltip-panel dashboard-token-cost-panel pointer-events-none absolute bottom-full right-0 mb-2 w-60 rounded-lg border border-border bg-bg-hover p-3 text-xs text-text/70 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <div className="mb-2 flex justify-between gap-3">
+                    <span>{tokenCostLabel}</span>
+                    <span
+                      className="font-mono"
+                      style={{ color: hasBothSources ? 'var(--color-text-bright)' : tokenSourceColor.text }}
+                    >
+                      ${totalEstimatedCost.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {sourceSessions.claude.length > 0 && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span style={{ color: getSourceColor('claude').text }}>Claude</span>
+                        <span className="font-mono">${claudeEstimatedCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {sourceSessions.codex.length > 0 && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span style={{ color: getSourceColor('codex').text }}>Codex</span>
+                        <span className="font-mono">${codexEstimatedCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-[10px] text-text/40">{tokenEstimateLabel}</div>
                 </div>
-                <div className="mt-1 text-[10px] text-text/40">평균 단가 기준 추정치</div>
               </div>
             </div>
           </div>
-          <div className="count-up text-2xl font-bold text-text-bright">
-            {formatTokens(stats.totalTokens.input + stats.totalTokens.output)}
-          </div>
-          <div className="mt-1 text-xs text-text/60">
-            입력 {formatTokens(stats.totalTokens.input)} / 출력 {formatTokens(stats.totalTokens.output)}
+          <div className="dashboard-token-body">
+            <div className="dashboard-token-source" style={{ color: tokenSourceColor.text }}>
+              {tokenSourceLabel}
+            </div>
+            <div className="count-up dashboard-token-total" style={{ color: tokenSourceColor.text }}>
+              {formatTokens(displayInputTokens + activeTokenTotals.output)}
+            </div>
+            <div className="dashboard-token-breakdown text-xs text-text/60">
+              {isKorean ? '입력' : 'Input'} {formatTokens(displayInputTokens)} / {isKorean ? '출력' : 'Output'}{' '}
+              {formatTokens(activeTokenTotals.output)}
+              {(activeTokenTotals.cachedInput || 0) > 0 && (
+                <span className="ml-1 text-text/35">cache {formatTokens(activeTokenTotals.cachedInput || 0)}</span>
+              )}
+            </div>
           </div>
         </div>
-
         <div className="dashboard-card">
           <div className="mb-3 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-green" />
@@ -680,32 +825,42 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight">
-          <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-            <Zap className="h-3.5 w-3.5 text-amber" />
-            연속 기록
-          </h3>
-          <div className="dashboard-card-body-compact space-y-3">
-            <div>
-              <div className="mb-0.5 text-[10px] text-text/50">현재 연속</div>
-              <div className="text-2xl font-bold text-accent">
-                {currentStreak}
-                <span className="ml-1 text-xs font-normal text-text/50">일</span>
+        <div className="dashboard-side-stack">
+          <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-side-card-primary">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
+              <Zap className="h-3.5 w-3.5 text-amber" />
+              연속 기록
+            </h3>
+            <div className="dashboard-card-body-compact dashboard-streak-body dashboard-streak-body-single">
+              <div>
+                <div className="mb-0.5 text-[10px] text-text/50">최장 연속</div>
+                <div className="text-2xl font-bold text-accent">
+                  {longestStreak}
+                  <span className="ml-1 text-xs font-normal text-text/50">일</span>
+                </div>
               </div>
             </div>
-            <div className="h-px bg-border" />
-            <div>
-              <div className="mb-0.5 text-[10px] text-text/50">최장 연속</div>
-              <div className="text-2xl font-bold text-text-bright">
-                {longestStreak}
-                <span className="ml-1 text-xs font-normal text-text/50">일</span>
+          </div>
+
+          <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-side-card-secondary">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
+              <BarChart3 className="h-3.5 w-3.5 text-accent" />
+              {activityDensityTitle}
+            </h3>
+            <div className="dashboard-card-body-compact dashboard-density-body">
+              <div className="dashboard-density-panel">
+                <div className="dashboard-density-ratio font-bold text-text-bright">{activityDensityRatio}%</div>
+                <div className="dashboard-density-divider" />
+                <div className="dashboard-density-caption">
+                  {activeDayLabel} {activeDayCount}{dayUnitLabel} / {observedDayLabel} {observedDayCount}{dayUnitLabel}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight">
-          <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
+        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card">
+          <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
             <Calendar className="h-3.5 w-3.5 text-cyan" />
             요일별 패턴
           </h3>
@@ -756,43 +911,75 @@ export function Dashboard({
       <div className="dashboard-card dashboard-card-flush animate-in">
         <div className="border-b border-border p-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text-bright">세션 목록</h2>
-            <span className="text-xs text-text/40">{filteredSessions.length}개</span>
+            <h2 className="text-lg font-semibold text-text-bright">{sessionListTitle}</h2>
+            <span className="text-xs text-text/40">{formatSessionCount(filteredSessions.length)}</span>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(['all', 'claude', 'codex'] as const).map((source) => {
+                const active = sessionSourceFilter === source
+                const sourceColor = source === 'all' ? null : getSourceColor(source)
+                const count = sourceFilterCounts[source]
+                const activeStyles = source === 'all'
+                  ? {
+                      color: 'var(--color-text-bright)',
+                      borderColor: 'var(--color-border)',
+                      background: 'var(--color-bg-hover)',
+                    }
+                  : {
+                      color: sourceColor?.text,
+                      borderColor: sourceColor?.border,
+                      background: sourceColor?.soft,
+                    }
+
+                return (
+                  <button
+                    key={source}
+                    type="button"
+                    onClick={() => setSessionSourceFilter(source)}
+                    className="rounded-full border px-3 py-1 text-[11px] font-medium transition-all"
+                    style={active ? activeStyles : undefined}
+                  >
+                    {source === 'all' ? allSourceLabel : source === 'claude' ? 'Claude' : 'Codex'} {count}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-text/40">{sortLabel}</span>
+              {([
+                ['date', sortByDateLabel],
+                ['tokens', sortByTokensLabel],
+              ] as const).map(([sortKey, label]) => (
+                <button
+                  key={sortKey}
+                  type="button"
+                  onClick={() => setSessionSort(sortKey)}
+                  className="rounded-full border px-3 py-1 text-[11px] font-medium transition-all"
+                  style={sessionSort === sortKey
+                    ? {
+                        color: 'var(--color-text-bright)',
+                        borderColor: 'var(--color-border)',
+                        background: 'var(--color-bg-hover)',
+                      }
+                    : undefined}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <input
             type="text"
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value)}
-            placeholder="세션 검색 (제목, 내용)"
+            placeholder={sessionSearchPlaceholder}
             className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-bright placeholder:text-text/30 focus:border-accent/50 focus:outline-none"
           />
         </div>
 
         <div className="max-h-[600px] divide-y divide-border overflow-y-auto">
-          {filteredSessions.map((session) => (
-            <button
-              key={session.id}
-              onClick={() => onSelectSession(session)}
-              className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-bg-hover"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-text-bright">
-                    {session.messages[0]?.text.slice(0, 80) || '(빈 세션)'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-text/60">
-                  <span>{new Date(session.startTime).toLocaleDateString('ko-KR')}</span>
-                  <span>{session.messageCount.user + session.messageCount.assistant}개 메시지</span>
-                  {session.startTime && session.endTime && (
-                    <span>{formatDuration(session.startTime, session.endTime)}</span>
-                  )}
-                  {session.model && <span className="text-accent/60">{shortModelName(session.model)}</span>}
-                </div>
-              </div>
-              <div className="text-xs text-text/40">→</div>
-            </button>
-          ))}
+          {sessionListContent}
         </div>
       </div>
     </div>

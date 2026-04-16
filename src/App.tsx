@@ -53,12 +53,9 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [view, setView] = useState<View>({ type: 'loading' })
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 })
-  const [refreshing, setRefreshing] = useState(false)
 
-  const loadSessions = useCallback(async (isRefresh = false) => {
+  const loadSessions = useCallback(async () => {
     try {
-      if (isRefresh) setRefreshing(true)
-
       // Check for embedded pre-parsed sessions (static HTML mode)
       const embedded = window.__MEMRADAR_SESSIONS__
       if (embedded && embedded.length > 0) {
@@ -73,7 +70,7 @@ function App() {
       const fileList: { path: string; name: string; project: string }[] = await res.json()
 
       if (fileList.length === 0) {
-        if (!isRefresh) setView({ type: 'drop' })
+        setView({ type: 'drop' })
         return
       }
 
@@ -102,11 +99,9 @@ function App() {
       }
 
       setSessions(parsed)
-      if (!isRefresh) setView(getInitialDataView(parsed))
+      setView(getInitialDataView(parsed))
     } catch {
-      if (!isRefresh) setView({ type: 'drop' })
-    } finally {
-      setRefreshing(false)
+      setView({ type: 'drop' })
     }
   }, [])
 
@@ -278,11 +273,8 @@ function App() {
     <Dashboard
       sessions={sessions}
       onSelectSession={(session) => navigate({ type: 'session', session })}
-      onOpenSearch={() => navigate({ type: 'search' })}
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
       onOpenPersonality={() => navigate({ type: 'personality' })}
-      onRefresh={() => loadSessions(true)}
-      refreshing={refreshing}
       themeProps={themeProps}
     />
   )

@@ -5,6 +5,7 @@ import type { Session, Stats } from '../../types'
 import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
 import { analyzeUsageTopCategories, getUsageHeadline } from '../../lib/usageProfile'
+import { useI18n } from '../../i18n'
 import { IntroSlide } from './slides/IntroSlide'
 import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
@@ -22,6 +23,7 @@ const INTERACTIVE_SELECTOR =
   'button,a,input,textarea,select,[role="button"],[data-wrapped-control="true"]'
 
 export function WrappedView({ sessions, onClose }: WrappedViewProps) {
+  const { locale, t } = useI18n()
   const [slideIndex, setSlideIndex] = useState(0)
   const [dashboardPromptOpen, setDashboardPromptOpen] = useState(false)
   const [dashboardPromptReady, setDashboardPromptReady] = useState(false)
@@ -53,6 +55,19 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     () => getUsageHeadline(topUsageCategory),
     [topUsageCategory]
   )
+  const reportLabel = t('dashboard.wrapped')
+  const dashboardPromptTitle = locale === 'ko'
+    ? '전체 분석 화면으로 이동할까요?'
+    : 'Move to the full analysis dashboard?'
+  const dashboardPromptBody = locale === 'ko'
+    ? `이동하면 ${reportLabel}를 닫고 세션, 토큰, 활동 패턴이 모인 대시보드로 돌아갑니다.`
+    : `This closes ${reportLabel} and returns to the dashboard with sessions, tokens, and activity patterns.`
+  const dashboardPromptStayLabel = locale === 'ko'
+    ? `${reportLabel} 계속 보기`
+    : `Keep Viewing ${reportLabel}`
+  const dashboardPromptMoveLabel = locale === 'ko'
+    ? '대시보드로 이동'
+    : 'Go to Dashboard'
 
   const slides = [
     <IntroSlide key="intro" firstDate={sortedSessions[0]?.startTime || ''} totalSessions={stats.totalSessions} />,
@@ -204,28 +219,32 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
           className="absolute inset-0 z-50 flex cursor-default items-center justify-center bg-black/60 px-6 backdrop-blur-sm"
           data-wrapped-control="true"
         >
-          <div className="w-full max-w-sm rounded-3xl border border-accent/25 bg-[#11101d] p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-              <ArrowRight className="h-5 w-5" />
-            </div>
-            <div className="text-lg font-semibold text-text-bright">
-              전체 분석 화면으로 이동할까요?
+          <div className="relative w-full max-w-sm rounded-3xl border border-accent/25 bg-[#11101d] p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <button
+              onClick={() => setDashboardPromptOpen(false)}
+              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-text/70 transition-colors hover:bg-white/10 hover:text-text-bright"
+              aria-label="팝업 닫기"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="pr-10 text-lg font-semibold text-text-bright">
+              {dashboardPromptTitle}
             </div>
             <div className="mt-2 text-sm leading-relaxed text-text/55">
-              이동하면 Wrapped를 닫고 세션, 토큰, 활동 패턴이 모인 대시보드로 돌아갑니다.
+              {dashboardPromptBody}
             </div>
             <div className="mt-6 flex gap-2">
               <button
                 onClick={() => setDashboardPromptOpen(false)}
                 className="flex-1 rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-text transition-colors hover:bg-white/10"
               >
-                Wrapped 계속 보기
+                {dashboardPromptStayLabel}
               </button>
               <button
                 onClick={onClose}
                 className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dim"
               >
-                대시보드로 이동
+                {dashboardPromptMoveLabel}
               </button>
             </div>
           </div>

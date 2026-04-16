@@ -49,7 +49,7 @@ export function ShareSlide({
 
   const shareCaption = useMemo(
     () => [
-      'My Memradar Wrapped',
+      'My Memradar Code Report',
       usageHeadline,
       `${personality.title} - ${personality.subtitle}`,
       personality.shareQuote,
@@ -90,12 +90,24 @@ export function ShareSlide({
     try {
       const dataUrl = await exportCardDataUrl()
       if (!dataUrl) return
-      triggerDownload(dataUrl, 'memradar-wrapped.png')
+      triggerDownload(dataUrl, 'memradar-code-report.png')
       setShareStatus('이미지를 저장했어요.')
     } catch {
       setShareStatus('이미지 저장 중 문제가 생겼어요. 다시 시도해 주세요.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function copyImageToClipboard(blob: Blob): Promise<boolean> {
+    try {
+      if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+        return false
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -115,27 +127,50 @@ export function ShareSlide({
       }
 
       const blob = await dataUrlToBlob(dataUrl)
-      const file = new File([blob], 'memradar-wrapped.png', { type: 'image/png' })
+      const file = new File([blob], 'memradar-code-report.png', { type: 'image/png' })
       const fullText = `${shareCaption}\n${publicShareUrl}`
 
+      // Mobile / PWA: 네이티브 공유 시트에서 이미지를 직접 전달.
       if (navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], text: fullText })
           setShareStatus('공유를 마쳤어요.')
           return
-        } catch {
-          // If the native share sheet is canceled or unavailable, fall back to the web flow.
+        } catch (err) {
+          // 사용자가 공유 시트에서 취소한 경우엔 다른 동작을 추가로 하지 않음.
+          if ((err as DOMException)?.name === 'AbortError') {
+            setShareStatus(null)
+            return
+          }
+          // 그 외 실패는 데스크톱 폴백으로 진행.
         }
       }
 
-      triggerDownload(dataUrl, 'memradar-wrapped.png')
+      // 데스크톱 폴백: 이미지를 클립보드로 복사 + 파일 저장 + Threads 탭 열기.
+      const clipboardOK = await copyImageToClipboard(blob)
+      if (!clipboardOK) {
+        triggerDownload(dataUrl, 'memradar-code-report.png')
+      }
 
       const targetUrl = platform === 'threads'
         ? `https://www.threads.net/intent/post?text=${encodeURIComponent(fullText)}`
         : 'https://www.threads.net/'
 
-      window.open(targetUrl, '_blank', 'noopener,noreferrer')
-      setShareStatus('Threads용으로 이미지를 저장했어요. 열린 탭에서 업로드해 주세요.')
+      const opened = window.open(targetUrl, '_blank', 'noopener,noreferrer')
+
+      if (clipboardOK) {
+        setShareStatus(
+          opened
+            ? '이미지를 클립보드에 복사했어요. 열린 Threads 창에 Ctrl+V(또는 ⌘+V)로 붙여넣어 주세요.'
+            : '이미지를 클립보드에 복사했어요. Threads를 열어 Ctrl+V로 붙여넣어 주세요.'
+        )
+      } else {
+        setShareStatus(
+          opened
+            ? 'Threads용 이미지를 저장했어요. 열린 탭의 작성창에 파일을 올려주세요.'
+            : 'Threads용 이미지를 저장했어요. Threads를 열어 저장된 이미지를 올려주세요.'
+        )
+      }
     } catch {
       setShareStatus('공유 준비 중 문제가 생겼어요. 다시 시도해 주세요.')
     } finally {
@@ -154,80 +189,34 @@ export function ShareSlide({
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
-        className="w-[340px] overflow-hidden rounded-2xl"
+        className="w-[356px] overflow-hidden rounded-[26px]"
         style={{
           background: 'linear-gradient(135deg, #0c0c1a 0%, #10081e 50%, #0c0c1a 100%)',
           border: '1px solid rgba(123,108,246,0.2)',
-          padding: '32px 28px',
+          padding: '28px 28px 24px',
         }}
       >
         <div className="text-center">
+          <div className="mb-3 text-[48px] leading-none">{personality.emoji}</div>
           <div
-            className="mb-4 text-xs tracking-widest text-accent/50"
-            style={{ color: 'rgba(123,108,246,0.5)' }}
-          >
-            MEMRADAR WRAPPED
-          </div>
-
-          <div className="mb-3 text-5xl">{personality.emoji}</div>
-          <div
-            className="mb-1 text-2xl font-bold"
+            className="mb-1 text-[2.2rem] font-bold leading-none"
             style={{ fontFamily: "'Instrument Serif', serif", color: '#e8e6f0' }}
           >
             {personality.title}
           </div>
-          <div className="mb-4 text-sm" style={{ color: '#7b6cf6' }}>
+          <div className="mb-4 text-[15px]" style={{ color: '#7b6cf6' }}>
             {personality.subtitle}
           </div>
 
           <div
             style={{
-              marginBottom: '12px',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.05)',
-              textAlign: 'left',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '10px',
-                color: 'rgba(232,230,240,0.4)',
-                marginBottom: '4px',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Personality
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.45, color: '#e8e6f0' }}>
-              {personality.shareQuote}
-            </div>
-          </div>
-
-          <div
-            style={{
               marginBottom: '16px',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              background: 'rgba(123,108,246,0.1)',
-              textAlign: 'left',
+              fontSize: '13px',
+              lineHeight: 1.45,
+              color: 'rgba(232,230,240,0.62)',
             }}
           >
-            <div
-              style={{
-                fontSize: '10px',
-                color: 'rgba(232,230,240,0.4)',
-                marginBottom: '4px',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Your Claude
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.45, color: '#e8e6f0' }}>
-              {usageHeadline}
-            </div>
+            {usageHeadline}
           </div>
 
           <div style={{ marginBottom: '16px' }}>
@@ -236,13 +225,13 @@ export function ShareSlide({
               const pct = Math.round(axis.value * 100)
 
               return (
-                <div key={key} style={{ marginBottom: '8px' }}>
+                <div key={key} style={{ marginBottom: '10px' }}>
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      fontSize: '10px',
-                      marginBottom: '3px',
+                      fontSize: '11px',
+                      marginBottom: '4px',
                     }}
                   >
                     <span style={{ color: axis.value < 0.5 ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}>
@@ -254,9 +243,9 @@ export function ShareSlide({
                   </div>
                   <div
                     style={{
-                      height: '6px',
+                      height: '7px',
                       background: 'rgba(255,255,255,0.05)',
-                      borderRadius: '3px',
+                      borderRadius: '4px',
                       position: 'relative',
                       overflow: 'hidden',
                     }}
@@ -291,37 +280,69 @@ export function ShareSlide({
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-left">
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '13px' }}>
+              <div style={{ fontSize: '11px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
                 Sessions
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#e8e6f0' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#e8e6f0' }}>
                 {stats.totalSessions}
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '13px' }}>
+              <div style={{ fontSize: '11px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
                 Messages
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#e8e6f0' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#e8e6f0' }}>
                 {stats.totalMessages.toLocaleString()}
               </div>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
-                Style
-              </div>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: '#e8e6f0' }}>
-                {codingLabel}
-              </div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'rgba(232,230,240,0.4)', marginBottom: '4px' }}>
-                Model
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px',
+              marginTop: '10px',
+              textAlign: 'left',
+            }}
+          >
+            <div
+              style={{
+                borderRadius: '10px',
+                padding: '11px 13px',
+                background: 'rgba(123,108,246,0.08)',
+              }}
+            >
+              <div style={{ fontSize: '11px', color: 'rgba(232,230,240,0.38)', marginBottom: '4px' }}>
+                Rhythm
               </div>
               <div
                 style={{
-                  fontSize: '14px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#e8e6f0',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {codingLabel}
+              </div>
+            </div>
+            <div
+              style={{
+                borderRadius: '10px',
+                padding: '11px 13px',
+                background: 'rgba(255,255,255,0.05)',
+              }}
+            >
+              <div style={{ fontSize: '11px', color: 'rgba(232,230,240,0.38)', marginBottom: '4px' }}>
+                Top Model
+              </div>
+              <div
+                style={{
+                  fontSize: '13px',
                   fontWeight: 500,
                   color: '#e8e6f0',
                   overflow: 'hidden',
@@ -332,18 +353,6 @@ export function ShareSlide({
                 {shortModelName(topModel)}
               </div>
             </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: '16px',
-              paddingTop: '12px',
-              borderTop: '1px solid rgba(255,255,255,0.05)',
-              fontSize: '10px',
-              color: 'rgba(232,230,240,0.3)',
-            }}
-          >
-            memradar.dev
           </div>
         </div>
       </motion.div>
@@ -390,17 +399,19 @@ export function ShareSlide({
         <div
           className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-6 backdrop-blur-sm"
           data-wrapped-control="true"
+          onClick={() => setShareMenuOpen(false)}
         >
           <motion.div
             initial={{ opacity: 0, y: 14, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className="w-full max-w-sm rounded-2xl border border-border bg-bg-card p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <div className="text-base font-semibold text-text-bright">공유할 곳을 고르세요</div>
                 <div className="mt-1 text-xs leading-relaxed text-text/45">
-                  Threads는 바로 공유 준비가 가능하고, X와 Instagram은 개발 예정입니다.
+                  Threads는 이미지를 클립보드에 복사해 드려요. 열린 작성창에 붙여넣기만 하면 끝! X와 Instagram은 개발 예정입니다.
                 </div>
               </div>
               <button
@@ -452,11 +463,13 @@ export function ShareSlide({
         <div
           className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm"
           data-wrapped-control="true"
+          onClick={() => setComingSoonOpen(false)}
         >
           <motion.div
             initial={{ opacity: 0, y: 14, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className="w-full max-w-xs rounded-2xl border border-border bg-bg-card p-5 text-center shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="text-base font-semibold text-text-bright">개발 예정입니다</div>
             <div className="mt-2 text-sm leading-relaxed text-text/50">
