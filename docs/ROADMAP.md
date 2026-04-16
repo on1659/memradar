@@ -21,7 +21,7 @@
 |---|---|---|---|
 | 1.1 | 정적 배포 | Vercel 배포 (memradar.vercel.app), OG 메타 | ✅ |
 | 1.2 | 라우팅 | 해시 라우팅 (정적 배포 · `file://` 호환) | ✅ |
-| 1.3 | 상태관리 | Zustand 기반 (필요 시 IndexedDB 캐시로 확장) | ✅ (기본) |
+| 1.3 | 상태관리 | React 훅 기반 (규모 증가 시 Zustand·IndexedDB 도입 검토) | ✅ |
 | 1.4 | Provider 플러그인 | Provider 인터페이스 + 자동 감지 (Claude Code / Codex) | ✅ |
 | 1.5 | 견고성 | Error Boundary | ✅ |
 | 1.5a | Web Worker 파싱 | 대용량 세션 파싱 분리 | ⬜ |

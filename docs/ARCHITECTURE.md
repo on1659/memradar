@@ -8,9 +8,9 @@ Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(
 |---|---|---|
 | 플랫폼 | 웹 전용 | 설치 없이 URL 공유 가능 |
 | 배포 | Vercel 정적 사이트 | 서버 불필요, 모든 처리 브라우저에서 |
-| 저장소 | 메모리 + 필요 시 IndexedDB (idb) | 재방문 시 재파싱 부담 감소, 번들 영향 최소 |
-| 상태관리 | Zustand | 가볍고 (1.5KB) 보일러플레이트 없음 |
-| 라우팅 | 해시 기반 (`location.hash`) | 정적 배포·`file://` 호환 |
+| 저장소 | 메모리 (향후 필요 시 IndexedDB 도입) | 현재는 재파싱 비용이 충분히 낮음. 규모 증가 시 캐시 확장 |
+| 상태관리 | React 내장 훅 (`useState`/`useEffect`) | 앱 규모상 외부 라이브러리 불필요. 규모 증가 시 Zustand 검토 |
+| 라우팅 | 해시 기반 (`location.hash`) | 정적 배포·`file://` 호환, 의존성 0 |
 | 다중 Provider | 플러그인 아키텍처 | 공통 인터페이스 + 자동 감지 |
 | 검색 | 메모리 인덱스 → 점진적 캐시 | MVP는 단순하게, 규모 증가 시 확장 |
 | 애니메이션 | Framer Motion | Wrapped 슬라이드 전환 |
@@ -96,13 +96,13 @@ cli/
     ↓ (Provider.parse)
 [Session 객체]
     ↓
-[메모리 배열 + Zustand 상태]
+[메모리 배열 + React 상태(useState)]
     ↓              ↓
 [React UI]   [Search Index (메시지 단위)]
 ```
 
 - 파싱은 메인 스레드에서 비동기 `async/await` 로 처리. 대용량이 문제되면 Web Worker 전환을 검토.
-- 재방문 시 빠른 로드가 필요해지면 IndexedDB(`idb`) 캐시를 붙인다.
+- 재방문 시 빠른 로드가 필요해지면 IndexedDB 캐시(`idb`) 도입을 검토한다.
 
 ## Provider 인터페이스
 
@@ -177,10 +177,9 @@ interface SearchRecord {
 | 패키지 | gzipped 크기 | 비고 |
 |---|---|---|
 | react + react-dom 19 | ~45KB | |
-| zustand | ~1.5KB | |
 | framer-motion | ~32KB | Wrapped 슬라이드 |
 | html-to-image | ~5KB | 공유 카드 캡처 |
 | date-fns | ~5KB (사용 API만) | tree-shake |
 | lucide-react | ~8KB (사용 아이콘만) | tree-shake |
 
-**합계 목표**: ~250KB gzipped. 새 의존성 추가 시 이 범위 안에서 검토한다.
+**합계 목표**: ~250KB gzipped. 새 의존성 추가 시 이 범위 안에서 검토한다. Zustand·idb 같은 후보는 실제로 필요해질 때 추가한다.

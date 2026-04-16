@@ -63,7 +63,7 @@ npx memradar
 |---|---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` | ✅ |
 | Codex | `~/.codex/sessions/**/*.jsonl` | ✅ |
-| Gemini CLI / Cursor / Copilot | — | ⬜ (로드맵 Phase 3) |
+| Gemini CLI / Cursor / Copilot / Aider | — | ⬜ (로드맵 Phase 3) |
 
 ---
 
