@@ -8,9 +8,22 @@ import { exec } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const distDir = path.join(__dirname, '..', 'dist')
-const projectsDir = process.env.MEMRADAR_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
 const outPath = process.env.MEMRADAR_OUTPUT_HTML || path.join(os.tmpdir(), 'memradar.html')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
+
+function getLogRoots() {
+  const claudeDir = process.env.MEMRADAR_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
+  const codexDir = process.env.MEMRADAR_CODEX_DIR || (
+    process.env.MEMRADAR_PROJECTS_DIR
+      ? ''
+      : path.join(os.homedir(), '.codex', 'sessions')
+  )
+
+  return [
+    { source: 'claude', dir: claudeDir },
+    ...(codexDir ? [{ source: 'codex', dir: codexDir }] : []),
+  ].filter((entry) => entry.dir)
+}
 
 function findJsonlFiles(dir, files = []) {
   try {
@@ -49,7 +62,7 @@ function extractToolUses(content) {
   return content.filter((block) => block.type === 'tool_use' && block.name).map((block) => block.name)
 }
 
-function parseJsonl(text, fileName) {
+function parseClaudeJsonl(text, fileName) {
   const lines = text.trim().split('\n')
   const rawMessages = []
   let sessionId = ''
@@ -81,8 +94,9 @@ function parseJsonl(text, fileName) {
         model: raw.message.model,
         tokens: usage
           ? {
-              input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+              input: usage.input_tokens || 0,
               output: usage.output_tokens || 0,
+              cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
             }
           : undefined,
         toolUses,
@@ -104,6 +118,7 @@ function parseJsonl(text, fileName) {
         if (previous.tokens) {
           previous.tokens.input += message.tokens.input
           previous.tokens.output += message.tokens.output
+          previous.tokens.cachedInput = (previous.tokens.cachedInput || 0) + (message.tokens.cachedInput || 0)
         } else {
           previous.tokens = { ...message.tokens }
         }
@@ -122,11 +137,13 @@ function parseJsonl(text, fileName) {
   const totalTokens = merged.reduce((accumulator, message) => ({
     input: accumulator.input + (message.tokens?.input || 0),
     output: accumulator.output + (message.tokens?.output || 0),
-  }), { input: 0, output: 0 })
+    cachedInput: (accumulator.cachedInput || 0) + (message.tokens?.cachedInput || 0),
+  }), { input: 0, output: 0, cachedInput: 0 })
 
   return {
     id: sessionId || fileName,
     fileName,
+    source: 'claude',
     messages: merged,
     startTime: merged[0]?.timestamp || '',
     endTime: merged[merged.length - 1]?.timestamp || '',
@@ -141,16 +158,179 @@ function parseJsonl(text, fileName) {
   }
 }
 
+const CODEX_SETUP_PREFIXES = [
+  '# AGENTS.md instructions',
+  '<environment_context>',
+  '<collaboration_mode>',
+  '<permissions instructions>',
+]
+
+function extractCodexText(content) {
+  if (!Array.isArray(content)) return ''
+
+  return content
+    .map((block) => {
+      const type = typeof block.type === 'string' ? block.type : ''
+      if (!['input_text', 'output_text', 'summary_text', 'text'].includes(type)) return ''
+      return typeof block.text === 'string' ? block.text : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+function normalizeCodexUserText(text) {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  if (CODEX_SETUP_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) return ''
+
+  const marker = '## My request for Codex:'
+  if (trimmed.includes(marker)) {
+    return trimmed.split(marker).pop()?.trim() || ''
+  }
+
+  return trimmed
+}
+
+function parseCodexJsonl(text, fileName) {
+  const lines = text.trim().split('\n')
+  const rawMessages = []
+  let sessionId = ''
+  let cwd = ''
+  let version = ''
+  let model = ''
+  let totalTokens = { input: 0, output: 0, cachedInput: 0 }
+  let pendingToolUses = []
+
+  for (const line of lines) {
+    try {
+      const record = JSON.parse(line)
+
+      if (record.type === 'session_meta') {
+        sessionId = typeof record.payload?.id === 'string' ? record.payload.id : sessionId
+        cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
+        version = typeof record.payload?.cli_version === 'string' ? record.payload.cli_version : version
+        continue
+      }
+
+      if (record.type === 'turn_context') {
+        cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
+        model = typeof record.payload?.model === 'string' ? record.payload.model : model
+        continue
+      }
+
+      if (record.type === 'event_msg') {
+        const total = record.payload?.info?.total_token_usage
+        if (total) {
+          totalTokens = {
+            input: Number(total.input_tokens || 0),
+            output: Number(total.output_tokens || 0),
+            cachedInput: Number(total.cached_input_tokens || 0),
+          }
+        }
+        continue
+      }
+
+      if (record.type !== 'response_item' || !record.payload) continue
+
+      if (record.payload.type === 'function_call' && record.payload.name) {
+        const previous = rawMessages[rawMessages.length - 1]
+        if (previous?.role === 'assistant') {
+          previous.toolUses.push(record.payload.name)
+        } else {
+          pendingToolUses.push(record.payload.name)
+        }
+        continue
+      }
+
+      if (record.payload.type !== 'message') continue
+      if (record.payload.role !== 'user' && record.payload.role !== 'assistant') continue
+
+      const textContent = extractCodexText(record.payload.content)
+      const normalizedText = record.payload.role === 'user'
+        ? normalizeCodexUserText(textContent)
+        : textContent.trim()
+
+      if (!normalizedText && pendingToolUses.length === 0) continue
+
+      rawMessages.push({
+        role: record.payload.role,
+        text: normalizedText,
+        timestamp: record.timestamp || '',
+        model: record.payload.role === 'assistant' ? model : undefined,
+        toolUses: pendingToolUses,
+      })
+      pendingToolUses = []
+    } catch {
+      // Skip invalid JSONL lines.
+    }
+  }
+
+  if (rawMessages.length === 0) return null
+
+  const merged = []
+  for (const message of rawMessages) {
+    const previous = merged[merged.length - 1]
+    if (previous && previous.role === message.role) {
+      previous.text = previous.text && message.text ? `${previous.text}\n\n${message.text}` : previous.text || message.text
+      previous.timestamp = previous.timestamp || message.timestamp
+      previous.toolUses = [...previous.toolUses, ...message.toolUses]
+      if (!previous.model && message.model) previous.model = message.model
+    } else {
+      merged.push({
+        ...message,
+        toolUses: [...message.toolUses],
+      })
+    }
+  }
+
+  return {
+    id: sessionId || fileName,
+    fileName,
+    source: 'codex',
+    messages: merged,
+    startTime: merged[0]?.timestamp || '',
+    endTime: merged[merged.length - 1]?.timestamp || '',
+    cwd,
+    version,
+    model,
+    totalTokens,
+    messageCount: {
+      user: merged.filter((message) => message.role === 'user').length,
+      assistant: merged.filter((message) => message.role === 'assistant').length,
+    },
+  }
+}
+
+function detectAndParse(content, fileName) {
+  const first = content.slice(0, 1200)
+  if (first.includes('"type":"session_meta"') || first.includes('"originator":"codex_') || first.includes('"type":"turn_context"')) {
+    return parseCodexJsonl(content, fileName)
+  }
+
+  if (first.includes('"sessionId"') || first.includes('"file-history-snapshot"')) {
+    return parseClaudeJsonl(content, fileName)
+  }
+
+  return null
+}
+
 if (!fs.existsSync(distDir)) {
   console.error('dist/ folder not found. Run `npm run build` first.')
   process.exit(1)
 }
 
-const files = findJsonlFiles(projectsDir)
+const logRoots = getLogRoots()
+const files = logRoots.flatMap((root) =>
+  findJsonlFiles(root.dir).map((filePath) => ({ ...root, filePath }))
+)
+
 console.log()
 console.log('  Memradar')
 console.log('  ------------------------------')
-console.log(`  Log dir:   ${projectsDir}`)
+console.log('  Log dirs:  ')
+for (const root of logRoots) {
+  console.log(`    - ${root.source}: ${root.dir}`)
+}
 console.log(`  Sessions:  ${files.length}`)
 
 if (files.length === 0) {
@@ -163,8 +343,8 @@ console.log('  Parsing sessions...')
 const sessions = []
 for (const file of files) {
   try {
-    const content = fs.readFileSync(file, 'utf-8')
-    const session = parseJsonl(content, path.basename(file))
+    const content = fs.readFileSync(file.filePath, 'utf-8')
+    const session = detectAndParse(content, path.basename(file.filePath))
     if (session) sessions.push(session)
   } catch {
     // Skip unreadable files.

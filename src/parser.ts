@@ -1,4 +1,4 @@
-import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock } from './types'
+import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage } from './types'
 
 function extractText(content: string | ContentBlock[]): string {
   if (typeof content === 'string') return content
@@ -50,8 +50,9 @@ export function parseJsonl(text: string, fileName: string): Session | null {
         model: raw.message.model,
         tokens: usage
           ? {
-              input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+              input: usage.input_tokens || 0,
               output: usage.output_tokens || 0,
+              cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
             }
           : undefined,
         toolUses,
@@ -75,6 +76,7 @@ export function parseJsonl(text: string, fileName: string): Session | null {
         if (prev.tokens) {
           prev.tokens.input += msg.tokens.input
           prev.tokens.output += msg.tokens.output
+          prev.tokens.cachedInput = (prev.tokens.cachedInput || 0) + (msg.tokens.cachedInput || 0)
         } else {
           prev.tokens = { ...msg.tokens }
         }
@@ -90,13 +92,15 @@ export function parseJsonl(text: string, fileName: string): Session | null {
     (acc, m) => ({
       input: acc.input + (m.tokens?.input || 0),
       output: acc.output + (m.tokens?.output || 0),
+      cachedInput: (acc.cachedInput || 0) + (m.tokens?.cachedInput || 0),
     }),
-    { input: 0, output: 0 }
+    { input: 0, output: 0, cachedInput: 0 } satisfies TokenUsage
   )
 
   return {
     id: sessionId || fileName,
     fileName,
+    source: 'claude',
     messages,
     startTime: messages[0]?.timestamp || '',
     endTime: messages[messages.length - 1]?.timestamp || '',
@@ -189,8 +193,9 @@ export function computeStats(sessions: Session[]): Stats {
     (acc, s) => ({
       input: acc.input + s.totalTokens.input,
       output: acc.output + s.totalTokens.output,
+      cachedInput: (acc.cachedInput || 0) + (s.totalTokens.cachedInput || 0),
     }),
-    { input: 0, output: 0 }
+    { input: 0, output: 0, cachedInput: 0 } satisfies TokenUsage
   )
 
   const busiestDay = Object.entries(dailyActivity).sort((a, b) => b[1] - a[1])[0]?.[0] || ''

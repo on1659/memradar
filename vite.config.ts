@@ -7,7 +7,17 @@ import os from 'os'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 function sessionApiPlugin(): Plugin {
-  const claudeDir = path.join(os.homedir(), '.claude', 'projects')
+  const claudeDir = process.env.MEMRADAR_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
+  const codexDir = process.env.MEMRADAR_CODEX_DIR || (
+    process.env.MEMRADAR_PROJECTS_DIR
+      ? ''
+      : path.join(os.homedir(), '.codex', 'sessions')
+  )
+
+  const logRoots = [
+    { source: 'claude', dir: claudeDir },
+    ...(codexDir ? [{ source: 'codex', dir: codexDir }] : []),
+  ].filter((entry) => entry.dir)
 
   function findJsonlFiles(dir: string, files: string[] = []): string[] {
     try {
@@ -24,17 +34,24 @@ function sessionApiPlugin(): Plugin {
     return files
   }
 
+  function isAllowedPath(filePath: string) {
+    const normalizedPath = path.resolve(filePath)
+    return logRoots.some((root) => normalizedPath.startsWith(path.resolve(root.dir)))
+  }
+
   return {
     name: 'session-api',
     configureServer(server: ViteDevServer) {
       server.middlewares.use('/api/sessions', (_req: IncomingMessage, res: ServerResponse) => {
-        const files = findJsonlFiles(claudeDir)
-        const sessions = files.map((f) => ({
-          path: f,
-          name: path.basename(f),
-          project: path.basename(path.dirname(f)),
-          size: fs.statSync(f).size,
-        }))
+        const sessions = logRoots.flatMap((root) =>
+          findJsonlFiles(root.dir).map((filePath) => ({
+            path: filePath,
+            name: path.basename(filePath),
+            project: root.source === 'claude' ? path.basename(path.dirname(filePath)) : 'codex',
+            size: fs.statSync(filePath).size,
+            source: root.source,
+          }))
+        )
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(sessions))
       })
@@ -42,7 +59,7 @@ function sessionApiPlugin(): Plugin {
       server.middlewares.use('/api/session-content', (req: IncomingMessage, res: ServerResponse) => {
         const url = new URL(req.url || '/', 'http://localhost')
         const filePath = url.searchParams.get('path')
-        if (!filePath || !filePath.endsWith('.jsonl') || !filePath.startsWith(claudeDir)) {
+        if (!filePath || !filePath.endsWith('.jsonl') || !isAllowedPath(filePath)) {
           res.statusCode = 400
           res.end('Invalid path')
           return

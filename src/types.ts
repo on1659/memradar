@@ -1,3 +1,11 @@
+export type SessionSource = 'claude' | 'codex'
+
+export interface TokenUsage {
+  input: number
+  output: number
+  cachedInput?: number
+}
+
 export interface RawMessage {
   type?: string
   parentUuid?: string | null
@@ -34,27 +42,28 @@ export interface ParsedMessage {
   text: string
   timestamp: string
   model?: string
-  tokens?: { input: number; output: number }
+  tokens?: TokenUsage
   toolUses: string[]
 }
 
 export interface Session {
   id: string
   fileName: string
+  source: SessionSource
   messages: ParsedMessage[]
   startTime: string
   endTime: string
   cwd?: string
   version?: string
   model?: string
-  totalTokens: { input: number; output: number }
+  totalTokens: TokenUsage
   messageCount: { user: number; assistant: number }
 }
 
 export interface Stats {
   totalSessions: number
   totalMessages: number
-  totalTokens: { input: number; output: number }
+  totalTokens: TokenUsage
   avgMessagesPerSession: number
   modelsUsed: Record<string, number>
   toolsUsed: Record<string, number>

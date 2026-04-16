@@ -28,13 +28,13 @@ export const fixtureSessions: Session[] = [
       },
       {
         role: 'user',
-        text: 'Also make session navigation and wrapped mode testable.',
+        text: 'Also make session navigation and code report mode testable.',
         timestamp: '2026-04-01T09:15:00.000Z',
         toolUses: [],
       },
       {
         role: 'assistant',
-        text: 'Wrapped and responsive smoke coverage are now part of the harness.',
+        text: 'Code Report and responsive smoke coverage are now part of the harness.',
         timestamp: '2026-04-01T09:17:30.000Z',
         model: 'claude-opus-4-1',
         tokens: { input: 1050, output: 760 },

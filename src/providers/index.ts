@@ -1,8 +1,10 @@
 import type { Provider } from './types'
 import type { Session } from '../types'
 import { claudeProvider } from './claude'
+import { codexProvider } from './codex'
 
 const providers: Provider[] = [
+  codexProvider,
   claudeProvider,
 ]
 

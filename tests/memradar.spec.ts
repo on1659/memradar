@@ -35,8 +35,8 @@ test.describe('Dashboard loads', () => {
     await expect(page.locator('.h-36 > div')).toHaveCount(24)
   })
 
-  test('wrapped CTA opens and closes', async ({ page }) => {
-    await page.getByRole('button', { name: /Wrapped/i }).click()
+  test('code report CTA opens and closes', async ({ page }) => {
+    await page.getByRole('button', { name: /Code Report|코드 리포트/i }).click()
     await expect(page.getByRole('heading', { name: /Memradar/i })).toHaveCount(0)
     await page.locator('.relative.w-full.h-screen.overflow-hidden').focus()
     await page.keyboard.press('Escape')
