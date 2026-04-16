@@ -2,44 +2,35 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, MoonStar, Palette, Sparkles, SunMedium } from 'lucide-react'
 import { useI18n } from '../i18n'
+import {
+  ACCENT_LABEL_KEYS,
+  getAccentTone,
+  getAllowedAccents,
+  isAccentAllowed,
+  normalizeThemeId,
+} from '../theme/themePolicy'
 
 const THEMES = [
   {
     id: 'dark',
-    label: '다크 모드',
-    description: '기본 다크 테마',
     preview: 'linear-gradient(135deg, #10131a 0%, #1a2130 100%)',
     icon: MoonStar,
   },
   {
     id: 'night',
-    label: '나이트',
-    description: '더 깊은 블랙 톤',
     preview: 'linear-gradient(135deg, #04060a 0%, #10131a 100%)',
     icon: Sparkles,
   },
   {
     id: 'light',
-    label: '라이트 모드',
-    description: '선명한 화이트 톤',
     preview: 'linear-gradient(135deg, #f5f7fb 0%, #ffffff 100%)',
     icon: SunMedium,
   },
   {
     id: 'paper',
-    label: '페이퍼',
-    description: '부드러운 아이보리 톤',
     preview: 'linear-gradient(135deg, #f5efe3 0%, #fffaf2 100%)',
     icon: Palette,
   },
-] as const
-
-const ACCENTS = [
-  { id: 'indigo', label: '인디고', color: '#6366f1' },
-  { id: 'teal', label: '민트', color: '#14b8a6' },
-  { id: 'rose', label: '로즈', color: '#f43f5e' },
-  { id: 'amber', label: '앰버', color: '#f59e0b' },
-  { id: 'violet', label: '바이올렛', color: '#8b5cf6' },
 ] as const
 
 const THEME_LABEL_KEYS = {
@@ -56,14 +47,6 @@ const THEME_DESCRIPTION_KEYS = {
   paper: 'theme.paper.description',
 } as const
 
-const ACCENT_LABEL_KEYS = {
-  indigo: 'accent.indigo',
-  teal: 'accent.teal',
-  rose: 'accent.rose',
-  amber: 'accent.amber',
-  violet: 'accent.violet',
-} as const
-
 type Step = 'theme' | 'accent'
 
 interface ThemeSwitcherProps {
@@ -78,8 +61,14 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>('theme')
 
-  const currentTheme = THEMES.find((item) => item.id === theme) ?? THEMES[0]
-  const currentAccent = ACCENTS.find((item) => item.id === accent) ?? ACCENTS[0]
+  const currentThemeId = normalizeThemeId(theme)
+  const currentTheme = THEMES.find((item) => item.id === currentThemeId) ?? THEMES[0]
+  const accentOptions = getAllowedAccents(currentThemeId).map((accentId) => ({
+    id: accentId,
+    ...getAccentTone(currentThemeId, accentId),
+  }))
+  const currentAccentId = isAccentAllowed(currentThemeId, accent) ? accent : accentOptions[0].id
+  const currentAccent = getAccentTone(currentThemeId, currentAccentId)
   const CurrentThemeIcon = currentTheme.icon
 
   const openPanel = () => {
@@ -136,7 +125,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
             }`}
           >
             <div className="text-[10px] text-text/45">{t('theme.currentMode')}</div>
-            <div className="mt-1 text-xs font-medium text-text-bright">{t(THEME_LABEL_KEYS[currentTheme.id])}</div>
+            <div className="mt-1 text-xs font-medium text-text-bright">{t(THEME_LABEL_KEYS[currentThemeId])}</div>
           </button>
 
           <button
@@ -151,7 +140,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
             <div className="text-[10px] text-text/45">{t('theme.accentColor')}</div>
             <div className="mt-1 flex items-center gap-2 text-xs font-medium text-text-bright">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: currentAccent.color }} />
-              {t(ACCENT_LABEL_KEYS[currentAccent.id])}
+              {t(ACCENT_LABEL_KEYS[currentAccentId])}
             </div>
           </button>
         </div>
@@ -160,7 +149,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
           <div className="space-y-2">
             {THEMES.map((item) => {
               const Icon = item.icon
-              const selected = item.id === theme
+              const selected = item.id === currentThemeId
 
               return (
                 <button
@@ -193,8 +182,8 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
         ) : (
           <div>
             <div className="mb-3 flex flex-wrap gap-2">
-              {ACCENTS.map((item) => {
-                const selected = item.id === accent
+              {accentOptions.map((item) => {
+                const selected = item.id === currentAccentId
 
                 return (
                   <button

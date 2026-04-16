@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Promptale Theme Pairing Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page-bg: #0b0e14;
+        --page-panel: rgba(18, 23, 33, 0.88);
+        --page-border: rgba(255, 255, 255, 0.08);
+        --page-text: #dbe4f0;
+        --page-muted: #8f9db0;
+        --shadow: 0 26px 80px rgba(0, 0, 0, 0.32);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 28%),
+          radial-gradient(circle at 85% 12%, rgba(20, 184, 166, 0.14), transparent 18%),
+          linear-gradient(180deg, #0b0e14 0%, #10151f 100%);
+        color: var(--page-text);
+      }
+
+      main {
+        width: min(1440px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 48px 0 80px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 20px;
+        margin-bottom: 32px;
+        padding: 28px;
+        border: 1px solid var(--page-border);
+        border-radius: 28px;
+        background: var(--page-panel);
+        backdrop-filter: blur(16px);
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        width: fit-content;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #b9c7da;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 4vw, 56px);
+        line-height: 0.96;
+        letter-spacing: -0.05em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 900px;
+        color: var(--page-muted);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+
+      .principles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .principles span {
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: #dbe4f0;
+        font-size: 13px;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .mode-section {
+        display: grid;
+        gap: 18px;
+        padding: 22px;
+        border: 1px solid var(--page-border);
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+        box-shadow: var(--shadow);
+      }
+
+      .mode-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .mode-copy {
+        display: grid;
+        gap: 8px;
+      }
+
+      .mode-copy h2 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.04em;
+      }
+
+      .mode-copy p {
+        margin: 0;
+        color: var(--page-muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .swatches {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .swatches strong {
+        color: var(--page-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .swatch {
+        width: 18px;
+        height: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 999px;
+      }
+
+      .combo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .mock-card {
+        padding: 14px;
+        border-radius: 24px;
+        background: var(--bg);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .mock-shell {
+        display: grid;
+        gap: 12px;
+        min-height: 360px;
+        padding: 14px;
+        border-radius: 20px;
+        background: var(--card);
+        border: 1px solid var(--border);
+      }
+
+      .mock-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-bright);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .brand-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+      }
+
+      .accent-pill {
+        padding: 8px 11px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 14%, var(--hover));
+        color: var(--text-bright);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .headline strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text-bright);
+        font-size: 21px;
+        letter-spacing: -0.05em;
+      }
+
+      .headline span {
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 12px;
+        border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
+        border-radius: 18px;
+        background: color-mix(in srgb, var(--accent) 6%, var(--hover));
+      }
+
+      .stat label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .stat strong {
+        color: var(--text-bright);
+        font-size: 20px;
+        letter-spacing: -0.04em;
+      }
+
+      .chart {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--hover);
+      }
+
+      .chart-row {
+        display: grid;
+        grid-template-columns: 52px 1fr 34px;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+
+      .chart-track {
+        height: 10px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--text) 14%, transparent);
+      }
+
+      .chart-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--accent) 4%, var(--card));
+      }
+
+      .list-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent);
+      }
+
+      .list-copy {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+      }
+
+      .list-copy strong {
+        color: var(--text-bright);
+        font-size: 13px;
+      }
+
+      .list-copy span {
+        color: var(--text);
+        font-size: 12px;
+      }
+
+      .cta-row {
+        display: flex;
+        gap: 10px;
+        margin-top: auto;
+      }
+
+      .primary,
+      .secondary {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        border-radius: 14px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .primary {
+        background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+        color: var(--accent-text);
+        border: 0;
+      }
+
+      .secondary {
+        border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+        background: transparent;
+        color: var(--text-bright);
+      }
+
+      .combo-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .combo-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        color: var(--page-text);
+      }
+
+      .combo-name .swatch {
+        width: 14px;
+        height: 14px;
+      }
+
+      .combo-note {
+        color: var(--page-muted);
+        font-size: 12px;
+        text-align: right;
+      }
+
+      .avoid {
+        padding: 14px 16px;
+        border: 1px dashed rgba(255, 255, 255, 0.14);
+        border-radius: 18px;
+        color: var(--page-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .risk-panel {
+        display: grid;
+        gap: 12px;
+        margin-top: 22px;
+        padding: 20px 22px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .risk-panel h3 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.03em;
+      }
+
+      .risk-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .risk {
+        padding: 12px 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--page-muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .risk strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--page-text);
+      }
+
+      @media (max-width: 1180px) {
+        .mode-grid,
+        .combo-grid,
+        .risk-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        main {
+          width: min(100vw - 24px, 100%);
+          padding: 24px 0 48px;
+        }
+
+        .hero,
+        .mode-section {
+          padding: 18px;
+          border-radius: 22px;
+        }
+
+        .mode-head {
+          flex-direction: column;
+        }
+
+        .stat-row {
+          grid-template-columns: 1fr;
+        }
+
+        .cta-row {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Promptale Theme Study</div>
+        <h1>Mode first, accent second.</h1>
+        <p>
+          A single accent list for every surface makes the light modes feel washed out and some dark combinations too loud.
+          This mockup treats each mode as its own visual family, then assigns 2-3 accent colors that feel natural on that
+          surface.
+        </p>
+        <div class="principles">
+          <span>Dark surfaces favor cooler accents.</span>
+          <span>Light surfaces need deeper accent shades.</span>
+          <span>Paper works best with warmer or ink-like tones.</span>
+          <span>One accent name can use a different shade per mode.</span>
+        </div>
+      </section>
+
+      <section class="mode-grid" id="mode-grid"></section>
+
+      <section class="risk-panel">
+        <h3>Combinations to review before shipping as defaults</h3>
+        <div class="risk-grid">
+          <div class="risk">
+            <strong>Light + Mint</strong>
+            Too soft on pale backgrounds unless the mint is pushed much darker.
+          </div>
+          <div class="risk">
+            <strong>Light + Amber</strong>
+            Warm but weak. Buttons and borders start losing hierarchy fast.
+          </div>
+          <div class="risk">
+            <strong>Paper + Violet</strong>
+            Technically usable, but the temperature clash feels less intentional.
+          </div>
+          <div class="risk">
+            <strong>Dark + Amber</strong>
+            Great for alerts or highlights, a little loud as the default brand accent.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const sections = [
+        {
+          id: "dark",
+          label: "Dark",
+          description: "Balanced default dark. Best with cool accents that feel sharp instead of flashy.",
+          avoid: "Keep rose and amber as secondary emphasis, alerts, or charts instead of the main accent.",
+          theme: {
+            bg: "#0f141c",
+            card: "#171d28",
+            hover: "#1f2836",
+            border: "#2a3444",
+            text: "#97a3b6",
+            textBright: "#edf2fb",
+          },
+          combos: [
+            { label: "Indigo", accent: "#7c83ff", accentDim: "#6366f1", accentText: "#09101d", note: "Default-safe" },
+            { label: "Mint", accent: "#2dd4bf", accentDim: "#14b8a6", accentText: "#05201c", note: "Fresh data feel" },
+            { label: "Violet", accent: "#a78bfa", accentDim: "#8b5cf6", accentText: "#110d20", note: "Soft brand mood" },
+          ],
+        },
+        {
+          id: "night",
+          label: "Night",
+          description: "Deeper and more cinematic. Slightly brighter accents help the UI breathe.",
+          avoid: "Use amber only for attention states. Rose works, but it pulls the mood away from the noir feel.",
+          theme: {
+            bg: "#04070d",
+            card: "#0b1018",
+            hover: "#141b27",
+            border: "#1d2634",
+            text: "#8794aa",
+            textBright: "#e6edf8",
+          },
+          combos: [
+            { label: "Indigo", accent: "#818cf8", accentDim: "#6366f1", accentText: "#09101d", note: "Crisp and modern" },
+            { label: "Violet", accent: "#b794f6", accentDim: "#8b5cf6", accentText: "#140d1e", note: "Moody but premium" },
+            { label: "Mint", accent: "#5eead4", accentDim: "#2dd4bf", accentText: "#05221d", note: "Night neon option" },
+          ],
+        },
+        {
+          id: "light",
+          label: "Light",
+          description: "Airy surfaces need darker, denser accents or the interface starts fading together.",
+          avoid: "Mint and amber need much deeper shades than the current set, otherwise they lose contrast.",
+          theme: {
+            bg: "#f4f7fb",
+            card: "#ffffff",
+            hover: "#eef2f8",
+            border: "#d7deea",
+            text: "#5f6b7d",
+            textBright: "#172131",
+          },
+          combos: [
+            { label: "Indigo", accent: "#4338ca", accentDim: "#3730a3", accentText: "#fafbff", note: "Reliable contrast" },
+            { label: "Rose", accent: "#be123c", accentDim: "#9f1239", accentText: "#fff6f8", note: "Warm but refined" },
+            { label: "Violet", accent: "#6d28d9", accentDim: "#5b21b6", accentText: "#faf7ff", note: "Expressive and clean" },
+          ],
+        },
+        {
+          id: "paper",
+          label: "Paper",
+          description: "Warm ivory surfaces prefer ink-like or terracotta accents more than icy neon ones.",
+          avoid: "Cool mint and bright violet feel disconnected from the paper texture unless heavily muted.",
+          theme: {
+            bg: "#f5efe3",
+            card: "#fffaf2",
+            hover: "#f1e8d9",
+            border: "#dfd2bd",
+            text: "#726756",
+            textBright: "#2f281f",
+          },
+          combos: [
+            { label: "Amber", accent: "#b45309", accentDim: "#92400e", accentText: "#fffaf1", note: "Natural warmth" },
+            { label: "Rose", accent: "#be185d", accentDim: "#9d174d", accentText: "#fff8fb", note: "Editorial accent" },
+            { label: "Indigo", accent: "#4f46e5", accentDim: "#4338ca", accentText: "#faf9ff", note: "Ink + signal blue" },
+          ],
+        },
+      ];
+
+      const metrics = [
+        { label: "Sessions", value: "214" },
+        { label: "Streak", value: "19d" },
+        { label: "Depth", value: "87%" },
+      ];
+
+      const chartRows = [
+        { label: "Search", width: "72%" },
+        { label: "Review", width: "58%" },
+        { label: "Wrap", width: "86%" },
+      ];
+
+      const updates = [
+        { title: "Theme switcher", text: "Mode-aware accent list feels more intentional." },
+        { title: "Insight cards", text: "Primary emphasis stays readable at a glance." },
+        { title: "CTA focus", text: "Accent is strong without dominating the whole page." },
+      ];
+
+      const modeGrid = document.getElementById("mode-grid");
+
+      sections.forEach((section) => {
+        const article = document.createElement("article");
+        article.className = "mode-section";
+
+        const swatches = [
+          section.theme.bg,
+          section.theme.card,
+          section.theme.border,
+          section.combos[0].accent,
+        ]
+          .map((color) => `<span class="swatch" style="background:${color}"></span>`)
+          .join("");
+
+        article.innerHTML = `
+          <div class="mode-head">
+            <div class="mode-copy">
+              <h2>${section.label}</h2>
+              <p>${section.description}</p>
+            </div>
+            <div class="swatches">
+              <strong>Palette</strong>
+              ${swatches}
+            </div>
+          </div>
+          <div class="combo-grid">
+            ${section.combos
+              .map(
+                (combo) => `
+                  <div class="mock-card" style="
+                    --bg:${section.theme.bg};
+                    --card:${section.theme.card};
+                    --hover:${section.theme.hover};
+                    --border:${section.theme.border};
+                    --text:${section.theme.text};
+                    --text-bright:${section.theme.textBright};
+                    --accent:${combo.accent};
+                    --accent-dim:${combo.accentDim};
+                    --accent-text:${combo.accentText};
+                  ">
+                    <div class="mock-shell">
+                      <div class="mock-top">
+                        <div class="brand">
+                          <span class="brand-dot"></span>
+                          Promptale
+                        </div>
+                        <span class="accent-pill">${combo.label}</span>
+                      </div>
+                      <div class="headline">
+                        <strong>Reading the room</strong>
+                        <span>How the accent behaves on cards, borders, chips, and buttons within the ${section.label.toLowerCase()} mode.</span>
+                      </div>
+                      <div class="stat-row">
+                        ${metrics
+                          .map(
+                            (metric) => `
+                              <div class="stat">
+                                <label>${metric.label}</label>
+                                <strong>${metric.value}</strong>
+                              </div>
+                            `
+                          )
+                          .join("")}
+                      </div>
+                      <div class="chart">
+                        ${chartRows
+                          .map(
+                            (row) => `
+                              <div class="chart-row">
+                                <span>${row.label}</span>
+                                <div class="chart-track"><div class="chart-fill" style="width:${row.width}"></div></div>
+                                <span>${row.width}</span>
+                              </div>
+                            `
+                          )
+                          .join("")}
+                      </div>
+                      <div class="list">
+                        ${updates
+                          .map(
+                            (item) => `
+                              <div class="list-item">
+                                <span class="list-dot"></span>
+                                <div class="list-copy">
+                                  <strong>${item.title}</strong>
+                                  <span>${item.text}</span>
+                                </div>
+                              </div>
+                            `
+                          )
+                          .join("")}
+                      </div>
+                      <div class="cta-row">
+                        <div class="primary">Apply accent</div>
+                        <div class="secondary">Preview only</div>
+                      </div>
+                    </div>
+                    <div class="combo-meta">
+                      <div class="combo-name">
+                        <span class="swatch" style="background:${combo.accent}"></span>
+                        ${combo.label}
+                      </div>
+                      <div class="combo-note">${combo.note}</div>
+                    </div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+          <div class="avoid">${section.avoid}</div>
+        `;
+
+        modeGrid.appendChild(article);
+      });
+    </script>
+  </body>
+</html>

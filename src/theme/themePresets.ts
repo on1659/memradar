@@ -73,8 +73,8 @@ export const ACCENT_PRESETS = [
 
 export const WRAPPED_THEME_PRESET = {
   id: 'wrapped',
-  label: 'Wrapped',
-  description: '테마와 독립된 Wrapped 전용 다크 스토리 팔레트',
+  label: 'Code Report',
+  description: '테마와 독립된 Code Report 전용 다크 스토리 팔레트',
   colors: {
     bg: '#06060e',
     card: '#11101d',
