@@ -366,6 +366,11 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                 <li>명령어를 작은 코드칩이 아니라 크게 선택 가능한 입력창으로 바꿨습니다.</li>
                 <li>폴더 연결은 필요할 때만 여는 보조 흐름으로 내렸고, Claude와 Codex 둘 다 지원하도록 안내를 맞췄습니다.</li>
               </ul>
+              <div className="mt-4 flex items-center gap-3 text-xs text-text/55">
+                <a href="https://radarlog.kr" target="_blank" rel="noreferrer" className="underline-offset-3 transition-colors hover:text-text-bright hover:underline">dev.blog</a>
+                <span className="text-text/25">·</span>
+                <a href="https://github.com/on1659/memradar" target="_blank" rel="noreferrer" className="underline-offset-3 transition-colors hover:text-text-bright hover:underline">github</a>
+              </div>
             </section>
           </motion.aside>
         </div>
