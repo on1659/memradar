@@ -10,6 +10,24 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-17-server-mode',
+    version: 'v0.2.2',
+    date: '2026-04-17',
+    title: '로컬 서버 모드 전환',
+    summary: 'npx memradar가 이제 로컬 서버를 띄워 앱을 즉시 로드해요. 18 MB HTML 대신 0.6 MB 앱이 바로 열리고, 세션은 백그라운드로 스트리밍돼요.',
+    highlights: ['localhost:3939 서버 자동 기동', '세션 10개씩 점진 로딩', '기존 HTML 모드는 --static 플래그로 유지'],
+    category: 'workflow',
+  },
+  {
+    id: '2026-04-17-codex-support',
+    version: 'v0.2.0',
+    date: '2026-04-17',
+    title: 'Codex 세션 지원',
+    summary: 'Claude 세션과 함께 Codex 세션 로그도 자동으로 스캔하고 분석해요. 토큰 가격 계산과 테마 정책도 추가됐어요.',
+    highlights: ['~/.codex/sessions/ 자동 스캔', '토큰 비용 계산 라이브러리', '테마 정책 모듈 추가'],
+    category: 'insight',
+  },
+  {
     id: '2026-04-15-dashboard-polish',
     version: 'v0.1.4',
     date: '2026-04-15',
