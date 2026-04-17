@@ -82,7 +82,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
         onFilesLoaded(files)
       } else {
         setError(
-          `${candidates.length}개 항목을 확인했지만 Claude 또는 Codex 세션 파일을 찾지 못했습니다. 가능하면 \`.claude/projects\` 또는 \`.codex/sessions\` 폴더를 선택해 주세요.`
+          `${candidates.length}개 항목을 확인했지만 Claude 또는 Codex 세션 파일을 찾지 못했습니다. \`.claude\` 또는 \`.codex\` 폴더를 통째로 선택해 주세요.`
         )
       }
 
@@ -139,14 +139,14 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
   const isWin = typeof navigator !== 'undefined' && navigator.platform.startsWith('Win')
   const folderGuide = guideSource === 'claude'
     ? {
-        path: isWin ? 'C:\\Users\\{username}\\.claude\\projects' : '~/.claude/projects',
-        pickerDescription: 'Claude 세션 `.jsonl` 파일이 들어있는 폴더를 연결하세요.',
-        note: '`.claude` 루트를 골라도 `projects` 아래 세션만 사용하고, `subagents` 같은 보조 폴더는 건너뜁니다.',
+        path: isWin ? 'C:\\Users\\{username}\\.claude' : '~/.claude',
+        pickerDescription: '`.claude` 폴더를 통째로 선택하면 세션 파일을 자동으로 찾습니다.',
+        note: '`.claude` 폴더를 선택하면 `projects` 아래 세션만 골라서 사용하고, `subagents` 같은 보조 폴더는 건너뜁니다.',
       }
     : {
-        path: isWin ? 'C:\\Users\\{username}\\.codex\\sessions' : '~/.codex/sessions',
-        pickerDescription: 'Codex 세션 `.jsonl` 파일이 들어있는 폴더를 연결하세요.',
-        note: 'Codex는 보통 `sessions` 아래 로그를 저장합니다. 다른 설정/캐시 폴더는 따로 넣지 않아도 됩니다.',
+        path: isWin ? 'C:\\Users\\{username}\\.codex' : '~/.codex',
+        pickerDescription: '`.codex` 폴더를 통째로 선택하면 세션 파일을 자동으로 찾습니다.',
+        note: '`.codex` 폴더를 선택하면 `sessions` 아래 로그만 사용합니다. 설정/캐시 파일은 무시됩니다.',
       }
 
   return (
@@ -461,8 +461,8 @@ function CopyCommand({ command }: { command: string }) {
       </div>
 
       <p className="mt-3 text-sm leading-6 text-text">
-        그대로 붙여넣고 Enter를 누르면 기본 설정 기준으로 Claude는 `.claude/projects`, Codex는 `.codex/sessions`
-        아래 로그를 같이 찾아서 분석 화면을 엽니다.
+        그대로 붙여넣고 Enter를 누르면 Claude는 <code className="text-accent/80">.claude</code>, Codex는 <code className="text-accent/80">.codex</code> 아래 로그를 같이 찾아서 분석 화면을 엽니다.
+        실행이 안 되면 <a href="https://github.com/on1659/memradar#설치-가이드" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent-bright">설치 가이드</a>를 참고하세요.
       </p>
     </div>
   )
