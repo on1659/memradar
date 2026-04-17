@@ -196,10 +196,10 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
               <div>
                 <p className="text-sm font-semibold text-accent">추천 시작 방식</p>
                 <h2 className="mt-2 text-2xl font-semibold text-text-bright sm:text-3xl">
-                  Ctrl+C → 터미널에서 Ctrl+V
+                  Ctrl+C → 터미널에서 Ctrl+V → Enter
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-text sm:text-base">
-                  클릭하면 전체 선택되고, 버튼을 누르면 바로 복사됩니다. 첫 화면에서는 실제 명령어가 가장 먼저 보이도록 정리했습니다.
+                  명령어를 Ctrl+C로 복사하고 터미널에 Ctrl+V로 붙여넣으세요.
                 </p>
               </div>
               <div className="self-start rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
