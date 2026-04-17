@@ -196,14 +196,14 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
               <div>
                 <p className="text-sm font-semibold text-accent">추천 시작 방식</p>
                 <h2 className="mt-2 text-2xl font-semibold text-text-bright sm:text-3xl">
-                  Ctrl+C → 터미널에서 Ctrl+V → Enter
+                  터미널에서 Ctrl+C, V → Enter
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-text sm:text-base">
                   명령어를 Ctrl+C로 복사하고 터미널에 Ctrl+V로 붙여넣으세요.
                 </p>
               </div>
               <div className="self-start rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-                가장 빠른 시작
+                빠른 시작
               </div>
             </div>
 
