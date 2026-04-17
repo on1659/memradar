@@ -243,8 +243,8 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                   <p className="text-sm font-semibold text-accent">보조 방식</p>
                   <h3 className="mt-1 text-xl font-semibold text-text-bright">직접 폴더 연결</h3>
                   <p className="mt-2 text-sm leading-6 text-text">
-                    자동 실행이 안 되면 아래에서 Claude 또는 Codex 폴더 하나만 선택해도 됩니다.
-                    두 폴더를 모두 넣을 필요는 없어요.
+                    웹에서는 Claude와 Codex 폴더를 각각 넣어야 합니다.
+                    <code className="text-accent/80">npx memradar</code>를 쓰면 둘 다 한 번에 자동으로 찾아줘요.
                   </p>
                 </div>
               </div>
