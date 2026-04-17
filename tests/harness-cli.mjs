@@ -15,7 +15,7 @@ if (fs.existsSync(outPath)) {
   fs.rmSync(outPath, { force: true })
 }
 
-execFileSync(process.execPath, [cliPath], {
+execFileSync(process.execPath, [cliPath, '--static'], {
   cwd: repoRoot,
   env: {
     ...process.env,
