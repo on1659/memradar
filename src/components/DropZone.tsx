@@ -9,6 +9,8 @@ import {
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Copy, FolderOpen, Shield, Terminal } from 'lucide-react'
+import { ThemeSwitcher } from './ThemeSwitcher'
+import { useTheme } from './theme'
 
 interface DropZoneProps {
   onFilesLoaded: (files: { name: string; content: string }[]) => void
@@ -48,6 +50,7 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
   const [fileCount, setFileCount] = useState(0)
   const [guideSource, setGuideSource] = useState<'claude' | 'codex'>('claude')
   const folderInputRef = useRef<HTMLInputElement>(null)
+  const themeProps = useTheme()
 
   useEffect(() => {
     if (folderInputRef.current) {
@@ -150,7 +153,15 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
       }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--t-accent)_12%,transparent),transparent_40%),linear-gradient(180deg,color-mix(in_srgb,var(--t-bg-card)_82%,transparent),var(--t-bg)_72%)] px-4 py-10 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen bg-[radial-gradient(circle_at_top,_color-mix(in_srgb,var(--t-accent)_12%,transparent),transparent_40%),linear-gradient(180deg,color-mix(in_srgb,var(--t-bg-card)_82%,transparent),var(--t-bg)_72%)] px-4 py-10 sm:px-6 lg:px-8">
+      <div className="absolute right-4 top-4 z-30 sm:right-6 sm:top-6">
+        <ThemeSwitcher
+          theme={themeProps.theme}
+          accent={themeProps.accent}
+          onThemeChange={themeProps.setTheme}
+          onAccentChange={themeProps.setAccent}
+        />
+      </div>
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl flex-col justify-center">
         <motion.div
           className="mb-8 text-center lg:mb-10 lg:text-left"
