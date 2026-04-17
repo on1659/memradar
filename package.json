@@ -1,7 +1,7 @@
 {
   "name": "memradar",
   "private": false,
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "AI 코딩 세션 로그를 시각화하는 로컬 레이더. npx memradar로 실행.",
   "keywords": [
     "claude",
