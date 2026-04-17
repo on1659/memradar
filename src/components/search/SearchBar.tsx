@@ -48,6 +48,12 @@ export function SearchBar({
             placeholder="메시지 검색..."
             autoFocus
             className="w-full pl-10 pr-4 py-2.5 bg-bg-card border border-border rounded-lg text-sm text-text-bright placeholder:text-text/30 focus:outline-none focus:border-accent/50 transition-colors"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                if (showFilters) setShowFilters(false)
+                else onClose()
+              }
+            }}
           />
           {filters.query && (
             <button

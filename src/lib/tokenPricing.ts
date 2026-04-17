@@ -6,11 +6,18 @@ interface ModelPrice {
   output: number
 }
 
-const CLAUDE_ESTIMATED_PRICE: ModelPrice = {
-  input: 10,
-  cachedInput: 10,
-  output: 30,
+// Last updated: 2026-04 (USD per million tokens)
+const DEFAULT_CLAUDE_PRICE: ModelPrice = {
+  input: 3,
+  cachedInput: 0.3,
+  output: 15,
 }
+
+const CLAUDE_MODEL_PRICING: Array<[pattern: RegExp, price: ModelPrice]> = [
+  [/opus/i, { input: 15, cachedInput: 1.5, output: 75 }],
+  [/sonnet/i, { input: 3, cachedInput: 0.3, output: 15 }],
+  [/haiku/i, { input: 0.25, cachedInput: 0.03, output: 1.25 }],
+]
 
 const DEFAULT_CODEX_PRICE: ModelPrice = {
   input: 1.25,
@@ -52,16 +59,43 @@ export function getTokenTotals(sessions: Session[]): TokenUsage {
   )
 }
 
-export function calculateSessionCost(session: Session): number {
-  const pricing = session.source === 'claude'
-    ? CLAUDE_ESTIMATED_PRICE
-    : getCodexPrice(session.model)
+function getClaudePrice(modelName?: string): ModelPrice {
+  if (!modelName) return DEFAULT_CLAUDE_PRICE
+  const matched = CLAUDE_MODEL_PRICING.find(([pattern]) => pattern.test(modelName))
+  return matched?.[1] || DEFAULT_CLAUDE_PRICE
+}
 
+function getPrice(source: SessionSource, modelName?: string): ModelPrice {
+  return source === 'claude' ? getClaudePrice(modelName) : getCodexPrice(modelName)
+}
+
+function tokenCost(tokens: TokenUsage, pricing: ModelPrice): number {
   return (
-    (session.totalTokens.input / 1_000_000) * pricing.input +
-    ((session.totalTokens.cachedInput || 0) / 1_000_000) * pricing.cachedInput +
-    (session.totalTokens.output / 1_000_000) * pricing.output
+    (tokens.input / 1_000_000) * pricing.input +
+    ((tokens.cachedInput || 0) / 1_000_000) * pricing.cachedInput +
+    (tokens.output / 1_000_000) * pricing.output
   )
+}
+
+export function calculateSessionCost(session: Session): number {
+  // 메시지별 모델이 있으면 개별 가격 적용, 없으면 세션 모델로 폴백
+  const hasPerMessageTokens = session.messages.some((m) => m.tokens && m.model)
+
+  if (hasPerMessageTokens) {
+    return session.messages.reduce((sum, msg) => {
+      if (!msg.tokens) return sum
+      const pricing = getPrice(session.source, msg.model || session.model)
+      return sum + tokenCost(msg.tokens, pricing)
+    }, 0)
+  }
+
+  // 메시지별 토큰 정보가 없으면 가장 많이 쓴 모델 기준으로 계산
+  const modelCounts: Record<string, number> = {}
+  for (const msg of session.messages) {
+    if (msg.model) modelCounts[msg.model] = (modelCounts[msg.model] || 0) + 1
+  }
+  const dominantModel = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || session.model
+  return tokenCost(session.totalTokens, getPrice(session.source, dominantModel))
 }
 
 export function calculateSourceCost(sessions: Session[]): number {

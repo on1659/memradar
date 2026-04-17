@@ -604,12 +604,34 @@ export function Dashboard({
     )
   }
 
+  const SESSION_PAGE_SIZE = 50
+  const [sessionLimit, setSessionLimit] = useState(SESSION_PAGE_SIZE)
+  const [prevFilteredCount, setPrevFilteredCount] = useState(filteredSessions.length)
+
+  if (filteredSessions.length !== prevFilteredCount) {
+    setPrevFilteredCount(filteredSessions.length)
+    setSessionLimit(SESSION_PAGE_SIZE)
+  }
+
+  const visibleSessions = filteredSessions.slice(0, sessionLimit)
+  const hasMore = filteredSessions.length > sessionLimit
+
   const sessionListContent = filteredSessions.length === 0 ? (
     <div className="px-6 py-16 text-center text-sm text-text/40">
       {emptySessionListLabel}
     </div>
   ) : (
-    filteredSessions.map((session) => renderSessionRow(session))
+    <>
+      {visibleSessions.map((session) => renderSessionRow(session))}
+      {hasMore && (
+        <button
+          onClick={() => setSessionLimit((l) => l + SESSION_PAGE_SIZE)}
+          className="w-full rounded-xl bg-white/5 py-3 text-sm text-text/60 transition-colors hover:bg-white/10 hover:text-text-bright"
+        >
+          {filteredSessions.length - sessionLimit}개 더 보기
+        </button>
+      )}
+    </>
   )
 
   return (

@@ -132,7 +132,7 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
     rhythm: { label: ['마라토너', '스프린터'], value: 0.5 },
   }
 
-  if (sessions.length === 0) {
+  if (sessions.length === 0 || stats.totalMessages < 3) {
     return { type: 'EWS', axes: defaultAxes, ...TYPE_DEFS.EWS }
   }
 

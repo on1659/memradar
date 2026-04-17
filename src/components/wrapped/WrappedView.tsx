@@ -69,6 +69,45 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     ? '대시보드로 이동'
     : 'Go to Dashboard'
 
+  const lastSlideIndex = sessions.length === 0 ? 0 : 6
+
+  useEffect(() => {
+    if (sessions.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient prompt state when slide index changes
+    setDashboardPromptOpen(false)
+    setDashboardPromptReady(false)
+
+    if (slideIndex !== lastSlideIndex) return
+
+    const timer = window.setTimeout(() => {
+      setDashboardPromptReady(true)
+    }, 2500)
+
+    return () => window.clearTimeout(timer)
+  }, [lastSlideIndex, slideIndex, sessions.length])
+
+  if (sessions.length === 0) {
+    return (
+      <div className="wrapped-surface flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#06060e] text-text">
+        <div className="text-4xl">📭</div>
+        <div className="text-lg font-semibold text-text-bright">
+          {locale === 'ko' ? '분석할 세션이 없습니다' : 'No sessions to analyze'}
+        </div>
+        <p className="max-w-sm text-center text-sm text-text/55">
+          {locale === 'ko'
+            ? '세션 로그를 먼저 불러와 주세요. npx memradar 또는 파일 드래그로 시작할 수 있어요.'
+            : 'Please load session logs first. Start with npx memradar or drag your files.'}
+        </p>
+        <button
+          onClick={onClose}
+          className="mt-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-dim"
+        >
+          {locale === 'ko' ? '돌아가기' : 'Go Back'}
+        </button>
+      </div>
+    )
+  }
+
   const slides = [
     <IntroSlide key="intro" firstDate={sortedSessions[0]?.startTime || ''} totalSessions={stats.totalSessions} />,
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
@@ -89,21 +128,6 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
 
   const canPrev = slideIndex > 0
   const canNext = slideIndex < slides.length - 1
-  const lastSlideIndex = slides.length - 1
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient prompt state when slide index changes
-    setDashboardPromptOpen(false)
-    setDashboardPromptReady(false)
-
-    if (slideIndex !== lastSlideIndex) return
-
-    const timer = window.setTimeout(() => {
-      setDashboardPromptReady(true)
-    }, 2500)
-
-    return () => window.clearTimeout(timer)
-  }, [lastSlideIndex, slideIndex])
 
   function goNext() {
     if (canNext) setSlideIndex((i) => Math.min(i + 1, lastSlideIndex))
@@ -133,6 +157,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       goNext()
     }
     if (e.key === 'ArrowLeft') {
+      e.preventDefault()
       goPrev()
     }
     if (e.key === 'End') {

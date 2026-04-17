@@ -25,14 +25,22 @@ function getLogRoots() {
   ].filter((entry) => entry.dir)
 }
 
-function findJsonlFiles(dir, files = []) {
+const SKIP_DIRS = new Set(['subagents', 'node_modules', '.git', '.private', '.cache'])
+
+function findJsonlFiles(dir, files = [], depth = 0) {
+  if (depth > 12) return files
   try {
+    const real = fs.realpathSync(dir)
+    if (real !== dir && files._visited?.has(real)) return files
+    files._visited ??= new Set()
+    files._visited.add(real)
+
     const entries = fs.readdirSync(dir, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
-      if (entry.isDirectory() && entry.name !== 'subagents') {
-        findJsonlFiles(fullPath, files)
-      } else if (entry.isFile() && entry.name.endsWith('.jsonl') && !fullPath.includes('subagents')) {
+      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
+        findJsonlFiles(fullPath, files, depth + 1)
+      } else if (entry.isFile() && entry.name.endsWith('.jsonl')) {
         files.push(fullPath)
       }
     }

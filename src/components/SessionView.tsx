@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { ArrowLeft, Bot, Clock, User, Zap } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { ArrowLeft, Bot, Check, Clock, Copy, User, Zap } from 'lucide-react'
 import type { Session } from '../types'
 import { shortModelName } from '../lib/modelNames'
 
@@ -24,6 +24,40 @@ function getSessionTotalTokens(session: Session): number {
 function getSessionDisplayName(session: Session): string {
   const rawName = session.fileName.split(/[\\/]/).pop() || session.fileName || session.id
   return rawName.replace(/\.(jsonl?|txt)$/i, '')
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // fallback
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }, [text])
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="ml-auto flex-shrink-0 rounded-md p-1 text-text/30 transition-colors hover:bg-white/5 hover:text-text-bright"
+      title="복사"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-green" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  )
 }
 
 export function SessionView({ session, onBack, highlightMessageIndex }: SessionViewProps) {
@@ -75,19 +109,28 @@ export function SessionView({ session, onBack, highlightMessageIndex }: SessionV
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border/70 bg-bg px-3 py-3">
-              <div className="text-[11px] text-text/45">세션 이름</div>
-              <div className="mt-1 truncate text-sm text-text-bright">{sessionDisplayName}</div>
+            <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-bg px-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] text-text/45">세션 이름</div>
+                <div className="mt-1 truncate text-sm text-text-bright">{sessionDisplayName}</div>
+              </div>
+              <CopyButton text={sessionDisplayName} />
             </div>
-            <div className="rounded-xl border border-border/70 bg-bg px-3 py-3">
-              <div className="text-[11px] text-text/45">세션 ID</div>
-              <div className="mt-1 truncate font-mono text-xs text-text-bright">{session.id}</div>
+            <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-bg px-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] text-text/45">세션 ID</div>
+                <div className="mt-1 truncate font-mono text-xs text-text-bright">{session.id}</div>
+              </div>
+              <CopyButton text={session.id} />
             </div>
           </div>
 
           {resumeCommand && (
-            <div className="mt-3 rounded-xl border border-accent/20 bg-accent/6 px-3 py-3 text-xs leading-relaxed text-text/70">
-              Claude에서는 <span className="font-mono text-text-bright">{resumeCommand}</span> 로 대화를 이어갈 수 있습니다.
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/6 px-3 py-3 text-xs leading-relaxed text-text/70">
+              <span className="min-w-0 flex-1">
+                Claude에서는 <span className="font-mono text-text-bright">{resumeCommand}</span> 로 대화를 이어갈 수 있습니다.
+              </span>
+              <CopyButton text={resumeCommand} />
             </div>
           )}
         </div>

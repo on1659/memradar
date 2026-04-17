@@ -172,6 +172,7 @@ function App() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        if (viewRef.current === 'wrapped') return
         e.preventDefault()
         if (sessions.length > 0) {
           setView((prev) => prev.type === 'search' ? { type: 'dashboard' } : { type: 'search' })
