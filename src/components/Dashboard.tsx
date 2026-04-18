@@ -522,7 +522,7 @@ export function Dashboard({
         ? `${topUsageCategory.title} 성향이 가장 강해요`
         : `${topUsageCategory.title} is the strongest pattern`
     : aiRoleFallbackBody
-  const usageMaxScore = topUsageCategories[0]?.score || 1
+  const usageTotalScore = topUsageCategories.reduce((sum, category) => sum + category.score, 0) || 1
 
   const longestStreak = useMemo(() => {
     let longest = 0
@@ -827,18 +827,13 @@ export function Dashboard({
           {topUsageCategories.length > 0 ? (
             <div className="space-y-2.5">
               {topUsageCategories.map((category, index) => {
-                const pct = Math.round((category.score / usageMaxScore) * 100)
+                const pct = Math.max(4, Math.round((category.score / usageTotalScore) * 100))
                 return (
                   <div key={category.id} className="flex items-center gap-3">
                     <span className="w-6 text-center text-lg">{category.emoji}</span>
-                    <div className="w-24 shrink-0">
+                    <div className="w-28 shrink-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-xs font-bold text-text-bright">{category.title}</span>
-                        {index === 0 && (
-                          <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
-                            대표
-                          </span>
-                        )}
+                        <span className="text-xs font-bold text-text-bright">{category.title}</span>
                       </div>
                     </div>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
@@ -847,7 +842,7 @@ export function Dashboard({
                         style={{
                           width: `${pct}%`,
                           backgroundColor: category.color,
-                          opacity: index === 0 ? 0.85 : 0.5,
+                          opacity: index === 0 ? 0.85 : 0.6,
                         }}
                       />
                     </div>
