@@ -10,6 +10,15 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-18-personality-redesign',
+    version: 'v0.2.12',
+    date: '2026-04-18',
+    title: '코딩 성격 유형 시스템 재설계',
+    summary: 'AI 도구 사용량이 아닌 사용자의 실제 행동 패턴(메시지 스타일, 프로젝트 집중도, 세션 리듬)으로 성격 유형을 판별해요.',
+    highlights: ['설계자/탐험가, 한우물/유목민, 마라토너/스프린터 3축', 'AI 직업 카테고리 통합 및 "내 AI의 직업" 리브랜딩', '세션 종류(Quick/Standard/Deep) 기반 리듬 분석'],
+    category: 'insight',
+  },
+  {
     id: '2026-04-17-server-mode',
     version: 'v0.2.2',
     date: '2026-04-17',
