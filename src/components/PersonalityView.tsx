@@ -23,6 +23,49 @@ const AXIS_LABELS: Record<string, [string, string]> = {
   S: ['스프린터', 'Sprint'],
 }
 
+const PERSONALITY_CARD_THEME = {
+  badgeBg: 'color-mix(in srgb, var(--t-accent) 10%, var(--t-bg-card))',
+  badgeText: 'rgba(167,155,247,0.9)',
+  codeBg: 'rgba(255,255,255,0.04)',
+  codeText: 'rgba(232,230,240,0.34)',
+  title: '#e8e6f0',
+  subtitle: 'rgba(167,155,247,0.82)',
+  body: 'rgba(232,230,240,0.56)',
+  axisTrack: 'rgba(255,255,255,0.04)',
+  axisDivider: 'rgba(255,255,255,0.12)',
+  panelBorder: 'rgba(255,255,255,0.06)',
+  strengthsBg: 'rgba(255,255,255,0.04)',
+  headsUpBg: 'rgba(255,255,255,0.04)',
+  panelLabel: 'rgba(232,230,240,0.34)',
+  panelText: 'rgba(232,230,240,0.86)',
+} as const
+
+const CODE_REPORT_AXIS_COLORS: Record<AxisKey, string> = {
+  style: '#6d63dc',
+  scope: '#22b8c9',
+  rhythm: '#d69416',
+}
+
+const AXIS_HELP_KO: Record<AxisKey, [string, string]> = {
+  style: [
+    '탐험가: AI와 짧게 주고받으며 방향을 찾아가는 대화형 작업 스타일에 가까워요.',
+    '설계자: 길고 구조화된 프롬프트로 한 번에 맡기는 설계형 작업 스타일에 가까워요.',
+  ],
+  scope: [
+    '한우물: 한 프로젝트를 오래 붙잡고 깊게 파는 집중형 작업 성향에 가까워요.',
+    '유목민: 여러 프로젝트를 오가며 동시에 넓게 다루는 멀티 프로젝트 성향에 가까워요.',
+  ],
+  rhythm: [
+    '스프린터: 짧고 빠른 반복으로 문제를 밀어붙이는 작업 리듬에 가까워요.',
+    '마라토너: 긴 호흡으로 한 세션을 오래 이어가는 작업 리듬에 가까워요.',
+  ],
+}
+
+const PERSONALITY_PANEL_HELP = {
+  strengths: '이 유형에서 특히 강하게 드러나는 작업 방식이에요.',
+  headsUp: '이 유형일 때 가끔 의식하면 좋은 작업 습관이에요.',
+} as const
+
 // --- Usage category analysis (uses shared USAGE_CATEGORIES from usageProfile.ts) ---
 
 interface CategoryScore {
@@ -118,49 +161,7 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
 
 void UsageProfile
 
-function UsageCategoryCard({
-  entry,
-  rank,
-  maxScore,
-}: {
-  entry: CategoryScore
-  rank: number
-  maxScore: number
-}) {
-  const { category, score, sessionCount } = entry
-  const pct = Math.round((score / maxScore) * 100)
-
-  return (
-    <div className="rounded-lg border border-border bg-bg-card p-3">
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="text-xl">{category.emoji}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-text-bright">{category.title}</span>
-            {rank === 0 && (
-              <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                대표
-              </span>
-            )}
-          </div>
-          <span className="text-[11px] text-text/40">{category.subtitle}</span>
-        </div>
-        <div className="shrink-0 text-right text-xs text-text/40">
-          <div>{score}회</div>
-          <div>{sessionCount}세션</div>
-        </div>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: category.color, opacity: 0.7 }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function UsageHighlights({ categories }: { categories: CategoryScore[] }) {
+function UsageAllJobs({ categories }: { categories: CategoryScore[] }) {
   const maxScore = categories[0]?.score || 1
 
   if (categories.length === 0) return null
@@ -172,64 +173,140 @@ function UsageHighlights({ categories }: { categories: CategoryScore[] }) {
     : `당신의 AI는 주로 이런 일을 해요`
 
   return (
-    <div className="animate-in h-full rounded-xl border border-border bg-bg-card p-5">
+    <div className="animate-in rounded-xl border border-border bg-bg-card p-5">
       <h2 className="mb-1 text-lg font-bold text-text-bright">내 AI의 직업</h2>
       <p className="mb-4 text-sm text-text/50">{topVerdict}</p>
-      <div className="space-y-3">
-        {categories.slice(0, 2).map((entry, index) => (
-          <UsageCategoryCard
-            key={entry.category.id}
-            entry={entry}
-            rank={index}
-            maxScore={maxScore}
-          />
-        ))}
+      <div className="space-y-2">
+        {categories.map((entry, index) => {
+          const { category, score, sessionCount } = entry
+          const pct = Math.round((score / maxScore) * 100)
+          return (
+            <div key={category.id} className="flex items-center gap-3">
+              <span className="w-6 text-center text-lg">{category.emoji}</span>
+              <div className="w-24 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-text-bright truncate">{category.title}</span>
+                  {index === 0 && (
+                    <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
+                      대표
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 h-2 overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${pct}%`, backgroundColor: category.color, opacity: index === 0 ? 0.85 : 0.5 }}
+                />
+              </div>
+              <div className="w-16 shrink-0 text-right text-[11px] text-text/40">
+                {score}회 · {sessionCount}세션
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function UsageProfileRest({ categories }: { categories: CategoryScore[] }) {
-  const remainingCategories = categories.slice(2)
-  const maxScore = categories[0]?.score || 1
-
-  if (remainingCategories.length === 0) return null
+function TooltipLabel({
+  active,
+  children,
+  description,
+  align = 'center',
+}: {
+  active: boolean
+  children: string
+  description: string
+  align?: 'left' | 'center' | 'right'
+}) {
+  const tooltipPositionClass =
+    align === 'left'
+      ? 'left-0'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-1/2 -translate-x-1/2'
 
   return (
-    <div className="animate-in mb-6">
-      <h2 className="mb-3 text-lg font-bold text-text-bright">AI의 다른 직업들</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {remainingCategories.map((entry, index) => (
-          <UsageCategoryCard
-            key={entry.category.id}
-            entry={entry}
-            rank={index + 2}
-            maxScore={maxScore}
-          />
-        ))}
-      </div>
-    </div>
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="cursor-help rounded px-0.5 py-0.5 transition-colors focus:outline-none focus:ring-1 focus:ring-accent/40"
+        style={{ color: active ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}
+      >
+        {children}
+      </button>
+      <span
+        className={`pointer-events-none absolute bottom-full z-30 mb-2 w-52 rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
+      >
+        {description}
+      </span>
+    </span>
   )
 }
 
-function AxisBar({ axis }: { axis: { label: [string, string]; value: number } }) {
+function getAxisTooltipCopy(axis: { label: [string, string]; value: number }, axisKey: AxisKey) {
+  const leaningRight = axis.value >= 0.5
+  const balanced = Math.abs(axis.value - 0.5) < 0.04
+  const dominantIndex = leaningRight ? 1 : 0
+
+  if (balanced) {
+    return {
+      title: '균형형',
+      description: '두 성향이 거의 비슷하게 나타나고 있어요.',
+    }
+  }
+
+  return {
+    title: axis.label[dominantIndex],
+    description: AXIS_HELP_KO[axisKey][dominantIndex],
+  }
+}
+
+function AxisBar({
+  axis,
+  axisKey,
+}: {
+  axis: { label: [string, string]; value: number }
+  axisKey: AxisKey
+}) {
   const pct = Math.round(axis.value * 100)
   const leftActive = axis.value < 0.5
+  const axisTooltip = getAxisTooltipCopy(axis, axisKey)
   return (
     <div className="w-full">
-      <div className="flex justify-between text-[10px] mb-0.5">
-        <span className={leftActive ? 'text-text-bright font-semibold' : 'text-text/40'}>{axis.label[0]}</span>
-        <span className={!leftActive ? 'text-text-bright font-semibold' : 'text-text/40'}>{axis.label[1]}</span>
+      <div className="mb-0.5 flex justify-between text-[10px]">
+        <TooltipLabel active={leftActive} description={AXIS_HELP_KO[axisKey][0]} align="left">
+          {axis.label[0]}
+        </TooltipLabel>
+        <TooltipLabel active={!leftActive} description={AXIS_HELP_KO[axisKey][1]} align="right">
+          {axis.label[1]}
+        </TooltipLabel>
       </div>
-      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative">
+      <div className="group relative cursor-help">
         <div
-          className="absolute top-0 h-full rounded-full bg-accent/60 transition-all duration-500"
-          style={axis.value >= 0.5
-            ? { left: '50%', width: `${pct - 50}%` }
-            : { right: '50%', width: `${50 - pct}%` }
-          }
-        />
-        <div className="absolute top-0 left-1/2 w-px h-full bg-white/20" />
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-56 -translate-x-1/2 rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100"
+        >
+          <span className="block font-semibold text-text-bright">{axisTooltip.title}</span>
+          <span className="mt-1 block text-text/75">{axisTooltip.description}</span>
+        </div>
+        <div
+          className="relative h-1.5 overflow-hidden rounded-full"
+          style={{ background: PERSONALITY_CARD_THEME.axisTrack }}
+        >
+          <div
+            className="absolute top-0 h-full rounded-full transition-all duration-500"
+            style={axis.value >= 0.5
+              ? { left: '50%', width: `${pct - 50}%`, background: CODE_REPORT_AXIS_COLORS[axisKey], opacity: 0.5 }
+              : { right: '50%', width: `${50 - pct}%`, background: CODE_REPORT_AXIS_COLORS[axisKey], opacity: 0.5 }
+            }
+          />
+          <div
+            className="absolute top-0 left-1/2 h-full w-px"
+            style={{ background: PERSONALITY_CARD_THEME.axisDivider }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -419,35 +496,93 @@ export function PersonalityView({ sessions, onBack }: Props) {
       </div>
 
       {/* My Personality Summary + Usage Profile */}
-      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-        <div className="animate-in h-full rounded-xl border border-accent/20 bg-accent/5 p-5">
-          <div className="flex h-full flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="text-6xl">{personality.emoji}</div>
-            <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="rounded bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
+      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="animate-in h-full rounded-[26px] border border-border bg-bg-card p-5">
+          <div className="mx-auto w-full max-w-xl text-center">
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                style={{ background: PERSONALITY_CARD_THEME.badgeBg, color: PERSONALITY_CARD_THEME.badgeText }}
+              >
                 나의 유형
               </span>
-              <span className="text-xs font-mono text-text/40">{personality.type}</span>
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-mono"
+                style={{ background: PERSONALITY_CARD_THEME.codeBg, color: PERSONALITY_CARD_THEME.codeText }}
+              >
+                {personality.type}
+              </span>
             </div>
-            <h2 className="text-2xl font-bold text-text-bright mb-0.5">{personality.title}</h2>
-            <p className="text-sm text-accent mb-2">{personality.subtitle}</p>
-            <p className="text-sm text-text/60 leading-relaxed">{personality.description}</p>
 
-            {/* My Axis Bars */}
-            <div className="mt-4 w-full max-w-xs space-y-2">
+            <div className="mb-3 text-[56px] leading-none">{personality.emoji}</div>
+            <h2 className="mb-1 text-3xl font-bold" style={{ color: PERSONALITY_CARD_THEME.title }}>
+              {personality.title}
+            </h2>
+            <p className="mb-3 text-sm" style={{ color: PERSONALITY_CARD_THEME.subtitle }}>
+              {personality.subtitle}
+            </p>
+            <p
+              className="mx-auto max-w-lg text-sm leading-relaxed"
+              style={{ color: PERSONALITY_CARD_THEME.body }}
+            >
+              {personality.description}
+            </p>
+
+            <div className="mx-auto mt-5 w-full max-w-md space-y-3 text-left">
               {axisOrder.map((key) => (
-                <AxisBar key={key} axis={personality.axes[key]} />
+                <AxisBar key={key} axis={personality.axes[key]} axisKey={key} />
               ))}
             </div>
+
+            <div className="mt-5 grid gap-3 text-left sm:grid-cols-2">
+              <div
+                className="group relative rounded-xl border p-3.5"
+                style={{
+                  borderColor: PERSONALITY_CARD_THEME.panelBorder,
+                  background: PERSONALITY_CARD_THEME.strengthsBg,
+                }}
+              >
+                <button
+                  type="button"
+                  className="mb-1 cursor-help rounded text-[10px] font-semibold tracking-wide focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  style={{ color: PERSONALITY_CARD_THEME.panelLabel }}
+                >
+                  STRENGTHS
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-56 rounded-lg border border-border bg-bg-card px-3 py-2 text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  {PERSONALITY_PANEL_HELP.strengths}
+                </div>
+                <div className="text-xs leading-relaxed" style={{ color: PERSONALITY_CARD_THEME.panelText }}>
+                  {personality.strengths}
+                </div>
+              </div>
+              <div
+                className="group relative rounded-xl border p-3.5"
+                style={{
+                  borderColor: PERSONALITY_CARD_THEME.panelBorder,
+                  background: PERSONALITY_CARD_THEME.headsUpBg,
+                }}
+              >
+                <button
+                  type="button"
+                  className="mb-1 cursor-help rounded text-[10px] font-semibold tracking-wide focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  style={{ color: PERSONALITY_CARD_THEME.panelLabel }}
+                >
+                  HEADS UP
+                </button>
+                <div className="pointer-events-none absolute bottom-full right-0 z-30 mb-2 w-56 rounded-lg border border-border bg-bg-card px-3 py-2 text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  {PERSONALITY_PANEL_HELP.headsUp}
+                </div>
+                <div className="text-xs leading-relaxed" style={{ color: PERSONALITY_CARD_THEME.panelText }}>
+                  {personality.caution}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <UsageHighlights categories={usageCategories} />
+        <UsageAllJobs categories={usageCategories} />
       </div>
-
-      <UsageProfileRest categories={usageCategories} />
 
       {/* 3-Axis Explanation */}
       <div className="animate-in mb-6">
