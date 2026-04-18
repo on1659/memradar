@@ -144,6 +144,7 @@ const STOP_WORDS = new Set([
 export function computeStats(sessions: Session[]): Stats {
   const hourlyActivity = new Array(24).fill(0)
   const dailyActivity: Record<string, number> = {}
+  const dailyTokens: Record<string, number> = {}
   const modelsUsed: Record<string, number> = {}
   const toolsUsed: Record<string, number> = {}
   const userWordCount: Record<string, number> = {}
@@ -163,6 +164,10 @@ export function computeStats(sessions: Session[]): Stats {
         hourlyActivity[date.getHours()]++
         const dayKey = date.toISOString().slice(0, 10)
         dailyActivity[dayKey] = (dailyActivity[dayKey] || 0) + 1
+        if (msg.tokens) {
+          const msgTokenTotal = msg.tokens.input + msg.tokens.output + (msg.tokens.cachedInput || 0)
+          dailyTokens[dayKey] = (dailyTokens[dayKey] || 0) + msgTokenTotal
+        }
       }
 
       for (const tool of msg.toolUses) {
@@ -199,6 +204,7 @@ export function computeStats(sessions: Session[]): Stats {
   )
 
   const busiestDay = Object.entries(dailyActivity).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+  const busiestTokenDay = Object.entries(dailyTokens).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
 
   const longestSession = sessions.reduce<Session | null>((longest, s) => {
     if (!longest) return s
@@ -219,5 +225,7 @@ export function computeStats(sessions: Session[]): Stats {
     topWordsAssistant,
     longestSession,
     busiestDay,
+    dailyTokens,
+    busiestTokenDay,
   }
 }

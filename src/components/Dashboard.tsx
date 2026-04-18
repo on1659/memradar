@@ -1,32 +1,37 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowLeftRight,
   BarChart3,
-  Bell,
   Brain,
   Calendar,
+  Code2,
+  Flame,
   MessageSquare,
   TrendingUp,
   Zap,
 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { Session, Stats } from '../types'
 import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
+import { computePersonality } from '../lib/personality'
+import { analyzeUsageTopCategories } from '../lib/usageProfile'
 import { shortModelName } from '../lib/modelNames'
 import { calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
-import { ThemeSwitcher } from './ThemeSwitcher'
+import { MemradarTopBar } from './MemradarTopBar'
+import { PersonalitySections } from './PersonalityView'
 import { WordCloud } from './WordCloud'
-import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
-
-const BLOG_URL = 'https://radarlog.kr'
-const GITHUB_URL = 'https://github.com/on1659/memradar'
+import { analyzeLanguages, type LanguageScore } from '../lib/languageProfile'
 
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session) => void
   onOpenWrapped?: () => void
   onOpenPersonality?: () => void
+  onOpenDashboard?: () => void
+  sectionMode?: 'dashboard' | 'personality'
   themeProps: {
     theme: string
     accent: string
@@ -34,6 +39,12 @@ interface DashboardProps {
     setAccent: (accent: string) => void
   }
 }
+
+const sectionTransition = {
+  initial: { opacity: 0.35, y: -16, clipPath: 'inset(0 0 100% 0)', filter: 'blur(8px)' },
+  animate: { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', filter: 'blur(0px)' },
+  exit: { opacity: 0.2, y: 10, clipPath: 'inset(0 0 100% 0)', filter: 'blur(4px)' },
+} as const
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -239,28 +250,6 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
 
 const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-const BRAND_LETTERS = 'Memradar'.split('')
-
-function DashboardBrand() {
-  return (
-    <h1 className="dashboard-brand-title flex items-center gap-2 text-3xl font-bold text-text-bright">
-      <span className="dashboard-brand-mark text-accent">✦</span>
-      <span aria-label="Memradar" className="inline-flex">
-        {BRAND_LETTERS.map((letter, index) => (
-          <span
-            key={`${letter}-${index}`}
-            className="dashboard-brand-letter"
-            style={{ animationDelay: `${index * 48}ms` }}
-            aria-hidden="true"
-          >
-            {letter}
-          </span>
-        ))}
-      </span>
-    </h1>
-  )
-}
-
 function DayOfWeekPatternPanel({
   values,
   mode,
@@ -326,19 +315,60 @@ function DayOfWeekPatternPanel({
   )
 }
 
+function LanguageBar({ languages }: { languages: LanguageScore[] }) {
+  if (languages.length === 0) {
+    return <p className="py-4 text-center text-sm text-text/40">감지된 언어가 없습니다</p>
+  }
+
+  const max = languages[0].count
+  const total = languages.reduce((sum, l) => sum + l.count, 0)
+
+  return (
+    <div className="space-y-1.5">
+      {languages.slice(0, 8).map((lang, i) => {
+        const width = Math.max(Math.round((lang.count / max) * 100), 4)
+        const pct = ((lang.count / total) * 100).toFixed(1)
+
+        return (
+          <div
+            key={lang.name}
+            className="dashboard-cycle-drop flex items-center gap-2 rounded-md px-1 py-0.5"
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: lang.color }}
+            />
+            <span className="w-20 shrink-0 truncate text-xs text-text-bright">{lang.name}</span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className="dashboard-pattern-bar h-full rounded-full"
+                style={{ width: `${width}%`, background: lang.color, opacity: 0.55 }}
+              />
+            </div>
+            <span className="w-10 shrink-0 text-right text-[10px] text-text/40">{pct}%</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Dashboard({
   sessions,
   onSelectSession,
   onOpenWrapped,
   onOpenPersonality,
+  onOpenDashboard,
+  sectionMode = 'dashboard',
   themeProps,
 }: DashboardProps) {
   const { locale, t } = useI18n()
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
+  const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
   const [sessionFilter, setSessionFilter] = useState('')
-  const [showLeastBusy, setShowLeastBusy] = useState(false)
-  const [busyDayPinned, setBusyDayPinned] = useState(false)
-  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [showLowestTokenDay, setShowLowestTokenDay] = useState(false)
+  const [tokenDayPinned, setTokenDayPinned] = useState(false)
   const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
   const [dayPatternPinned, setDayPatternPinned] = useState(false)
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
@@ -419,6 +449,11 @@ export function Dashboard({
   const tokenSourceLabel = tokenSource === 'claude' ? 'Claude' : 'Codex'
   const displayInputTokens = activeTokenTotals.input + (activeTokenTotals.cachedInput || 0)
   const isKorean = locale === 'ko'
+  const isPersonalityMode = sectionMode === 'personality'
+  const handleSectionSwitch = isPersonalityMode ? onOpenDashboard : onOpenPersonality
+  const sectionSwitchLabel = isPersonalityMode
+    ? (isKorean ? '대시보드' : 'Dashboard')
+    : t('dashboard.personality')
   const tokenUsageLabel = isKorean ? '토큰 사용' : 'Token Usage'
   const tokenCostLabel = isKorean ? 'API 예상 비용' : 'Estimated API cost'
   const tokenCostTriggerLabel = isKorean ? '예상 비용' : 'Est. cost'
@@ -442,12 +477,6 @@ export function Dashboard({
   const formatSessionCount = (count: number) => (isKorean ? `${count}개` : `${count}`)
   const formatMessageCount = (count: number) => (isKorean ? `${count}개 메시지` : `${count} messages`)
 
-  const leastBusyDay = useMemo(() => {
-    const entries = Object.entries(stats.dailyActivity).filter(([, value]) => value > 0)
-    if (entries.length === 0) return ''
-    return entries.sort((a, b) => a[1] - b[1])[0][0]
-  }, [stats])
-
   const dailyAvg = useMemo(() => {
     const entries = Object.entries(stats.dailyActivity)
     if (entries.length === 0) return 0
@@ -459,6 +488,41 @@ export function Dashboard({
     () => Object.entries(stats.modelsUsed).sort((a, b) => b[1] - a[1]),
     [stats]
   )
+  const topUsageCategories = useMemo(() => analyzeUsageTopCategories(sessions, 8), [sessions])
+  const topUsageCategory = topUsageCategories[0] ?? null
+
+  const topLanguages = useMemo(() => analyzeLanguages(sessions), [sessions])
+
+  const busiestTokenDay = stats.busiestTokenDay
+  const busiestTokenDayAmount = busiestTokenDay ? stats.dailyTokens[busiestTokenDay] || 0 : 0
+  const leastTokenDay = useMemo(() => {
+    const entries = Object.entries(stats.dailyTokens).filter(([, value]) => value > 0)
+    if (entries.length === 0) return ''
+    return entries.sort((a, b) => a[1] - b[1])[0][0]
+  }, [stats.dailyTokens])
+  const leastTokenDayAmount = leastTokenDay ? stats.dailyTokens[leastTokenDay] || 0 : 0
+  const axisOrder = ['style', 'scope', 'rhythm'] as const
+  const axisColors = {
+    style: 'var(--color-accent)',
+    scope: 'var(--color-cyan)',
+    rhythm: 'var(--color-amber)',
+  } as const
+  const aiRoleLabel = isKorean ? '내 AI의 직업' : 'AI Role'
+  const aiRoleFallbackTitle = isKorean ? '아직 탐색 중' : 'Still Exploring'
+  const aiRoleFallbackBody = isKorean
+    ? '메시지가 더 쌓이면 대표 역할이 보여요.'
+    : 'More messages will reveal the most common role.'
+  const nextUsageCategory = topUsageCategories[1] ?? null
+  const aiRoleSummary = topUsageCategory
+    ? nextUsageCategory && topUsageCategory.score <= nextUsageCategory.score * 1.5
+      ? isKorean
+        ? `${topUsageCategory.title}와(과) ${nextUsageCategory.title}, 투잡 뛰는 중`
+        : `${topUsageCategory.title} and ${nextUsageCategory.title}, split roles`
+      : isKorean
+        ? `${topUsageCategory.title} 성향이 가장 강해요`
+        : `${topUsageCategory.title} is the strongest pattern`
+    : aiRoleFallbackBody
+  const usageMaxScore = topUsageCategories[0]?.score || 1
 
   const longestStreak = useMemo(() => {
     let longest = 0
@@ -536,18 +600,21 @@ export function Dashboard({
   }, [dayPatternPinned])
 
   useEffect(() => {
-    if (busyDayPinned) return
-    if (!stats.busiestDay || !leastBusyDay || stats.busiestDay === leastBusyDay) return
+    if (tokenDayPinned) return
+    if (!busiestTokenDay || !leastTokenDay || busiestTokenDay === leastTokenDay) return
 
     const timer = window.setInterval(() => {
-      setShowLeastBusy((prev) => !prev)
+      setShowLowestTokenDay((prev) => !prev)
     }, 10000)
 
     return () => window.clearInterval(timer)
-  }, [busyDayPinned, leastBusyDay, stats.busiestDay])
+  }, [busiestTokenDay, leastTokenDay, tokenDayPinned])
 
-  const busyDay = showLeastBusy ? leastBusyDay : stats.busiestDay
-  const busyDayCount = busyDay ? stats.dailyActivity[busyDay] : 0
+  const activeTokenDay = showLowestTokenDay ? leastTokenDay : busiestTokenDay
+  const activeTokenDayAmount = showLowestTokenDay ? leastTokenDayAmount : busiestTokenDayAmount
+  const activeTokenDayLabel = showLowestTokenDay
+    ? (isKorean ? '가장 토큰 적게 사용한 날' : 'Lowest token day')
+    : (isKorean ? '가장 토큰 많이 사용한 날' : 'Highest token day')
 
   function renderSessionRow(session: Session) {
     const sourceColor = getSourceColor(session.source)
@@ -636,78 +703,193 @@ export function Dashboard({
 
   return (
     <div className="dashboard-shell">
-      <div className="animate-in mb-5 flex items-center justify-between">
-        <div>
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text/55">
-            <a
-              href={BLOG_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-3 transition-colors hover:text-text-bright hover:underline"
-            >
-              dev.blog
-            </a>
-            <span className="text-text/25">·</span>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-3 transition-colors hover:text-text-bright hover:underline"
-            >
-              github
-            </a>
-          </div>
-          <DashboardBrand />
-          <p className="mt-1 text-sm text-text">
-            {t('dashboard.subtitle', { count: stats.totalSessions })}
-          </p>
-        </div>
-        <div className="flex w-[min(100vw-3rem,42rem)] flex-wrap items-center justify-end gap-2">
-          {onOpenWrapped && (
-            <button
-              onClick={onOpenWrapped}
-              className="dashboard-button-attention order-2 flex h-9 items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
-            >
-              <span className="dashboard-button-attention-runner" aria-hidden="true" />
-              <span className="dashboard-button-attention-icon relative z-[1]">✦</span>
-              <span className="relative z-[1] hidden sm:inline">{t('dashboard.wrapped')}</span>
-            </button>
-          )}
-          <button
-            onClick={() => setUpdatesOpen(true)}
-            className="order-1 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
-          >
-            <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('dashboard.news')}</span>
-            <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-              {latestProductUpdate.version}
-            </span>
-          </button>
-          {onOpenPersonality && (
-            <button
-              onClick={onOpenPersonality}
-              className="group relative order-3 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"
-              title={t('dashboard.personality')}
-            >
-              <Brain className="h-4 w-4" />
-              <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-hover px-2.5 py-1.5 text-xs text-text-bright opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                {t('dashboard.personality')}
+      <MemradarTopBar
+        sessionCount={stats.totalSessions}
+        themeProps={themeProps}
+        onOpenWrapped={onOpenWrapped}
+      />
+
+      <div className="animate-in mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="h-full rounded-[26px] border border-border bg-bg-card p-5">
+          <div className="mx-auto w-full max-w-xl text-center">
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                style={{
+                  background: 'color-mix(in srgb, var(--t-accent) 10%, var(--t-bg-card))',
+                  color: 'color-mix(in srgb, var(--t-accent) 82%, var(--t-text-bright) 18%)',
+                }}
+              >
+                {isKorean ? '내 전체 성향' : 'My Overall Type'}
               </span>
-            </button>
-          )}
-          <div className="order-4">
-            <ThemeSwitcher
-              theme={themeProps.theme}
-              accent={themeProps.accent}
-              onThemeChange={themeProps.setTheme}
-              onAccentChange={themeProps.setAccent}
-            />
+              <span
+                className="rounded-full px-2.5 py-1 text-[10px] font-mono"
+                style={{
+                  background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)',
+                  color: 'color-mix(in srgb, var(--t-text) 52%, transparent)',
+                }}
+              >
+                {personality.type}
+              </span>
+            </div>
+
+            <div className="mb-3 text-[56px] leading-none">{personality.emoji}</div>
+            <h2 className="mb-1 text-3xl font-bold text-text-bright">{personality.title}</h2>
+            <p className="mb-3 text-sm text-accent">{personality.subtitle}</p>
+            <p className="mx-auto max-w-lg text-sm leading-relaxed text-text/70">{personality.description}</p>
+
+            <div className="mx-auto mt-5 w-full max-w-md space-y-3 text-left">
+              {axisOrder.map((key) => {
+                const axis = personality.axes[key]
+                const pct = Math.round(axis.value * 100)
+                const leftActive = axis.value < 0.5
+                return (
+                  <div key={key} className="w-full">
+                    <div className="mb-0.5 flex justify-between text-[10px]">
+                      <span
+                        className="font-semibold"
+                        style={{ color: leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
+                      >
+                        {axis.label[0]}
+                      </span>
+                      <span
+                        className="font-semibold"
+                        style={{ color: !leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
+                      >
+                        {axis.label[1]}
+                      </span>
+                    </div>
+                    <div
+                      className="relative h-1.5 overflow-hidden rounded-full"
+                      style={{ background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)' }}
+                    >
+                      <div
+                        className="absolute top-0 h-full rounded-full transition-all duration-500"
+                        style={axis.value >= 0.5
+                          ? { left: '50%', width: `${pct - 50}%`, background: axisColors[key], opacity: 0.5 }
+                          : { right: '50%', width: `${50 - pct}%`, background: axisColors[key], opacity: 0.5 }
+                        }
+                      />
+                      <div
+                        className="absolute top-0 left-1/2 h-full w-px"
+                        style={{ background: 'color-mix(in srgb, var(--t-border) 72%, transparent)' }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-5 grid gap-3 text-left sm:grid-cols-2">
+              <div
+                className="rounded-xl border p-3.5"
+                style={{
+                  borderColor: 'color-mix(in srgb, var(--t-border) 88%, transparent)',
+                  background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
+                }}
+              >
+                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">STRENGTHS</div>
+                <div className="text-xs leading-relaxed text-text/70">{personality.strengths}</div>
+              </div>
+              <div
+                className="rounded-xl border p-3.5"
+                style={{
+                  borderColor: 'color-mix(in srgb, var(--t-border) 88%, transparent)',
+                  background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
+                }}
+              >
+                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">HEADS UP</div>
+                <div className="text-xs leading-relaxed text-text/70">{personality.caution}</div>
+              </div>
+            </div>
+
           </div>
+        </div>
+
+        <div className="rounded-[26px] border border-border bg-bg-card p-5">
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Code2 className="h-4 w-4 shrink-0 text-accent" />
+              <h2 className="truncate text-lg font-bold text-text-bright">{aiRoleLabel}</h2>
+            </div>
+            {handleSectionSwitch && (
+              <button
+                type="button"
+                onClick={handleSectionSwitch}
+                className="flex h-8 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                <span>{sectionSwitchLabel}</span>
+              </button>
+            )}
+          </div>
+          <p className="mb-4 text-sm text-text/50">{aiRoleSummary}</p>
+          {topUsageCategories.length > 0 ? (
+            <div className="space-y-2.5">
+              {topUsageCategories.map((category, index) => {
+                const pct = Math.round((category.score / usageMaxScore) * 100)
+                return (
+                  <div key={category.id} className="flex items-center gap-3">
+                    <span className="w-6 text-center text-lg">{category.emoji}</span>
+                    <div className="w-24 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-bold text-text-bright">{category.title}</span>
+                        {index === 0 && (
+                          <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
+                            대표
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: category.color,
+                          opacity: index === 0 ? 0.85 : 0.5,
+                        }}
+                      />
+                    </div>
+                    <div className="w-12 shrink-0 text-right text-[11px] text-text/40">
+                      {category.score}회
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border/70 bg-white/4 p-4 text-sm text-text/55">
+              <div className="font-semibold text-text-bright">{aiRoleFallbackTitle}</div>
+              <div className="mt-1">{aiRoleFallbackBody}</div>
+            </div>
+          )}
+
         </div>
       </div>
 
-      <UpdatesPopover open={updatesOpen} onClose={() => setUpdatesOpen(false)} />
-
+      <AnimatePresence mode="wait" initial={false}>
+        {isPersonalityMode ? (
+          <motion.div
+            key="personality-sections"
+            initial={sectionTransition.initial}
+            animate={sectionTransition.animate}
+            exit={sectionTransition.exit}
+            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformOrigin: 'top center', willChange: 'transform, opacity, filter' }}
+          >
+            <PersonalitySections />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="dashboard-sections"
+            className="space-y-6"
+            initial={sectionTransition.initial}
+            animate={sectionTransition.animate}
+            exit={sectionTransition.exit}
+            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformOrigin: 'top center', willChange: 'transform, opacity, filter' }}
+          >
       <div className="dashboard-stats-grid animate-in">
         <div className="dashboard-card">
           <div className="mb-3 flex items-center gap-2">
@@ -802,6 +984,7 @@ export function Dashboard({
             </div>
           </div>
         </div>
+
         <div className="dashboard-card">
           <div className="mb-3 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-green" />
@@ -814,26 +997,34 @@ export function Dashboard({
         <div className="dashboard-card">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-rose" />
-              <span key={`${busyDay}-label`} className="dashboard-cycle-drop text-sm text-text">
-                {showLeastBusy ? '한가한 날' : '바쁜 날'}
+              {showLowestTokenDay ? (
+                <Calendar className="h-4 w-4 text-rose" />
+              ) : (
+                <Flame className="h-4 w-4 text-amber" />
+              )}
+              <span key={`${activeTokenDay}-label`} className="dashboard-cycle-drop text-sm text-text">
+                {activeTokenDayLabel}
               </span>
             </div>
             <button
               type="button"
-              aria-pressed={busyDayPinned}
-              onClick={() => setBusyDayPinned((prev) => !prev)}
+              aria-pressed={tokenDayPinned}
+              onClick={() => setTokenDayPinned((prev) => !prev)}
               className={`rounded-full border px-2.5 py-1 text-[10px] transition-all ${
-                busyDayPinned
+                tokenDayPinned
                   ? 'translate-y-px border-accent/50 bg-accent/12 text-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]'
                   : 'dashboard-button-attention-soft border-border/70 bg-bg text-text/55 hover:border-accent/25 hover:text-text-bright'
               }`}
             >
-              고정
+              {isKorean ? '고정' : 'Pin'}
             </button>
           </div>
-          <div key={`${busyDay}-date`} className="dashboard-cycle-drop text-2xl font-bold text-text-bright">{busyDay || '-'}</div>
-          <div key={`${busyDay}-count`} className="dashboard-cycle-drop mt-1 text-xs text-text/60">{busyDay ? `${busyDayCount}개 메시지` : ''}</div>
+          <div key={`${activeTokenDay}-date`} className="dashboard-cycle-drop text-2xl font-bold text-text-bright">
+            {activeTokenDay || '-'}
+          </div>
+          <div key={`${activeTokenDay}-count`} className="dashboard-cycle-drop mt-1 text-xs text-text/60">
+            {activeTokenDay ? formatTokens(activeTokenDayAmount) + (isKorean ? ' 토큰' : ' tokens') : ''}
+          </div>
         </div>
       </div>
 
@@ -928,6 +1119,14 @@ export function Dashboard({
             wordsAssistant={stats.topWordsAssistant}
           />
         </div>
+
+        <div className="dashboard-card dashboard-card-roomy animate-in">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-text-bright">
+            <Code2 className="h-5 w-5 text-green" />
+            {isKorean ? '사용한 언어' : 'Languages'}
+          </h2>
+          <LanguageBar languages={topLanguages} />
+        </div>
       </div>
 
 
@@ -1005,6 +1204,9 @@ export function Dashboard({
           {sessionListContent}
         </div>
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>memradar - Personality System Redesign Spec</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3a;
+    --text: #e4e4ef;
+    --text-dim: #8888a0;
+    --accent: #7c6ff7;
+    --accent2: #5eead4;
+    --red: #f87171;
+    --orange: #fb923c;
+    --yellow: #fbbf24;
+    --green: #4ade80;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 60px 0 24px; }
+  .hero-badge {
+    display: inline-block; background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700; padding: 4px 12px;
+    border-radius: 100px; letter-spacing: 0.5px; margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .hero p { color: var(--text-dim); font-size: 16px; }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex; gap: 0; margin: 32px 0 40px;
+    border-bottom: 2px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg); padding-top: 8px;
+  }
+  .tab-btn {
+    padding: 12px 28px; font-size: 15px; font-weight: 600;
+    color: var(--text-dim); background: none; border: none;
+    border-bottom: 3px solid transparent; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Sections */
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 24px; font-weight: 700; margin-bottom: 20px;
+    padding-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block;
+  }
+  h3 { font-size: 18px; font-weight: 700; margin: 28px 0 12px; color: var(--accent2); }
+  h4 {
+    font-size: 15px; font-weight: 600; margin: 20px 0 8px;
+    color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  p { margin-bottom: 12px; }
+
+  .callout {
+    background: var(--surface2); border-left: 4px solid var(--red);
+    padding: 20px 24px; border-radius: 0 12px 12px 0; margin: 20px 0;
+  }
+  .callout.green { border-left-color: var(--green); }
+  .callout.blue { border-left-color: var(--blue); }
+  .callout.orange { border-left-color: var(--orange); }
+  .callout-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 14px;
+  }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th {
+    background: var(--surface2); font-weight: 600; color: var(--accent2);
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  tr:hover td { background: var(--surface); }
+
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px; line-height: 1.6; margin: 16px 0 24px;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px; background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+  }
+  pre code { background: none; padding: 0; }
+
+  .axis-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; margin: 24px 0;
+    position: relative; overflow: hidden;
+  }
+  .axis-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .axis-card.axis1::before { background: linear-gradient(90deg, var(--accent), var(--pink)); }
+  .axis-card.axis2::before { background: linear-gradient(90deg, var(--green), var(--yellow)); }
+  .axis-card.axis3::before { background: linear-gradient(90deg, var(--blue), var(--orange)); }
+  .axis-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .axis-num {
+    background: var(--accent); color: white; font-size: 14px; font-weight: 800;
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .axis-card.axis2 .axis-num { background: var(--green); color: #000; }
+  .axis-card.axis3 .axis-num { background: var(--blue); }
+  .axis-title { font-size: 20px; font-weight: 700; }
+
+  .axis-spectrum {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2); border-radius: 12px; padding: 16px 24px; margin: 16px 0;
+  }
+  .spectrum-pole { text-align: center; min-width: 100px; }
+  .spectrum-pole .emoji { font-size: 28px; margin-bottom: 4px; }
+  .spectrum-pole .name { font-weight: 700; font-size: 15px; }
+  .spectrum-pole .code { font-size: 12px; color: var(--text-dim); }
+  .spectrum-bar { flex: 1; height: 4px; margin: 0 20px; border-radius: 2px; position: relative; }
+  .axis-card.axis1 .spectrum-bar { background: linear-gradient(90deg, var(--accent), var(--pink)); }
+  .axis-card.axis2 .spectrum-bar { background: linear-gradient(90deg, var(--green), var(--yellow)); }
+  .axis-card.axis3 .spectrum-bar { background: linear-gradient(90deg, var(--blue), var(--orange)); }
+  .spectrum-bar::after {
+    content: 'vs'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); background: var(--surface2);
+    padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    color: var(--text-dim); font-weight: 600;
+  }
+  .empathy-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  .empathy-item { background: var(--surface2); border-radius: 10px; padding: 14px 16px; font-size: 14px; }
+  .empathy-item .label {
+    font-size: 11px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+  .type-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; transition: transform 0.15s, border-color 0.15s;
+  }
+  .type-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .type-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .type-emoji { font-size: 32px; }
+  .type-code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent);
+    background: var(--surface2); padding: 2px 8px; border-radius: 6px; font-weight: 600;
+  }
+  .type-name { font-size: 17px; font-weight: 700; }
+  .type-sub { font-size: 12px; color: var(--text-dim); }
+  .type-desc { font-size: 13px; color: var(--text-dim); margin: 8px 0; line-height: 1.6; }
+  .type-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .type-tag { font-size: 11px; padding: 3px 10px; border-radius: 100px; background: var(--surface2); color: var(--text-dim); }
+  .type-tag.strength { color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+  .type-tag.caution { color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+
+  .combo-table {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; margin: 24px 0; overflow-x: auto;
+  }
+  .combo-table table { margin: 0; }
+  .combo-table th { background: transparent; color: var(--accent); border-bottom: 2px solid var(--border); }
+  .combo-table td { text-align: center; padding: 14px; font-size: 13px; }
+  .combo-cell-emoji { font-size: 24px; display: block; margin-bottom: 4px; }
+  .combo-cell-name { font-weight: 700; font-size: 13px; }
+  .combo-cell-code { font-family: monospace; font-size: 11px; color: var(--text-dim); }
+
+  .formula-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin: 16px 0;
+  }
+  .formula-title {
+    font-size: 13px; font-weight: 700; color: var(--accent2);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+  }
+
+  .change-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .change-card { border-radius: 12px; padding: 20px; border: 1px solid var(--border); }
+  .change-card.before { background: rgba(248,113,113,0.05); border-color: rgba(248,113,113,0.2); }
+  .change-card.after { background: rgba(74,222,128,0.05); border-color: rgba(74,222,128,0.2); }
+  .change-card .label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .change-card.before .label { color: var(--red); }
+  .change-card.after .label { color: var(--green); }
+  .change-card ul { list-style: none; font-size: 14px; }
+  .change-card li { padding: 4px 0; padding-left: 16px; position: relative; }
+  .change-card.before li::before { content: '\2715'; position: absolute; left: 0; color: var(--red); }
+  .change-card.after li::before { content: '\2713'; position: absolute; left: 0; color: var(--green); }
+
+  .footer {
+    margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+    text-align: center; color: var(--text-dim); font-size: 13px;
+  }
+  .mbti-compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  .mbti-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .mbti-item .mbti-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .mbti-item .mbti-axis { font-size: 20px; font-weight: 800; margin: 4px 0; color: var(--accent); }
+  .mbti-item .mbti-name { font-size: 13px; }
+
+  /* Implementation tab specific */
+  .impl-file {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; margin: 24px 0; overflow: hidden;
+  }
+  .impl-file-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--border);
+  }
+  .impl-file-name {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--accent2); font-weight: 600;
+  }
+  .impl-file-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 100px;
+    font-weight: 600;
+  }
+  .impl-file-badge.new { background: rgba(74,222,128,0.15); color: var(--green); }
+  .impl-file-badge.modify { background: rgba(251,191,36,0.15); color: var(--yellow); }
+  .impl-file-badge.minor { background: rgba(136,136,160,0.15); color: var(--text-dim); }
+  .impl-file pre { margin: 0; border: none; border-radius: 0; }
+
+  .impl-step {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding: 16px 0; border-bottom: 1px solid var(--border);
+  }
+  .impl-step:last-child { border-bottom: none; }
+  .impl-step-num {
+    background: var(--accent); color: white; font-size: 13px; font-weight: 800;
+    min-width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .impl-step-content { flex: 1; }
+  .impl-step-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .impl-step-desc { font-size: 13px; color: var(--text-dim); }
+
+  /* Syntax highlighting keywords in code */
+  .kw { color: var(--pink); }
+  .fn { color: var(--blue); }
+  .cm { color: #6a6a8a; }
+  .st { color: var(--green); }
+  .nu { color: var(--orange); }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 26px; }
+    .type-grid, .change-grid { grid-template-columns: 1fr; }
+    .mbti-compare { grid-template-columns: 1fr; }
+    .empathy-box { grid-template-columns: 1fr; }
+    .axis-spectrum { flex-direction: column; gap: 8px; }
+    .spectrum-bar { width: 100%; margin: 8px 0; }
+    .tab-btn { padding: 10px 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">DESIGN SPEC v1.0</div>
+    <h1>Personality System Redesign</h1>
+    <p>memradar 코딩 성격 유형 시스템 재설계 명세서 &middot; 2026-04-18</p>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="design">설계 문서</button>
+    <button class="tab-btn" data-tab="impl">구현 문서</button>
+  </div>
+
+  <!-- ==================== TAB 1: 설계 문서 ==================== -->
+  <div id="tab-design" class="tab-panel active">
+
+  <section>
+    <h2>1. 문제 정의</h2>
+    <div class="callout">
+      <div class="callout-title">핵심 문제: AI의 행동을 사용자 성격으로 오귀인</div>
+      <p style="margin:0">현재 시스템은 <code>edit</code>, <code>write</code>, <code>bash</code> 같은 <strong>AI가 알아서 쓰는 도구</strong>의 사용량으로 사용자 성격을 판단합니다. 그 결과 거의 모든 사용자가 <strong>"만능 빌더(EWM)"</strong>으로 수렴합니다.</p>
+    </div>
+    <table>
+      <tr><th>축</th><th>현재 측정</th><th>문제</th></tr>
+      <tr><td><strong>Style (R/E)</strong></td><td>AI 도구 비율 (Read vs Execute)</td><td>AI 자율 선택이라 사용자 의도 무관 &rarr; 거의 E</td></tr>
+      <tr><td><strong>Scope (D/W)</strong></td><td>도구+프로젝트+모델 다양성</td><td>Claude Code 기본 도구가 7-10개라 항상 높음 &rarr; 거의 W</td></tr>
+      <tr><td><strong>Rhythm (M/S)</strong></td><td>평균 세션시간 / 30분</td><td>대부분 세션이 15분+라 절대값 기준 초과 &rarr; 거의 M</td></tr>
+    </table>
+    <h3>설계 원칙</h3>
+    <div class="callout green">
+      <div class="callout-title">5대 원칙</div>
+      <ol style="margin:0;padding-left:20px;font-size:14px;">
+        <li><strong>사용자가 직접 통제하는 행동</strong>에서만 측정할 것</li>
+        <li><code>toolsUsed</code>는 성격 축 측정에서 <strong>완전 배제</strong></li>
+        <li>축 간 상관을 최소화 (독립 차원)</li>
+        <li>절대 임계값 금지 &rarr; 시그모이드 정규화 기반 상대적 분류</li>
+        <li>3축 8유형 뼈대 유지 (UI/콘텐츠 변경 최소화)</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 사용 가능한 데이터</h2>
+    <table>
+      <tr><th>데이터</th><th>사용자 행동?</th><th>활용</th></tr>
+      <tr><td><code>messages[].text</code> (role=user)</td><td style="color:var(--green)">O</td><td>축 1 (대화 방식)</td></tr>
+      <tr><td><code>startTime</code>, <code>endTime</code></td><td style="color:var(--green)">O</td><td>축 3 (작업 리듬)</td></tr>
+      <tr><td><code>cwd</code></td><td style="color:var(--green)">O</td><td>축 2 (작업 범위)</td></tr>
+      <tr><td><code>tokenUsage</code></td><td style="color:var(--yellow)">간접적</td><td>축 1 보조</td></tr>
+      <tr><td><code>toolsUsed</code></td><td style="color:var(--red)">X (AI 행동)</td><td>배제</td></tr>
+      <tr><td><code>model</code></td><td style="color:var(--red)">X (불확실)</td><td>배제</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 축 정의</h2>
+
+    <!-- Axis 1 -->
+    <div class="axis-card axis1">
+      <div class="axis-header"><div class="axis-num">1</div><div class="axis-title">대화 방식</div></div>
+      <div class="axis-spectrum">
+        <div class="spectrum-pole"><div class="emoji">🎯</div><div class="name">설계자</div><div class="code">A (Architect)</div></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-pole"><div class="emoji">🧭</div><div class="name">탐험가</div><div class="code">E (Explorer)</div></div>
+      </div>
+      <table>
+        <tr><th>지표</th><th>설계자(A) 쪽</th><th>탐험가(E) 쪽</th></tr>
+        <tr><td>평균 메시지 길이</td><td>길다 (200자+, 상세한 명세)</td><td>짧다 (50자 이하, 간결한 질문)</td></tr>
+        <tr><td>세션당 사용자 턴 수</td><td>적다 (3-5턴, 한 번에 담음)</td><td>많다 (15턴+, 여러 번 주고받음)</td></tr>
+        <tr><td>출력/입력 토큰 비율</td><td>높다 (AI 출력 多)</td><td>낮다 (대화 비중 높음)</td></tr>
+      </table>
+      <div class="formula-box"><div class="formula-title">측정 수식</div>
+<pre><code>styleScore = normalize(avgMsgLen)          * 0.4
+           + normalize(1 / turnsPerSession) * 0.3
+           + normalize(tokenRatio)          * 0.3
+
+>= 0.5 &rarr; A (설계자)  |  < 0.5 &rarr; E (탐험가)</code></pre></div>
+      <div class="empathy-box">
+        <div class="empathy-item"><div class="label">설계자(A)가 하는 말</div>"프론트엔드 전체 리팩토링해줘. 조건은 이러이러하고..."</div>
+        <div class="empathy-item"><div class="label">탐험가(E)가 하는 말</div>"이거 어떻게 하면 좋을까?" &rarr; "아 그거 말고..." &rarr; "오 그럼 이건?"</div>
+      </div>
+    </div>
+
+    <!-- Axis 2 -->
+    <div class="axis-card axis2">
+      <div class="axis-header"><div class="axis-num">2</div><div class="axis-title">작업 범위</div></div>
+      <div class="axis-spectrum">
+        <div class="spectrum-pole"><div class="emoji">⛏️</div><div class="name">한우물</div><div class="code">D (Deep)</div></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-pole"><div class="emoji">🌍</div><div class="name">유목민</div><div class="code">W (Wide)</div></div>
+      </div>
+      <table>
+        <tr><th>지표</th><th>한우물(D) 쪽</th><th>유목민(W) 쪽</th></tr>
+        <tr><td>주당 고유 프로젝트 수</td><td>1-2개</td><td>4개+</td></tr>
+        <tr><td>프��젝트 전환 빈도</td><td>거의 안 바꿈</td><td>자주 바꿈</td></tr>
+        <tr><td>최다 프로젝트 집중도</td><td>80%+ 한 곳에 집중</td><td>분산됨</td></tr>
+      </table>
+      <div class="formula-box"><div class="formula-title">측정 수식</div>
+<pre><code>scopeScore = normalize(uniqueProjectsPerWeek) * 0.4
+           + normalize(switchRate)              * 0.4
+           + normalize(1 - topProjectShare)     * 0.2
+
+>= 0.5 &rarr; W (유목민)  |  < 0.5 &rarr; D (한우물)</code></pre></div>
+      <div class="empathy-box">
+        <div class="empathy-item"><div class="label">한우물(D)이 하는 말</div>"나는 한 프로젝트 끝날 때까지 다른 거 안 건드려"</div>
+        <div class="empathy-item"><div class="label">유목민(W)이 하는 말</div>"나는 ���상 여러 프로젝트를 동시에 굴리는 편이야"</div>
+      </div>
+    </div>
+
+    <!-- Axis 3 -->
+    <div class="axis-card axis3">
+      <div class="axis-header"><div class="axis-num">3</div><div class="axis-title">작업 리듬</div></div>
+      <div class="axis-spectrum">
+        <div class="spectrum-pole"><div class="emoji">🏃</div><div class="name">마라토너</div><div class="code">M (Marathon)</div></div>
+        <div class="spectrum-bar"></div>
+        <div class="spectrum-pole"><div class="emoji">⚡</div><div class="name">스프린터</div><div class="code">S (Sprint)</div></div>
+      </div>
+      <table>
+        <tr><th>지표</th><th>마라토너(M) 쪽</th><th>스프린터(S) 쪽</th></tr>
+        <tr><td>세션 중앙값 길이</td><td>60분+</td><td>20분 이하</td></tr>
+        <tr><td>시간대 집중도</td><td>높음 (특정 시간에 몰림)</td><td>낮음 (하루 전체 분산)</td></tr>
+        <tr><td>Deep 세션 비중</td><td>높음 (60분+ 세션이 대부분)</td><td>낮음 (20분 미만 세션이 대부분)</td></tr>
+      </table>
+      <h4>세션 종류 분류</h4>
+      <p style="font-size:14px;color:var(--text-dim);margin-bottom:12px;">단순 횟수가 아닌 <strong>세션 구성 비율</strong>로 리듬을 판단한다.</p>
+      <table>
+        <tr><th>종류</th><th>기준</th><th>의미</th></tr>
+        <tr><td style="color:var(--green)"><strong>Quick</strong></td><td>20분 미만</td><td>빠른 질문, 간단한 수정</td></tr>
+        <tr><td style="color:var(--yellow)"><strong>Standard</strong></td><td>20~60분</td><td>일반적인 작업 세션</td></tr>
+        <tr><td style="color:var(--orange)"><strong>Deep</strong></td><td>60분 이상</td><td>깊은 몰입, 대규모 작업</td></tr>
+      </table>
+      <div class="callout blue" style="margin:16px 0;">
+        <div class="callout-title">왜 세션 횟수가 아니라 종류 비율인가?</div>
+        <p style="margin:0;font-size:14px;">하루 10번 쓰더라도 7번이 Deep이면 <strong>마라토너</strong>. 하루 2번만 쓰더라도 둘 다 Quick이면 <strong>스프린터</strong>. 횟수가 아닌 <strong>작업 스타일</strong>을 직접 반영.</p>
+      </div>
+      <div class="formula-box"><div class="formula-title">측정 수식</div>
+<pre><code>// 세션 종류 비율
+quickCount = sessions where duration < 20min
+deepCount  = sessions where duration >= 60min
+sessionTypeScore = deepCount / (deepCount + quickCount)
+// 둘 다 0이면 (Standard만) &rarr; 0.5 (중립)
+
+// 시간대 엔트로피 (Shannon entropy)
+hourlyEntropy = -sum(p * log2(p)) for each hour
+concentration = 1 - (hourlyEntropy / log2(24))
+
+rhythmScore = normalize(medianDuration)     * 0.4
+            + normalize(concentration)       * 0.3
+            + normalize(sessionTypeScore)    * 0.3
+
+>= 0.5 &rarr; M (마라토너)  |  < 0.5 &rarr; S (스프린터)</code></pre></div>
+      <div class="empathy-box">
+        <div class="empathy-item"><div class="label">마라토너(M)가 하는 말</div>"한번 앉으면 1-2시간은 기본이야"</div>
+        <div class="empathy-item"><div class="label">스프린터(S)가 하는 말</div>"틈틈이 짧게 하는 게 맞아"</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 8유형 조합표</h2>
+    <div class="combo-table">
+      <table>
+        <tr><th></th><th colspan="2" style="text-align:center">⛏️ 한우물 (D)</th><th colspan="2" style="text-align:center">🌍 유목민 (W)</th></tr>
+        <tr><th></th><th style="text-align:center">🏃 M</th><th style="text-align:center">⚡ S</th><th style="text-align:center">🏃 M</th><th style="text-align:center">⚡ S</th></tr>
+        <tr>
+          <td style="font-weight:700">🎯 설계자 (A)</td>
+          <td><span class="combo-cell-emoji">⚒️</span><span class="combo-cell-name">장인 대장장이</span><br><span class="combo-cell-code">ADM</span></td>
+          <td><span class="combo-cell-emoji">⚡</span><span class="combo-cell-name">번개 해결사</span><br><span class="combo-cell-code">ADS</span></td>
+          <td><span class="combo-cell-emoji">🏗️</span><span class="combo-cell-name">만능 빌더</span><br><span class="combo-cell-code">AWM</span></td>
+          <td><span class="combo-cell-emoji">🏄</span><span class="combo-cell-name">트렌드 헌터</span><br><span class="combo-cell-code">AWS</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:700">🧭 탐험가 (E)</td>
+          <td><span class="combo-cell-emoji">🤿</span><span class="combo-cell-name">심해 잠수부</span><br><span class="combo-cell-code">EDM</span></td>
+          <td><span class="combo-cell-emoji">🔎</span><span class="combo-cell-name">코드 감별사</span><br><span class="combo-cell-code">EDS</span></td>
+          <td><span class="combo-cell-emoji">📚</span><span class="combo-cell-name">도서관 사서</span><br><span class="combo-cell-code">EWM</span></td>
+          <td><span class="combo-cell-emoji">🌪️</span><span class="combo-cell-name">카오스 크리에이터</span><br><span class="combo-cell-code">EWS</span></td>
+        </tr>
+      </table>
+    </div>
+    <div class="type-grid">
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">⚒️</div><div><div class="type-code">ADM</div><div class="type-name">장인 대장장이</div><div class="type-sub">Master Smith</div></div></div><div class="type-desc">한 프로젝트에 상세한 지시를 내리며 길게 몰두한다. 완성도의 끝을 보는 장인.</div><div class="type-tags"><span class="type-tag strength">높은 완성도</span><span class="type-tag strength">깊은 전문성</span><span class="type-tag caution">다른 방법을 놓칠 수 있어요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">⚡</div><div><div class="type-code">ADS</div><div class="type-name">번개 해결사</div><div class="type-sub">Lightning Fixer</div></div></div><div class="type-desc">정확한 지시로 빠르게 해결하고 사라진다. 효율의 화신.</div><div class="type-tags"><span class="type-tag strength">빠른 실행력</span><span class="type-tag strength">문제 해결</span><span class="type-tag caution">기술 부채에 주의하세요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">🏗️</div><div><div class="type-code">AWM</div><div class="type-name">만능 빌더</div><div class="type-sub">All-round Builder</div></div></div><div class="type-desc">여러 프로젝트를 오가며 큰 그림을 설계한다. 풀스택의 화신.</div><div class="type-tags"><span class="type-tag strength">풀스택 능력</span><span class="type-tag strength">멀티태스킹</span><span class="type-tag caution">체력 관리가 필요해요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">🏄</div><div><div class="type-code">AWS</div><div class="type-name">트렌드 헌터</div><div class="type-sub">Trend Hunter</div></div></div><div class="type-desc">빠르게 여러 프로젝트를 시도하며 새로운 가능성을 탐색한다.</div><div class="type-tags"><span class="type-tag strength">최신 기술 도입</span><span class="type-tag strength">PoC</span><span class="type-tag caution">깊이가 부족할 수 있어요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">🤿</div><div><div class="type-code">EDM</div><div class="type-name">심해 잠수부</div><div class="type-sub">Deep Diver</div></div></div><div class="type-desc">AI와 깊은 대화로 한 주제를 끝까지 탐구한다. 진짜 원인을 찾아내는 탐구자.</div><div class="type-tags"><span class="type-tag strength">���본 원인 추적</span><span class="type-tag strength">아키텍처 이해</span><span class="type-tag caution">시작이 느릴 수 있어요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">🔎</div><div><div class="type-code">EDS</div><div class="type-name">코드 감별사</div><div class="type-sub">Code Appraiser</div></div></div><div class="type-desc">짧은 대화로 핵심을 짚어내는 리뷰의 달인.</div><div class="type-tags"><span class="type-tag strength">코드 리뷰</span><span class="type-tag strength">빠른 판단력</span><span class="type-tag caution">직접 만드는 건 미룰 수 있어요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">📚</div><div><div class="type-code">EWM</div><div class="type-name">도서관 사서</div><div class="type-sub">Librarian</div></div></div><div class="type-desc">여러 프로젝트를 넘나들며 AI와 대화로 전체를 파악하고 정리한다.</div><div class="type-tags"><span class="type-tag strength">전체 파악</span><span class="type-tag strength">문서화, 기술 조사</span><span class="type-tag caution">완벽주의에 빠질 수 있어요</span></div></div>
+      <div class="type-card"><div class="type-card-header"><div class="type-emoji">🌪️</div><div><div class="type-code">EWS</div><div class="type-name">카오스 크리에이터</div><div class="type-sub">Chaos Creator</div></div></div><div class="type-desc">짧은 대화를 빠르게 여러 프로젝트에서 쏟아낸다. 해커톤의 왕.</div><div class="type-tags"><span class="type-tag strength">아이디어 폭발</span><span class="type-tag strength">빠른 프로토타이핑</span><span class="type-tag caution">마무리를 놓치지 마세요</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 정규화 전략</h2>
+    <div class="callout orange">
+      <div class="callout-title">문제: 비교 대상이 없다</div>
+      <p style="margin:0">memradar는 로컬 전용 도구. 서버가 없어 "전체 사용자 대비 백분위"를 구할 수 없다. 해결: <strong>시그모이드 정규화</strong>로 경험적 기준점 기반 분류.</p>
+    </div>
+    <div class="formula-box"><div class="formula-title">시그모이드 함수</div>
+<pre><code>function sigmoid(value, midpoint, steepness) {
+  return 1 / (1 + Math.exp(-steepness * (value - midpoint)))
+}</code></pre></div>
+    <table>
+      <tr><th>Feature</th><th>Midpoint</th><th>Steepness</th><th>0.27 / 0.5 / 0.73 예시</th></tr>
+      <tr><td>평균 메시지 길이</td><td>100자</td><td>0.02</td><td>50자 / 100자 / 150자</td></tr>
+      <tr><td>세션당 턴 수</td><td>8턴</td><td>0.2</td><td>13턴 / 8턴 / 3턴</td></tr>
+      <tr><td>토큰 비율 (out/in)</td><td>5.0</td><td>0.3</td><td>1.5 / 5.0 / 8.5</td></tr>
+      <tr><td>주당 프로젝트 수</td><td>2.5개</td><td>0.8</td><td>1개 / 2.5개 / 4개</td></tr>
+      <tr><td>전환 빈도</td><td>0.3</td><td>5.0</td><td>0.07 / 0.3 / 0.53</td></tr>
+      <tr><td>세션 중앙값</td><td>45분</td><td>0.06</td><td>20분 / 45분 / 70분</td></tr>
+      <tr><td>시간 집중도</td><td>0.5</td><td>4.0</td><td>0.23 / 0.5 / 0.77</td></tr>
+      <tr><td>세션 종류 비율</td><td>0.5</td><td>4.0</td><td>0.15 / 0.5 / 0.85</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 변경 요약</h2>
+    <div class="change-grid">
+      <div class="change-card before"><div class="label">AS-IS (현재)</div><ul>
+        <li>축1: AI 도구 사용 비율 (Read/Execute)</li>
+        <li>축2: 도구+프로젝트+모델 다양성</li>
+        <li>축3: 평균 세션 시간 (절대값 30분)</li>
+        <li>임계값: 고정 0.5</li>
+        <li>결과: 80%+ 만능빌더(EWM)</li>
+      </ul></div>
+      <div class="change-card after"><div class="label">TO-BE (변경 후)</div><ul>
+        <li>축1: 사용자 메시지 길이 &middot; 턴 수 &middot; 토큰비율</li>
+        <li>축2: 프로젝트(cwd) 집중도 &middot; 전환빈도</li>
+        <li>축3: 세션 중앙값 + 엔트로피 + 세션종류 비율</li>
+        <li>임계값: 시그모이드 정규화 (상대적)</li>
+        <li>목표: 최대 유형 30% 이하</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. MBTI 대응 참고</h2>
+    <div class="mbti-compare">
+      <div class="mbti-item"><div class="mbti-label">MBTI J/P &asymp;</div><div class="mbti-axis">A / E</div><div class="mbti-name">설계자 / 탐험가</div></div>
+      <div class="mbti-item"><div class="mbti-label">MBTI S/N &asymp;</div><div class="mbti-axis">D / W</div><div class="mbti-name">��우물 / 유목민</div></div>
+      <div class="mbti-item"><div class="mbti-label">MBTI I/E &asymp;</div><div class="mbti-axis">M / S</div><div class="mbti-name">마라토너 / 스프린터</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 검증 계획</h2>
+    <table>
+      <tr><th>목표 지표</th><th>기준</th></tr>
+      <tr><td>최다 유형 비율</td><td><strong>30% 이하</strong></td></tr>
+      <tr><td>최소 유형 비율</td><td><strong>3% 이상</strong></td></tr>
+      <tr><td>상위 3��� 유형 합계</td><td><strong>60% 이하</strong></td></tr>
+    </table>
+  </section>
+
+  </div><!-- /tab-design -->
+
+  <!-- ==================== TAB 2: 구현 문서 ==================== -->
+  <div id="tab-impl" class="tab-panel">
+
+  <section>
+    <h2>구현 개요</h2>
+    <p><code>src/lib/personality.ts</code>의 <code>computePersonality()</code> 함수 내부만 교체합니다. 외부 인터페이스(TypeCode, PersonalityResult, TYPE_DEFS)는 변경하지 않으므로 UI 수정이 필요 없습니다.</p>
+
+    <div class="callout green">
+      <div class="callout-title">작업 범위</div>
+      <table style="margin:0">
+        <tr><th>파일</th><th>변경</th><th>규모</th></tr>
+        <tr><td><code>src/lib/personality.ts</code></td><td><code>computePersonality()</code> 내부 로직 전면 교체, 헬퍼 함수 추가</td><td>~80줄</td></tr>
+        <tr><td><code>src/lib/usageProfile.ts</code></td><td>feature 카테고리 title 변경</td><td>1줄</td></tr>
+      </table>
+    </div>
+
+    <h3>구현 순서</h3>
+    <div style="padding: 16px 0;">
+      <div class="impl-step"><div class="impl-step-num">1</div><div class="impl-step-content"><div class="impl-step-title">sigmoid 헬퍼 함수 추가</div><div class="impl-step-desc">기존 <code>clamp01</code>, <code>countToolsByHints</code> 제거. <code>sigmoid</code> 정규화 함수 추가.</div></div></div>
+      <div class="impl-step"><div class="impl-step-num">2</div><div class="impl-step-content"><div class="impl-step-title">extractProject 헬퍼 함수 추가</div><div class="impl-step-desc">cwd 경로에서 프로젝트 루트를 추출하는 함수.</div></div></div>
+      <div class="impl-step"><div class="impl-step-num">3</div><div class="impl-step-content"><div class="impl-step-title">computePersonality 내부 로직 교체</div><div class="impl-step-desc">3개 축의 측정 로직을 사용자 행동 기반으로 전면 교체.</div></div></div>
+      <div class="impl-step"><div class="impl-step-num">4</div><div class="impl-step-content"><div class="impl-step-title">TypeCode 매핑 변경</div><div class="impl-step-desc">기존 R/E &rarr; 신규 A/E 매핑. 내부 코드만 변경, TypeCode 문자열은 유지.</div></div></div>
+      <div class="impl-step"><div class="impl-step-num">5</div><div class="impl-step-content"><div class="impl-step-title">usageProfile 이름 수정</div><div class="impl-step-desc">"만능 빌더" &rarr; "기능 빌더"로 1줄 변경.</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>전체 코드: personality.ts (교체)</h2>
+    <p>아래는 <code>computePersonality()</code>와 관련 헬퍼 함수의 <strong>교체 후 전체 코드</strong>입니다. TYPE_DEFS, TypeCode, 인터페이스는 기존과 동일하므로 생략합니다.</p>
+
+    <div class="impl-file">
+      <div class="impl-file-header">
+        <span class="impl-file-name">src/lib/personality.ts</span>
+        <span class="impl-file-badge modify">MODIFY</span>
+      </div>
+<pre><code><span class="cm">// ── 삭제할 코드 ──────────────────────────────────────</span>
+<span class="cm">// 아래 4개를 삭제합니다:</span>
+<span class="cm">//   const READ_TOOL_HINTS = [...]</span>
+<span class="cm">//   const EXECUTE_TOOL_HINTS = [...]</span>
+<span class="cm">//   function clamp01(...)</span>
+<span class="cm">//   function countToolsByHints(...)</span>
+
+<span class="cm">// ── 추가할 헬퍼 함수들 ──────────────────────────────</span>
+
+<span class="cm">/** 시그모이드 정규화: value를 0~1 범위로 매핑 */</span>
+<span class="kw">function</span> <span class="fn">sigmoid</span>(value: number, midpoint: number, steepness: number): number {
+  <span class="kw">if</span> (!Number.isFinite(value)) <span class="kw">return</span> <span class="nu">0.5</span>
+  <span class="kw">return</span> <span class="nu">1</span> / (<span class="nu">1</span> + Math.exp(-steepness * (value - midpoint)))
+}
+
+<span class="cm">/** cwd 경로에서 프로젝트 루트를 추출 */</span>
+<span class="kw">function</span> <span class="fn">extractProject</span>(cwd: string): string {
+  <span class="kw">const</span> parts = cwd.replace(<span class="st">/\\/g</span>, <span class="st">'/'</span>).split(<span class="st">'/'</span>).filter(Boolean)
+  <span class="kw">return</span> parts.slice(<span class="nu">0</span>, Math.min(parts.length, <span class="nu">4</span>)).join(<span class="st">'/'</span>)
+}
+
+<span class="cm">/** 배열의 중앙값 계산 */</span>
+<span class="kw">function</span> <span class="fn">median</span>(arr: number[]): number {
+  <span class="kw">if</span> (arr.length === <span class="nu">0</span>) <span class="kw">return</span> <span class="nu">0</span>
+  <span class="kw">const</span> sorted = [...arr].sort((a, b) => a - b)
+  <span class="kw">const</span> mid = Math.floor(sorted.length / <span class="nu">2</span>)
+  <span class="kw">return</span> sorted.length % <span class="nu">2</span> ? sorted[mid] : (sorted[mid - <span class="nu">1</span>] + sorted[mid]) / <span class="nu">2</span>
+}</code></pre>
+    </div>
+
+    <div class="impl-file">
+      <div class="impl-file-header">
+        <span class="impl-file-name">computePersonality() — 전면 교체</span>
+        <span class="impl-file-badge modify">MODIFY</span>
+      </div>
+<pre><code><span class="kw">export function</span> <span class="fn">computePersonality</span>(sessions: Session[], stats: Stats): PersonalityResult {
+  <span class="kw">const</span> defaultAxes: Record&lt;AxisKey, AxisScore&gt; = {
+    style:  { label: [<span class="st">'설계자'</span>, <span class="st">'탐험가'</span>], value: <span class="nu">0.5</span> },
+    scope:  { label: [<span class="st">'한우물'</span>, <span class="st">'유목민'</span>], value: <span class="nu">0.5</span> },
+    rhythm: { label: [<span class="st">'마라토너'</span>, <span class="st">'스프린터'</span>], value: <span class="nu">0.5</span> },
+  }
+
+  <span class="kw">if</span> (sessions.length === <span class="nu">0</span> || stats.totalMessages &lt; <span class="nu">3</span>) {
+    <span class="kw">return</span> { type: <span class="st">'EWS'</span>, axes: defaultAxes, ...TYPE_DEFS.EWS }
+  }
+
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+  <span class="cm">// 축 1: 대화 방식 — 설계자(A) vs 탐험가(E)</span>
+  <span class="cm">// 사용자 메시지의 길이, 턴 수, 토큰 비율로 측정</span>
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+
+  <span class="cm">// 사용자 메시지만 추출</span>
+  <span class="kw">const</span> userMessages = sessions.flatMap(s =>
+    s.messages.filter(m => m.role === <span class="st">'user'</span>)
+  )
+  <span class="kw">const</span> avgMsgLen = userMessages.length > <span class="nu">0</span>
+    ? userMessages.reduce((sum, m) => sum + m.text.length, <span class="nu">0</span>) / userMessages.length
+    : <span class="nu">100</span>
+
+  <span class="cm">// 세션당 평균 사용자 턴 수</span>
+  <span class="kw">const</span> turnsPerSession = sessions.length > <span class="nu">0</span>
+    ? sessions.reduce((sum, s) => sum + s.messageCount.user, <span class="nu">0</span>) / sessions.length
+    : <span class="nu">8</span>
+
+  <span class="cm">// 출력/입력 토큰 비율</span>
+  <span class="kw">const</span> tokenRatio = stats.totalTokens.input > <span class="nu">0</span>
+    ? stats.totalTokens.output / stats.totalTokens.input
+    : <span class="nu">5</span>
+
+  <span class="kw">const</span> styleValue =
+    sigmoid(avgMsgLen, <span class="nu">100</span>, <span class="nu">0.02</span>) * <span class="nu">0.4</span> +            <span class="cm">// 메시지 길수록 → A</span>
+    (<span class="nu">1</span> - sigmoid(turnsPerSession, <span class="nu">8</span>, <span class="nu">0.2</span>)) * <span class="nu">0.3</span> +    <span class="cm">// 턴 적을수록 → A</span>
+    sigmoid(tokenRatio, <span class="nu">5</span>, <span class="nu">0.3</span>) * <span class="nu">0.3</span>              <span class="cm">// AI출력 많을수록 → A</span>
+
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+  <span class="cm">// 축 2: 작업 범위 — 한우물(D) vs 유목민(W)</span>
+  <span class="cm">// cwd 기반 프로젝트 집중도로 측정. toolsUsed 배제.</span>
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+
+  <span class="kw">const</span> projectIds = sessions
+    .map(s => s.cwd ? extractProject(s.cwd) : <span class="st">''</span>)
+    .filter(Boolean)
+  <span class="kw">const</span> uniqueProjects = <span class="kw">new</span> Set(projectIds)
+
+  <span class="cm">// 주당 고유 프로젝트 수 (기간 보정)</span>
+  <span class="kw">const</span> firstTime = <span class="kw">new</span> Date(sessions[<span class="nu">0</span>].startTime).getTime()
+  <span class="kw">const</span> lastTime = <span class="kw">new</span> Date(sessions[sessions.length - <span class="nu">1</span>].endTime).getTime()
+  <span class="kw">const</span> activeWeeks = Math.max((lastTime - firstTime) / (<span class="nu">7</span> * <span class="nu">24</span> * <span class="nu">3600000</span>), <span class="nu">1</span>)
+  <span class="kw">const</span> projectsPerWeek = uniqueProjects.size / activeWeeks
+
+  <span class="cm">// 프로젝트 전환 빈도</span>
+  <span class="kw">let</span> switchCount = <span class="nu">0</span>
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nu">1</span>; i &lt; projectIds.length; i++) {
+    <span class="kw">if</span> (projectIds[i] !== projectIds[i - <span class="nu">1</span>]) switchCount++
+  }
+  <span class="kw">const</span> switchRate = projectIds.length > <span class="nu">1</span>
+    ? switchCount / (projectIds.length - <span class="nu">1</span>)
+    : <span class="nu">0</span>
+
+  <span class="cm">// 최다 프로젝트 집중도</span>
+  <span class="kw">const</span> projectCounts: Record&lt;string, number&gt; = {}
+  <span class="kw">for</span> (<span class="kw">const</span> pid <span class="kw">of</span> projectIds) projectCounts[pid] = (projectCounts[pid] || <span class="nu">0</span>) + <span class="nu">1</span>
+  <span class="kw">const</span> topProjectShare = projectIds.length > <span class="nu">0</span>
+    ? Math.max(...Object.values(projectCounts)) / projectIds.length
+    : <span class="nu">1</span>
+
+  <span class="kw">const</span> scopeValue =
+    sigmoid(projectsPerWeek, <span class="nu">2.5</span>, <span class="nu">0.8</span>) * <span class="nu">0.4</span> +       <span class="cm">// 프로젝트 많을수록 → W</span>
+    sigmoid(switchRate, <span class="nu">0.3</span>, <span class="nu">5</span>) * <span class="nu">0.4</span> +               <span class="cm">// 전환 잦을수록 → W</span>
+    (<span class="nu">1</span> - sigmoid(topProjectShare, <span class="nu">0.6</span>, <span class="nu">5</span>)) * <span class="nu">0.2</span>     <span class="cm">// 집중도 낮을수록 → W</span>
+
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+  <span class="cm">// 축 3: 작업 리듬 — 마라토너(M) vs 스프린터(S)</span>
+  <span class="cm">// 세션 중앙값 + 시간 엔트로피 + 세션 종류 비율</span>
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+
+  <span class="kw">const</span> durations = sessions
+    .map(s => (<span class="kw">new</span> Date(s.endTime).getTime() - <span class="kw">new</span> Date(s.startTime).getTime()) / <span class="nu">60000</span>)
+    .filter(d => d > <span class="nu">0</span> &amp;&amp; d &lt; <span class="nu">1440</span>)  <span class="cm">// 0 초과, 24시간 미만</span>
+  <span class="kw">const</span> medianDuration = median(durations)
+
+  <span class="cm">// 시간대 엔트로피 (stats.hourlyActivity 활용)</span>
+  <span class="kw">const</span> hours = stats.hourlyActivity
+  <span class="kw">const</span> totalActivity = hours.reduce((a, b) => a + b, <span class="nu">0</span>)
+  <span class="kw">let</span> hourlyEntropy = <span class="nu">0</span>
+  <span class="kw">if</span> (totalActivity > <span class="nu">0</span>) {
+    <span class="kw">for</span> (<span class="kw">const</span> h <span class="kw">of</span> hours) {
+      <span class="kw">if</span> (h > <span class="nu">0</span>) {
+        <span class="kw">const</span> p = h / totalActivity
+        hourlyEntropy -= p * Math.log2(p)
+      }
+    }
+  }
+  <span class="kw">const</span> concentration = <span class="nu">1</span> - (hourlyEntropy / Math.log2(<span class="nu">24</span>)) <span class="cm">// 0=분산, 1=집중</span>
+
+  <span class="cm">// 세션 종류 비율: Quick(&lt;20분) vs Deep(>=60분)</span>
+  <span class="kw">const</span> quickCount = durations.filter(d => d &lt; <span class="nu">20</span>).length
+  <span class="kw">const</span> deepCount = durations.filter(d => d >= <span class="nu">60</span>).length
+  <span class="kw">const</span> sessionTypeScore = (quickCount + deepCount) > <span class="nu">0</span>
+    ? deepCount / (quickCount + deepCount)
+    : <span class="nu">0.5</span>  <span class="cm">// Standard만 있으면 중립</span>
+
+  <span class="kw">const</span> rhythmValue =
+    sigmoid(medianDuration, <span class="nu">45</span>, <span class="nu">0.06</span>) * <span class="nu">0.4</span> +        <span class="cm">// 길수록 → M</span>
+    sigmoid(concentration, <span class="nu">0.5</span>, <span class="nu">4</span>) * <span class="nu">0.3</span> +           <span class="cm">// 집중적일수록 → M</span>
+    sigmoid(sessionTypeScore, <span class="nu">0.5</span>, <span class="nu">4</span>) * <span class="nu">0.3</span>         <span class="cm">// Deep 많을수록 → M</span>
+
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+  <span class="cm">// 유형 결정</span>
+  <span class="cm">// ═══════════════════════════════════════════════════</span>
+
+  <span class="kw">const</span> axes: Record&lt;AxisKey, AxisScore&gt; = {
+    style:  { label: [<span class="st">'설계자'</span>, <span class="st">'탐험가'</span>], value: styleValue },
+    scope:  { label: [<span class="st">'한우물'</span>, <span class="st">'유목민'</span>], value: scopeValue },
+    rhythm: { label: [<span class="st">'마라토너'</span>, <span class="st">'스프린터'</span>], value: rhythmValue },
+  }
+
+  <span class="cm">// TypeCode ���핑 (기존 코드와 동일한 문자열 유지)</span>
+  <span class="cm">// style: A(설계자) → 기존 'E' 위치, E(탐험가) → 기존 'R' 위치</span>
+  <span class="cm">// 이유: TYPE_DEFS에서 EDM="장인대장장이" 등을 그대로 유지하기 위해</span>
+  <span class="kw">const</span> s = styleValue >= <span class="nu">0.5</span> ? <span class="st">'E'</span> : <span class="st">'R'</span>   <span class="cm">// A(설계자)→E, E(탐험가)→R</span>
+  <span class="kw">const</span> d = scopeValue >= <span class="nu">0.5</span> ? <span class="st">'W'</span> : <span class="st">'D'</span>   <span class="cm">// W(유목민), D(한우물)</span>
+  <span class="kw">const</span> r = rhythmValue >= <span class="nu">0.5</span> ? <span class="st">'M'</span> : <span class="st">'S'</span>  <span class="cm">// M(마라토너), S(스프린터)</span>
+  <span class="kw">const</span> type = <span class="st">`${s}${d}${r}`</span> <span class="kw">as</span> TypeCode
+
+  <span class="kw">return</span> { type, axes, ...TYPE_DEFS[type] }
+}</code></pre>
+    </div>
+
+    <div class="callout orange">
+      <div class="callout-title">TypeCode 매핑 주의</div>
+      <p style="margin:0;font-size:14px;">기존 TYPE_DEFS에서 <code>EDM = "장인 대장장이"</code>, <code>RDM = "심해 잠수부"</code>로 정의되어 있습니다. 새 축에서 <strong>설계자(A)가 기존 E 위치</strong>, <strong>탐험가(E)가 기존 R 위치</strong>에 매핑되어야 유형 이름이 맞습니다. TypeCode 문자열 자체(EDM, RDS 등)는 변경하지 않습니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>TypeCode ↔ 유형 매핑 검증</h2>
+    <table>
+      <tr><th>TypeCode</th><th>새 축 조합</th><th>유형 이름</th><th>검증</th></tr>
+      <tr><td><code>EDM</code></td><td>설계자(A) + 한우물(D) + 마라토너(M)</td><td>장인 대장장이 ⚒️</td><td style="color:var(--green)">OK — 상세 지시, 한 프로젝트 몰입, 길게</td></tr>
+      <tr><td><code>EDS</code></td><td>설계자(A) + 한우물(D) + 스프린터(S)</td><td>번개 해결사 ⚡</td><td style="color:var(--green)">OK — 정확한 ��시, 집중, 빠르게</td></tr>
+      <tr><td><code>EWM</code></td><td>설계자(A) + 유목민(W) + 마라토너(M)</td><td>만능 빌더 🏗️</td><td style="color:var(--green)">OK — 큰 그림 설계, 여러 프로젝트, 길게</td></tr>
+      <tr><td><code>EWS</code></td><td>설계자(A) + 유목민(W) + 스프린터(S)</td><td>트렌드 헌터 🏄</td><td style="color:var(--green)">OK — 빠르게 여러 곳 시도</td></tr>
+      <tr><td><code>RDM</code></td><td>탐험가(E) + 한우물(D) + 마라토너(M)</td><td>심해 잠수부 🤿</td><td style="color:var(--green)">OK — 대화하며 깊이 탐구, 한 주제, 길게</td></tr>
+      <tr><td><code>RDS</code></td><td>탐험가(E) + 한우물(D) + 스프린터(S)</td><td>코드 감별사 🔎</td><td style="color:var(--green)">OK — 짧은 대화로 핵심 파악</td></tr>
+      <tr><td><code>RWM</code></td><td>탐험가(E) + 유목민(W) + 마라토너(M)</td><td>도서관 사서 📚</td><td style="color:var(--green)">OK — 대화하며 넓게 탐색, 꼼꼼히</td></tr>
+      <tr><td><code>RWS</code></td><td>탐험가(E) + 유목민(W) + 스프린터(S)</td><td>카오스 크리에이터 🌪️</td><td style="color:var(--green)">OK — 빠른 대화, 여러 곳, 동시다발</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>usageProfile.ts 변경</h2>
+    <div class="impl-file">
+      <div class="impl-file-header">
+        <span class="impl-file-name">src/lib/usageProfile.ts</span>
+        <span class="impl-file-badge minor">1줄 변경</span>
+      </div>
+<pre><code><span class="cm">// line 18: title 변경</span>
+<span class="cm">// before:</span>
+    title: <span class="st">'만능 빌더'</span>,
+<span class="cm">// after:</span>
+    title: <span class="st">'기능 빌더'</span>,</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>축 라벨 변경</h2>
+    <p>PersonalityView.tsx와 PersonalitySlide.tsx에서 축 라벨은 <code>axes.style.label</code>을 그대로 렌더링합니다. <code>computePersonality()</code>에서 반환하는 label을 <code>['설계자', '탐험가']</code> 등으로 바꾸면 UI에 자동 반영됩니다.</p>
+
+    <div class="callout blue">
+      <div class="callout-title">UI 변경이 필요 없는 이유</div>
+      <p style="margin:0;font-size:14px;">PersonalityView.tsx의 바 UI는 <code>axes[key].label[0]</code>, <code>axes[key].label[1]</code>, <code>axes[key].value</code>를 동적으로 렌더링합니다. label 문자열을 바꾸면 표시가 자동으로 바뀝니다.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>테스트 시나리오</h2>
+    <table>
+      <tr><th>시나리오</th><th>입력 특성</th><th>기대 유형</th></tr>
+      <tr>
+        <td>긴 프롬프트 + 한 프로젝트 + 2시간 세션</td>
+        <td>avgMsgLen=250, turns=4, 1 project, median=120min</td>
+        <td><strong>EDM</strong> 장인 대장장이</td>
+      </tr>
+      <tr>
+        <td>짧은 대화 + 한 프로젝트 + 10분씩 자주</td>
+        <td>avgMsgLen=30, turns=20, 1 project, median=10min</td>
+        <td><strong>RDS</strong> 코드 감별사</td>
+      </tr>
+      <tr>
+        <td>긴 프롬프트 + 5개 프로젝트 + 1시간 세션</td>
+        <td>avgMsgLen=200, turns=5, 5 projects, median=60min</td>
+        <td><strong>EWM</strong> 만능 빌더</td>
+      </tr>
+      <tr>
+        <td>짧은 대화 + 4개 프로젝트 + 15분씩</td>
+        <td>avgMsgLen=40, turns=15, 4 projects, median=15min</td>
+        <td><strong>RWS</strong> 카오스 크리에이터</td>
+      </tr>
+      <tr>
+        <td>데이터 부족 (메시지 3개 미만)</td>
+        <td>totalMessages &lt; 3</td>
+        <td><strong>EWS</strong> (기본값 유지)</td>
+      </tr>
+      <tr>
+        <td>cwd가 없는 세션</td>
+        <td>모든 세션의 cwd = undefined</td>
+        <td>Scope 축 → 0.5 (중립, D/W 경계)</td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Edge Case 처리</h2>
+    <table>
+      <tr><th>상황</th><th>처리</th></tr>
+      <tr><td>세션이 0개 또는 메시지 3개 미만</td><td>기존과 동일: EWS(카오스 크리에이터) 기본값 반환</td></tr>
+      <tr><td>사용자 메시지가 0개 (assistant만 있는 세션)</td><td>avgMsgLen = 100 (midpoint), turnsPerSession = 8 → style 0.5</td></tr>
+      <tr><td>모든 세션의 cwd가 undefined</td><td>projectIds 빈 배열 → topProjectShare = 1, switchRate = 0 → scope ≈ 0.2 (Deep)</td></tr>
+      <tr><td>Quick/Deep 세션이 0개 (Standard만)</td><td>sessionTypeScore = 0.5 (중립)</td></tr>
+      <tr><td>세션 1개만 있음</td><td>switchRate = 0, activeWeeks = 1, 정상 작동</td></tr>
+      <tr><td>���큰 input이 0</td><td>tokenRatio = 5 (midpoint) → style 기여분 0.5</td></tr>
+    </table>
+  </section>
+
+  </div><!-- /tab-impl -->
+
+  <div class="footer">
+    memradar &middot; Personality System Redesign Spec v1.0 &middot; 2026-04-18
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+</script>
+
+</body>
+</html>

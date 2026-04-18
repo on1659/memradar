@@ -1,15 +1,24 @@
-import { useMemo } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { useMemo, type ReactNode } from 'react'
+import { ArrowLeft, ArrowLeftRight, CircleHelp } from 'lucide-react'
 import type { Session } from '../types'
 import { computeStats } from '../parser'
 import { computePersonality } from '../lib/personality'
 import type { PersonalityResult, TypeCode, AxisKey } from '../lib/personality'
 import { USAGE_CATEGORIES } from '../lib/usageProfile'
 import type { UsageCategory } from '../lib/usageProfile'
+import { MemradarTopBar } from './MemradarTopBar'
 
 interface Props {
   sessions: Session[]
-  onBack: () => void
+  onBack?: () => void
+  onOpenWrapped?: () => void
+  onOpenDashboard?: () => void
+  themeProps: {
+    theme: string
+    accent: string
+    setTheme: (theme: string) => void
+    setAccent: (accent: string) => void
+  }
 }
 
 const ALL_TYPES: TypeCode[] = ['RDM', 'RDS', 'RWM', 'RWS', 'EDM', 'EDS', 'EWM', 'EWS']
@@ -25,19 +34,19 @@ const AXIS_LABELS: Record<string, [string, string]> = {
 
 const PERSONALITY_CARD_THEME = {
   badgeBg: 'color-mix(in srgb, var(--t-accent) 10%, var(--t-bg-card))',
-  badgeText: 'rgba(167,155,247,0.9)',
-  codeBg: 'rgba(255,255,255,0.04)',
-  codeText: 'rgba(232,230,240,0.34)',
-  title: '#e8e6f0',
-  subtitle: 'rgba(167,155,247,0.82)',
-  body: 'rgba(232,230,240,0.56)',
-  axisTrack: 'rgba(255,255,255,0.04)',
-  axisDivider: 'rgba(255,255,255,0.12)',
-  panelBorder: 'rgba(255,255,255,0.06)',
-  strengthsBg: 'rgba(255,255,255,0.04)',
-  headsUpBg: 'rgba(255,255,255,0.04)',
-  panelLabel: 'rgba(232,230,240,0.34)',
-  panelText: 'rgba(232,230,240,0.86)',
+  badgeText: 'color-mix(in srgb, var(--t-accent) 82%, var(--t-text-bright) 18%)',
+  codeBg: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)',
+  codeText: 'color-mix(in srgb, var(--t-text) 52%, transparent)',
+  title: 'var(--t-text-bright)',
+  subtitle: 'color-mix(in srgb, var(--t-accent) 78%, var(--t-text-bright) 22%)',
+  body: 'color-mix(in srgb, var(--t-text) 82%, transparent)',
+  axisTrack: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)',
+  axisDivider: 'color-mix(in srgb, var(--t-border) 72%, transparent)',
+  panelBorder: 'color-mix(in srgb, var(--t-border) 88%, transparent)',
+  strengthsBg: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
+  headsUpBg: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
+  panelLabel: 'color-mix(in srgb, var(--t-text) 60%, transparent)',
+  panelText: 'color-mix(in srgb, var(--t-text-bright) 84%, var(--t-text) 16%)',
 } as const
 
 const CODE_REPORT_AXIS_COLORS: Record<AxisKey, string> = {
@@ -65,6 +74,20 @@ const PERSONALITY_PANEL_HELP = {
   strengths: '이 유형에서 특히 강하게 드러나는 작업 방식이에요.',
   headsUp: '이 유형일 때 가끔 의식하면 좋은 작업 습관이에요.',
 } as const
+
+const USAGE_CARD_HELP = '사용자 메시지에서 자주 나온 작업 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요.'
+
+const USAGE_CATEGORY_HELP: Record<string, string> = {
+  feature: '새 기능 구현, 컴포넌트 추가, API 연결처럼 "만들어줘" 요청이 많을 때 올라가요.',
+  debug: '에러 원인 찾기, 깨진 동작 수정, 경고 해결 같은 디버깅 요청이 많을 때 올라가요.',
+  refactor: '리팩터링, 구조 정리, 가독성 개선, 코드 정돈 요청이 많을 때 올라가요.',
+  review: '코드 설명, 분석, 검토, 이해를 돕는 요청이 많을 때 올라가요.',
+  writing: '문서 작성, 요약, 번역, README나 리포트 정리 요청이 많을 때 올라가요.',
+  design: 'UI/UX, 스타일, CSS, 레이아웃, 반응형 조정 요청이 많을 때 올라가요.',
+  devops: '배포, 빌드, 환경 변수, CI/CD, 서버 설정 요청이 많을 때 올라가요.',
+  data: '데이터 처리, 쿼리, JSON/CSV, 스키마, 모델 관련 요청이 많을 때 올라가요.',
+  test: '테스트 작성, 검증 자동화, e2e/unit/spec 관련 요청이 많을 때 올라가요.',
+}
 
 // --- Usage category analysis (uses shared USAGE_CATEGORIES from usageProfile.ts) ---
 
@@ -161,7 +184,13 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
 
 void UsageProfile
 
-function UsageAllJobs({ categories }: { categories: CategoryScore[] }) {
+function UsageAllJobs({
+  categories,
+  onSwitchView,
+}: {
+  categories: CategoryScore[]
+  onSwitchView?: () => void
+}) {
   const maxScore = categories[0]?.score || 1
 
   if (categories.length === 0) return null
@@ -174,39 +203,114 @@ function UsageAllJobs({ categories }: { categories: CategoryScore[] }) {
 
   return (
     <div className="animate-in rounded-xl border border-border bg-bg-card p-5">
-      <h2 className="mb-1 text-lg font-bold text-text-bright">내 AI의 직업</h2>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className="truncate text-lg font-bold text-text-bright">내 AI의 직업</h2>
+          <HoverTooltip
+            title="AI 직업이란?"
+            description={USAGE_CARD_HELP}
+            align="left"
+            tooltipWidthClass="w-60"
+            buttonClassName="rounded-full p-0.5 text-text/35 transition-colors hover:text-text/70 focus:outline-none focus:ring-1 focus:ring-accent/40"
+          >
+            <CircleHelp className="h-3.5 w-3.5" />
+          </HoverTooltip>
+        </div>
+        {onSwitchView && (
+          <button
+            type="button"
+            onClick={onSwitchView}
+            className="flex h-8 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            <span>대시보드</span>
+          </button>
+        )}
+      </div>
       <p className="mb-4 text-sm text-text/50">{topVerdict}</p>
-      <div className="space-y-2">
+      <div className="space-y-1">
         {categories.map((entry, index) => {
           const { category, score, sessionCount } = entry
           const pct = Math.round((score / maxScore) * 100)
+          const tooltipDescription = `${category.subtitle}. ${USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 잡혔어요.'}`
           return (
-            <div key={category.id} className="flex items-center gap-3">
-              <span className="w-6 text-center text-lg">{category.emoji}</span>
-              <div className="w-24 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-text-bright truncate">{category.title}</span>
-                  {index === 0 && (
-                    <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
-                      대표
-                    </span>
-                  )}
+            <HoverTooltip
+              key={category.id}
+              title={category.title}
+              description={tooltipDescription}
+              align="left"
+              wrapperClassName="group relative block"
+              buttonClassName="block w-full rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--t-text-bright)_4%,transparent)] focus:outline-none focus:ring-1 focus:ring-accent/35"
+              tooltipWidthClass="w-64"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-6 text-center text-lg">{category.emoji}</span>
+                <div className="w-24 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-text-bright truncate">{category.title}</span>
+                    {index === 0 && (
+                      <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
+                        대표
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 h-2 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: category.color, opacity: index === 0 ? 0.85 : 0.5 }}
+                  />
+                </div>
+                <div className="w-16 shrink-0 text-right text-[11px] text-text/40">
+                  {score}회 · {sessionCount}세션
                 </div>
               </div>
-              <div className="flex-1 h-2 overflow-hidden rounded-full bg-white/5">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, backgroundColor: category.color, opacity: index === 0 ? 0.85 : 0.5 }}
-                />
-              </div>
-              <div className="w-16 shrink-0 text-right text-[11px] text-text/40">
-                {score}회 · {sessionCount}세션
-              </div>
-            </div>
+            </HoverTooltip>
           )
         })}
       </div>
     </div>
+  )
+}
+
+function HoverTooltip({
+  children,
+  title,
+  description,
+  align = 'center',
+  wrapperClassName = 'group relative inline-flex',
+  buttonClassName = 'inline-flex',
+  tooltipWidthClass = 'w-56',
+}: {
+  children: ReactNode
+  title?: string
+  description: string
+  align?: 'left' | 'center' | 'right'
+  wrapperClassName?: string
+  buttonClassName?: string
+  tooltipWidthClass?: string
+}) {
+  const tooltipPositionClass =
+    align === 'left'
+      ? 'left-0'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-1/2 -translate-x-1/2'
+
+  return (
+    <span className={wrapperClassName}>
+      <button type="button" className={buttonClassName}>
+        {children}
+      </button>
+      <span
+        className={`pointer-events-none absolute bottom-full z-30 mb-2 ${tooltipWidthClass} rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
+      >
+        {title && <span className="block font-semibold text-text-bright">{title}</span>}
+        <span className={title ? 'mt-1 block text-text/75' : 'block text-text'}>
+          {description}
+        </span>
+      </span>
+    </span>
   )
 }
 
@@ -233,7 +337,7 @@ function TooltipLabel({
       <button
         type="button"
         className="cursor-help rounded px-0.5 py-0.5 transition-colors focus:outline-none focus:ring-1 focus:ring-accent/40"
-        style={{ color: active ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}
+        style={{ color: active ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
       >
         {children}
       </button>
@@ -312,49 +416,58 @@ function AxisBar({
   )
 }
 
-function TypeCard({ type, isCurrentType }: {
+function TypeCard({ type }: {
   type: TypeCode
-  isCurrentType: boolean
 }) {
   const info = useMemo(() => {
     return computePersonalityStatic(type)
   }, [type])
+  const axisTags = [
+    { label: AXIS_LABELS[type[0]][0], color: CODE_REPORT_AXIS_COLORS.style },
+    { label: AXIS_LABELS[type[1]][0], color: CODE_REPORT_AXIS_COLORS.scope },
+    { label: AXIS_LABELS[type[2]][0], color: CODE_REPORT_AXIS_COLORS.rhythm },
+  ]
 
   return (
-    <div className={`rounded-xl border p-4 transition-all ${
-      isCurrentType
-        ? 'border-accent/50 bg-accent/5 ring-1 ring-accent/20'
-        : 'border-border bg-bg-card hover:border-border/80'
-    }`}>
+    <div className="rounded-xl border border-border bg-bg-card p-4 transition-all hover:border-border/80">
       <div className="flex items-start gap-3 mb-3">
         <span className="text-3xl">{info.emoji}</span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-text-bright">{info.title}</h3>
-            {isCurrentType && (
-              <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                나의 유형
-              </span>
-            )}
-          </div>
+          <h3 className="text-sm font-bold text-text-bright">{info.title}</h3>
           <p className="text-xs text-text/50">{info.subtitle}</p>
         </div>
-        <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-text/40">{type}</span>
+        <span
+          className="shrink-0 self-start rounded-full border px-2.5 py-1 text-[10px] font-mono font-semibold leading-none"
+          style={{
+            borderColor: 'color-mix(in srgb, var(--t-accent) 35%, var(--t-border))',
+            background: 'color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))',
+            color: 'color-mix(in srgb, var(--t-accent) 78%, var(--t-text-bright))',
+          }}
+        >
+          {type}
+        </span>
       </div>
 
       <p className="text-xs text-text/70 leading-relaxed mb-3">{info.description}</p>
 
       {/* Axis breakdown */}
-      <div className="mb-3 flex gap-2 text-[10px]">
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-text/50">
-          {AXIS_LABELS[type[0]][0]}
-        </span>
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-text/50">
-          {AXIS_LABELS[type[1]][0]}
-        </span>
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-text/50">
-          {AXIS_LABELS[type[2]][0]}
-        </span>
+      <div className="mb-3">
+        <div className="mb-1.5 text-[9px] font-semibold tracking-[0.16em] text-text/35">성향 조합</div>
+        <div className="flex flex-wrap gap-2 text-[10px]">
+          {axisTags.map((tag) => (
+            <span
+              key={`${type}-${tag.label}`}
+              className="rounded-full border px-2 py-1 font-semibold"
+              style={{
+                borderColor: `color-mix(in srgb, ${tag.color} 38%, var(--t-border))`,
+                background: `color-mix(in srgb, ${tag.color} 14%, var(--t-bg-card))`,
+                color: `color-mix(in srgb, ${tag.color} 72%, var(--t-text-bright))`,
+              }}
+            >
+              {tag.label}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -472,7 +585,85 @@ function getTypeDef(type: TypeCode) {
   return defs[type]
 }
 
-export function PersonalityView({ sessions, onBack }: Props) {
+export function PersonalitySections() {
+  return (
+    <>
+      <div className="animate-in mb-6">
+        <h2 className="mb-3 text-lg font-bold text-text-bright">3축 시스템</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-border bg-bg-card p-4">
+            <div className="mb-1 text-xs font-semibold text-accent/60">AXIS 1 — Conversation Style</div>
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="font-medium text-text-bright">설계자 (A)</span>
+              <span className="text-text/30">vs</span>
+              <span className="font-medium text-text-bright">탐험가 (E)</span>
+            </div>
+            <p className="text-xs text-text/50">메시지 길이와 대화 턴 수로 측정</p>
+            <p className="mt-1.5 text-[11px] italic text-text/30">"한 번에 설명" vs "대화하면서 찾아감"</p>
+          </div>
+          <div className="rounded-lg border border-border bg-bg-card p-4">
+            <div className="mb-1 text-xs font-semibold text-accent/60">AXIS 2 — Work Scope</div>
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="font-medium text-text-bright">한우물 (D)</span>
+              <span className="text-text/30">vs</span>
+              <span className="font-medium text-text-bright">유목민 (W)</span>
+            </div>
+            <p className="text-xs text-text/50">프로젝트 집중도와 전환 빈도로 측정</p>
+            <p className="mt-1.5 text-[11px] italic text-text/30">"끝날 때까지 한 군데" vs "동시에 굴려"</p>
+          </div>
+          <div className="rounded-lg border border-border bg-bg-card p-4">
+            <div className="mb-1 text-xs font-semibold text-accent/60">AXIS 3 — Work Rhythm</div>
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="font-medium text-text-bright">마라토너 (M)</span>
+              <span className="text-text/30">vs</span>
+              <span className="font-medium text-text-bright">스프린터 (S)</span>
+            </div>
+            <p className="text-xs text-text/50">세션 종류와 작업 호흡의 길이로 측정</p>
+            <p className="mt-1.5 text-[11px] italic text-text/30">"1-2시간 기본" vs "짧고 빠르게"</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="animate-in">
+        <h2 className="mb-3 text-lg font-bold text-text-bright">전체 유형 도감</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {ALL_TYPES.map((type) => (
+            <TypeCard key={type} type={type} />
+          ))}
+        </div>
+      </div>
+
+      <div className="animate-in mt-8">
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-text-bright">AI 직업 종류 설명</h2>
+          <p className="text-sm text-text/50">`내 AI의 직업` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {USAGE_CATEGORIES.map((category) => (
+            <div
+              key={category.id}
+              className="rounded-xl border bg-bg-card p-4"
+              style={{ borderColor: 'var(--t-border)' }}
+            >
+              <div className="mb-2 flex items-start gap-3">
+                <span className="text-2xl">{category.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold text-text-bright">{category.title}</h3>
+                  <p className="text-xs text-text/45">{category.subtitle}</p>
+                </div>
+              </div>
+              <p className="text-sm leading-relaxed text-text/70">
+                {USAGE_CATEGORY_HELP[category.id] ?? '이 역할과 관련된 요청이 자주 보일 때 올라가요.'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboard, themeProps }: Props) {
   const stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
   const usageCategories = useMemo(() => analyzeUsageCategories(sessions), [sessions])
@@ -481,8 +672,13 @@ export function PersonalityView({ sessions, onBack }: Props) {
 
   return (
     <div className="dashboard-shell">
-      {/* Header */}
-      <div className="animate-in mb-6 flex items-center gap-3">
+      <MemradarTopBar
+        sessionCount={stats.totalSessions}
+        themeProps={themeProps}
+        onOpenWrapped={onOpenWrapped}
+        onOpenDashboard={onOpenDashboard}
+      />
+      <div className="hidden animate-in mb-6 flex items-center gap-3">
         <button
           onClick={onBack}
           className="flex items-center gap-1 rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text transition-colors hover:border-accent/30 hover:text-text-bright"
@@ -581,7 +777,7 @@ export function PersonalityView({ sessions, onBack }: Props) {
           </div>
         </div>
 
-        <UsageAllJobs categories={usageCategories} />
+        <UsageAllJobs categories={usageCategories} onSwitchView={onOpenDashboard ?? onBack} />
       </div>
 
       {/* 3-Axis Explanation */}
@@ -629,9 +825,37 @@ export function PersonalityView({ sessions, onBack }: Props) {
             <TypeCard
               key={type}
               type={type}
-              isCurrentType={type === personality.type}
             />
           ))}
+        </div>
+      </div>
+
+      <div className="animate-in mt-8">
+        <div className="mb-3">
+          <h2 className="text-lg font-bold text-text-bright">AI 직업 종류 설명</h2>
+          <p className="text-sm text-text/50">`내 AI의 직업` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {USAGE_CATEGORIES.map((category) => {
+            return (
+              <div
+                key={category.id}
+                className="rounded-xl border bg-bg-card p-4"
+                style={{ borderColor: 'var(--t-border)' }}
+              >
+                <div className="mb-2 flex items-start gap-3">
+                  <span className="text-2xl">{category.emoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-text-bright">{category.title}</h3>
+                    <p className="text-xs text-text/45">{category.subtitle}</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed text-text/70">
+                  {USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 보일 때 잡히는 역할이에요.'}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

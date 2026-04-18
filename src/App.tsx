@@ -4,7 +4,6 @@ import { Dashboard } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
-import { PersonalityView } from './components/PersonalityView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import { useI18n } from './i18n'
@@ -251,9 +250,14 @@ function App() {
 
   if (view.type === 'personality') {
     return (
-      <PersonalityView
+      <Dashboard
         sessions={sessions}
-        onBack={() => navigate({ type: 'dashboard' })}
+        onSelectSession={(session) => navigate({ type: 'session', session })}
+        onOpenWrapped={() => navigate({ type: 'wrapped' })}
+        onOpenPersonality={() => navigate({ type: 'personality' })}
+        onOpenDashboard={() => navigate({ type: 'dashboard' })}
+        sectionMode="personality"
+        themeProps={themeProps}
       />
     )
   }
@@ -276,6 +280,7 @@ function App() {
       onSelectSession={(session) => navigate({ type: 'session', session })}
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
       onOpenPersonality={() => navigate({ type: 'personality' })}
+      onOpenDashboard={() => navigate({ type: 'dashboard' })}
       themeProps={themeProps}
     />
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, MoonStar, Palette, Sparkles, SunMedium } from 'lucide-react'
 import { useI18n } from '../i18n'
@@ -60,6 +60,9 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>('theme')
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const currentThemeId = normalizeThemeId(theme)
   const currentTheme = THEMES.find((item) => item.id === currentThemeId) ?? THEMES[0]
@@ -79,11 +82,62 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
     })
   }
 
+  useEffect(() => {
+    if (!open) return
+    if (typeof window === 'undefined') return
+
+    const updatePanelPosition = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+
+      const rect = trigger.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const width = Math.min(288, Math.max(240, viewportWidth - 32))
+      const height = panelRef.current?.offsetHeight ?? 420
+      const margin = 16
+      const gap = 12
+
+      const left = Math.min(
+        Math.max(rect.right - width, margin),
+        viewportWidth - width - margin
+      )
+
+      const belowTop = rect.bottom + gap
+      const aboveTop = rect.top - height - gap
+      const top = belowTop + height <= viewportHeight - margin || aboveTop < margin
+        ? belowTop
+        : aboveTop
+
+      setPanelStyle({
+        top,
+        left,
+        width,
+        maxHeight: viewportHeight - margin * 2,
+      })
+    }
+
+    updatePanelPosition()
+    const raf = window.requestAnimationFrame(updatePanelPosition)
+    window.addEventListener('resize', updatePanelPosition)
+    window.addEventListener('scroll', updatePanelPosition, true)
+
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.removeEventListener('resize', updatePanelPosition)
+      window.removeEventListener('scroll', updatePanelPosition, true)
+    }
+  }, [open, step])
+
   const panel = (
     <>
       <div className="dashboard-overlay bg-black/20 backdrop-blur-[1px]" onClick={() => setOpen(false)} />
 
-      <div className="dashboard-popover right-6 top-20 w-72 rounded-2xl border border-border bg-bg-card p-4 shadow-2xl animate-in max-sm:left-4 max-sm:right-4 max-sm:top-18 max-sm:w-auto">
+      <div
+        ref={panelRef}
+        className="dashboard-popover animate-in overflow-y-auto rounded-2xl border border-border bg-bg-card p-4 shadow-2xl"
+        style={panelStyle ?? undefined}
+      >
         <div className="mb-4 flex items-center justify-between">
           <div>
             <div className="text-xs text-text/45">
@@ -223,6 +277,7 @@ export function ThemeSwitcher({ theme, accent, onThemeChange, onAccentChange }: 
   return (
     <div className="group relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={openPanel}
         className="flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text/70 transition-colors hover:bg-bg-hover hover:text-text-bright"

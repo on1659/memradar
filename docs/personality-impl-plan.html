@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>memradar - Personality Redesign Implementation Plan</title>
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a28;
+    --border: #2a2a3a; --text: #e4e4ef; --text-dim: #8888a0;
+    --accent: #7c6ff7; --accent2: #5eead4;
+    --red: #f87171; --orange: #fb923c; --yellow: #fbbf24;
+    --green: #4ade80; --blue: #60a5fa; --pink: #f472b6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { text-align: center; padding: 60px 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .hero-badge { display: inline-block; background: var(--green); color: #000; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 100px; margin-bottom: 16px; }
+  .hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .hero p { color: var(--text-dim); font-size: 15px; }
+
+  section { margin-bottom: 56px; }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); display: inline-block; }
+  h3 { font-size: 17px; font-weight: 700; margin: 24px 0 12px; color: var(--accent2); }
+  p { margin-bottom: 12px; font-size: 14px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 13px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface2); font-weight: 600; color: var(--accent2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  pre { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; margin: 16px 0 24px; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: var(--surface2); padding: 2px 6px; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+
+  .callout { background: var(--surface2); border-left: 4px solid var(--red); padding: 20px 24px; border-radius: 0 12px 12px 0; margin: 20px 0; }
+  .callout.green { border-left-color: var(--green); }
+  .callout.blue { border-left-color: var(--blue); }
+  .callout.orange { border-left-color: var(--orange); }
+  .callout-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+
+  /* File cards */
+  .file-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; margin: 20px 0; overflow: hidden; }
+  .file-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .file-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent2); font-weight: 600; }
+  .file-badge { font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 600; }
+  .file-badge.heavy { background: rgba(124,111,247,0.15); color: var(--accent); }
+  .file-badge.light { background: rgba(74,222,128,0.15); color: var(--green); }
+  .file-badge.tiny { background: rgba(136,136,160,0.15); color: var(--text-dim); }
+  .file-card pre { margin: 0; border: none; border-radius: 0; }
+
+  /* Step cards */
+  .step-list { counter-reset: step; }
+  .step { display: flex; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+  .step:last-child { border-bottom: none; }
+  .step-num { counter-increment: step; background: var(--accent); color: white; font-size: 14px; font-weight: 800; min-width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .step-desc { font-size: 13px; color: var(--text-dim); }
+  .step-files { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .step-file { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--surface2); padding: 3px 10px; border-radius: 6px; color: var(--accent2); }
+
+  /* Mapping table */
+  .mapping-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .mapping-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; transition: transform 0.15s; }
+  .mapping-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .mapping-emoji { font-size: 28px; margin-bottom: 4px; }
+  .mapping-code { font-family: monospace; font-size: 11px; color: var(--accent); margin-bottom: 2px; }
+  .mapping-name { font-size: 13px; font-weight: 700; }
+  .mapping-desc { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+
+  /* Change diff */
+  .diff { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 16px 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .diff-side { padding: 16px 20px; font-size: 13px; }
+  .diff-before { background: rgba(248,113,113,0.05); border-right: 1px solid var(--border); }
+  .diff-after { background: rgba(74,222,128,0.05); }
+  .diff-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .diff-before .diff-label { color: var(--red); }
+  .diff-after .diff-label { color: var(--green); }
+  .diff-line { padding: 2px 0; font-size: 13px; }
+  .diff-del { color: var(--red); text-decoration: line-through; opacity: 0.6; }
+  .diff-add { color: var(--green); }
+
+  .footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-dim); font-size: 13px; }
+
+  @media (max-width: 640px) {
+    .mapping-grid { grid-template-columns: repeat(2, 1fr); }
+    .diff { grid-template-columns: 1fr; }
+    .diff-before { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-badge">IMPLEMENTATION PLAN</div>
+    <h1>Personality Redesign</h1>
+    <p>구현 계획서 &middot; 2026-04-18</p>
+  </div>
+
+  <!-- Overview -->
+  <section>
+    <h2>구현 순서</h2>
+    <div class="step-list">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">알고리즘 교체</div>
+          <div class="step-desc">computePersonality() 내부 로직을 사용자 행동 기반으로 전면 교체. 헬퍼 함수 추가.</div>
+          <div class="step-files"><span class="step-file">personality.ts</span><span class="step-file">~80줄</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">카테고리 이름 변경</div>
+          <div class="step-desc">"만능 빌더" &rarr; "기능 빌더" (personality의 EWM 유형과 혼동 방지)</div>
+          <div class="step-files"><span class="step-file">usageProfile.ts</span><span class="step-file">1줄</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">도감 UI 업데이트</div>
+          <div class="step-desc">축 라벨, 설명 카드, 공감 포인트, "내 AI의 직업" 리브랜딩</div>
+          <div class="step-files"><span class="step-file">PersonalityView.tsx</span><span class="step-file">~40줄</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Wrapped 슬라이드 툴팁</div>
+          <div class="step-desc">AXIS_HELP 텍스트를 새 축 의미에 맞게 업데이트</div>
+          <div class="step-files"><span class="step-file">PersonalitySlide.tsx</span><span class="step-file">~10줄</span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Usage 슬라이드 제목</div>
+          <div class="step-desc">"당신의 AI 스타일은?" &rarr; "내 AI는 무슨 일을 할까?"</div>
+          <div class="step-files"><span class="step-file">UsageSlide.tsx</span><span class="step-file">1줄</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 1: Algorithm -->
+  <section>
+    <h2>Step 1: 알고리즘 교체</h2>
+
+    <div class="file-card">
+      <div class="file-header">
+        <span class="file-name">src/lib/personality.ts</span>
+        <span class="file-badge heavy">~80줄 교체</span>
+      </div>
+    </div>
+
+    <h3>삭제</h3>
+    <div class="callout">
+      <div class="callout-title">제거 대상</div>
+      <p style="margin:0;font-size:13px;"><code>READ_TOOL_HINTS</code>, <code>EXECUTE_TOOL_HINTS</code>, <code>clamp01()</code>, <code>countToolsByHints()</code> &mdash; AI 도구 기반 측정 로직 전부 삭제</p>
+    </div>
+
+    <h3>추가: 헬퍼 함수 3개</h3>
+    <div class="file-card">
+      <div class="file-header"><span class="file-name">sigmoid + extractProject + median</span><span class="file-badge light">NEW</span></div>
+<pre><code>function sigmoid(x: number, midpoint: number, steepness: number): number {
+  if (!Number.isFinite(x)) return 0.5
+  return 1 / (1 + Math.exp(-steepness * (x - midpoint)))
+}
+
+function extractProject(cwd: string): string {
+  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.slice(0, Math.min(parts.length, 4)).join('/')
+}
+
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0
+  const sorted = [...arr].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}</code></pre>
+    </div>
+
+    <h3>축 1: 대화 방식 &mdash; 설계자(A) vs 탐험가(E)</h3>
+    <table>
+      <tr><th>Feature</th><th>데이터 소스</th><th>Sigmoid</th></tr>
+      <tr><td>평균 메시지 길이</td><td><code>messages[].text.length</code> (user only)</td><td><code>sigmoid(x, 100, 0.02)</code> &times; 0.4</td></tr>
+      <tr><td>세션당 턴 수 (역수)</td><td><code>messageCount.user</code></td><td><code>(1 - sigmoid(x, 8, 0.2))</code> &times; 0.3</td></tr>
+      <tr><td>토큰 비율</td><td><code>totalTokens.output / input</code></td><td><code>sigmoid(x, 5, 0.3)</code> &times; 0.3</td></tr>
+    </table>
+
+    <h3>축 2: 작업 범위 &mdash; 한우물(D) vs 유목민(W)</h3>
+    <table>
+      <tr><th>Feature</th><th>데이터 소스</th><th>Sigmoid</th></tr>
+      <tr><td>주당 프로젝트 수</td><td><code>extractProject(cwd)</code> / weeks</td><td><code>sigmoid(x, 2.5, 0.8)</code> &times; 0.4</td></tr>
+      <tr><td>프로젝트 전환 빈도</td><td>연속 세션 cwd 비교</td><td><code>sigmoid(x, 0.3, 5)</code> &times; 0.4</td></tr>
+      <tr><td>최다 프로젝트 집중도</td><td>max(count) / total</td><td><code>(1 - sigmoid(x, 0.6, 5))</code> &times; 0.2</td></tr>
+    </table>
+
+    <h3>축 3: 작업 리듬 &mdash; 마라토너(M) vs 스프린터(S)</h3>
+    <table>
+      <tr><th>Feature</th><th>데이터 소스</th><th>Sigmoid</th></tr>
+      <tr><td>세션 중앙값</td><td><code>endTime - startTime</code> (분)</td><td><code>sigmoid(x, 45, 0.06)</code> &times; 0.4</td></tr>
+      <tr><td>시간대 집중도</td><td><code>hourlyActivity</code> Shannon entropy</td><td><code>sigmoid(x, 0.5, 4)</code> &times; 0.3</td></tr>
+      <tr><td>세션 종류 비율</td><td>Deep(&ge;60m) / (Deep+Quick(&lt;20m))</td><td><code>sigmoid(x, 0.5, 4)</code> &times; 0.3</td></tr>
+    </table>
+
+    <h3>TypeCode 매핑</h3>
+    <div class="callout orange">
+      <div class="callout-title">매핑 규칙 (TypeCode 문자열 불변)</div>
+      <p style="margin:0;font-size:13px;">
+        <code>styleValue &ge; 0.5</code> &rarr; <code>'E'</code> (설계자) &nbsp;|&nbsp;
+        <code>&lt; 0.5</code> &rarr; <code>'R'</code> (탐험가)<br>
+        <code>scopeValue &ge; 0.5</code> &rarr; <code>'W'</code> (유목민) &nbsp;|&nbsp;
+        <code>&lt; 0.5</code> &rarr; <code>'D'</code> (한우물)<br>
+        <code>rhythmValue &ge; 0.5</code> &rarr; <code>'M'</code> (마라토너) &nbsp;|&nbsp;
+        <code>&lt; 0.5</code> &rarr; <code>'S'</code> (스프린터)
+      </p>
+    </div>
+  </section>
+
+  <!-- Step 3: UI -->
+  <section>
+    <h2>Step 3: 도감 UI 업데이트</h2>
+
+    <h3>AXIS_LABELS 변경</h3>
+    <div class="diff">
+      <div class="diff-side diff-before">
+        <div class="diff-label">Before</div>
+        <div class="diff-line diff-del">R: ['읽기형', 'Reader']</div>
+        <div class="diff-line diff-del">E: ['실행형', 'Executor']</div>
+        <div class="diff-line diff-del">D: ['깊이파', 'Deep']</div>
+        <div class="diff-line diff-del">W: ['넓이파', 'Wide']</div>
+      </div>
+      <div class="diff-side diff-after">
+        <div class="diff-label">After</div>
+        <div class="diff-line diff-add">R: ['탐험가', 'Explorer']</div>
+        <div class="diff-line diff-add">E: ['설계자', 'Architect']</div>
+        <div class="diff-line diff-add">D: ['한우물', 'Deep']</div>
+        <div class="diff-line diff-add">W: ['유목민', 'Wide']</div>
+      </div>
+    </div>
+
+    <h3>3축 설명 카드 + 공감 포인트</h3>
+    <table>
+      <tr><th>축</th><th>타이틀</th><th>설명</th><th>공감 포인트</th></tr>
+      <tr>
+        <td style="color:var(--pink)">Style</td>
+        <td>Conversation Style</td>
+        <td>메시지 길이와 대화 턴 수로 측정</td>
+        <td><em>"한 번에 다 설명"</em> vs <em>"대화하면서 찾아감"</em></td>
+      </tr>
+      <tr>
+        <td style="color:var(--green)">Scope</td>
+        <td>Work Scope</td>
+        <td>프로젝트 집중도와 전환 빈도로 측정</td>
+        <td><em>"끝날 때까지 안 건드려"</em> vs <em>"동시에 굴려"</em></td>
+      </tr>
+      <tr>
+        <td style="color:var(--blue)">Rhythm</td>
+        <td>Work Rhythm</td>
+        <td>세션 종류(Quick/Standard/Deep) 비율로 측정</td>
+        <td><em>"1-2시간 기본"</em> vs <em>"틈틈이 짧게"</em></td>
+      </tr>
+    </table>
+
+    <h3>"내 AI의 직업" 리브랜딩</h3>
+    <div class="diff">
+      <div class="diff-side diff-before">
+        <div class="diff-label">Before</div>
+        <div class="diff-line diff-del">AI 활용 직업</div>
+        <div class="diff-line diff-del">당신의 대표 AI 활용 직업은 X입니다</div>
+        <div class="diff-line diff-del">다른 AI 활용 직업</div>
+      </div>
+      <div class="diff-side diff-after">
+        <div class="diff-label">After</div>
+        <div class="diff-line diff-add">내 AI의 직업</div>
+        <div class="diff-line diff-add">당신의 AI는 주로 이런 일을 해요</div>
+        <div class="diff-line diff-add">AI의 다른 직업들</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TypeCode mapping -->
+  <section>
+    <h2>TypeCode 매핑 검증</h2>
+    <div class="mapping-grid">
+      <div class="mapping-card">
+        <div class="mapping-emoji">⚒️</div>
+        <div class="mapping-code">EDM</div>
+        <div class="mapping-name">장인 대장장이</div>
+        <div class="mapping-desc">설계자 + 한우물 + 마라토너</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">⚡</div>
+        <div class="mapping-code">EDS</div>
+        <div class="mapping-name">번개 해결사</div>
+        <div class="mapping-desc">설계자 + 한우물 + 스프린터</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">🏗️</div>
+        <div class="mapping-code">EWM</div>
+        <div class="mapping-name">만능 빌더</div>
+        <div class="mapping-desc">설계자 + 유목민 + 마라토너</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">🏄</div>
+        <div class="mapping-code">EWS</div>
+        <div class="mapping-name">트렌드 헌터</div>
+        <div class="mapping-desc">설계자 + 유목민 + 스프린터</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">🤿</div>
+        <div class="mapping-code">RDM</div>
+        <div class="mapping-name">심해 잠수부</div>
+        <div class="mapping-desc">탐험가 + 한우물 + 마라토너</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">🔎</div>
+        <div class="mapping-code">RDS</div>
+        <div class="mapping-name">코드 감별사</div>
+        <div class="mapping-desc">탐험가 + 한우물 + 스프린터</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">📚</div>
+        <div class="mapping-code">RWM</div>
+        <div class="mapping-name">도서관 사서</div>
+        <div class="mapping-desc">탐험가 + 유목민 + 마라토너</div>
+      </div>
+      <div class="mapping-card">
+        <div class="mapping-emoji">🌪️</div>
+        <div class="mapping-code">RWS</div>
+        <div class="mapping-name">카오스 크리에이터</div>
+        <div class="mapping-desc">탐험가 + 유목민 + 스프린터</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Edge cases -->
+  <section>
+    <h2>Edge Case 처리</h2>
+    <table>
+      <tr><th>상황</th><th>처리</th></tr>
+      <tr><td>세션 0개 / 메시지 3개 미만</td><td>EWS 기본값 반환 (기존 동일)</td></tr>
+      <tr><td>사용자 메시지 0개</td><td>avgMsgLen=100, turns=8 &rarr; style 0.5</td></tr>
+      <tr><td>cwd 전부 undefined</td><td>projectIds 빈 배열 &rarr; scope &asymp; 0.2 (Deep)</td></tr>
+      <tr><td>Quick+Deep 둘 다 0개</td><td>sessionTypeScore = 0.5 (중립)</td></tr>
+      <tr><td>totalTokens.input = 0</td><td>tokenRatio = 5 (midpoint)</td></tr>
+      <tr><td>세션 1개</td><td>switchRate = 0, 정상 작동</td></tr>
+    </table>
+  </section>
+
+  <!-- Verification -->
+  <section>
+    <h2>검증 체크리스트</h2>
+    <div class="callout green">
+      <div class="callout-title">검증 항목</div>
+      <ol style="margin:0;padding-left:20px;font-size:14px;">
+        <li><code>npm run build</code> &mdash; 타입 에러 없이 빌드 성공</li>
+        <li><code>npm run dev</code> &mdash; 개발 서버 정상 실행</li>
+        <li>도감 페이지: 새 축 라벨 (설계자/탐험가, 한우물/유목민)</li>
+        <li>도감 페이지: "내 AI의 직업" 표시</li>
+        <li>도감 페이지: 공감 포인트 문구 표시</li>
+        <li>다양한 유형 분포 확인 (만능빌더 쏠림 해소)</li>
+        <li>Wrapped 슬라이드 정상 렌더링</li>
+        <li>Share 카드 새 축 라벨 자동 반영 확인</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="footer">
+    memradar &middot; Personality Redesign Implementation Plan &middot; 2026-04-18
+  </div>
+
+</div>
+</body>
+</html>

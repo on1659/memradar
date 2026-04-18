@@ -74,4 +74,6 @@ export interface Stats {
   topWordsAssistant: [string, number][]
   longestSession: Session | null
   busiestDay: string
+  dailyTokens: Record<string, number>
+  busiestTokenDay: string
 }
