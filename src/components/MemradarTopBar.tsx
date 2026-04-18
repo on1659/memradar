@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Bell } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { ThemeSwitcher } from './ThemeSwitcher'
@@ -20,6 +20,7 @@ interface MemradarTopBarProps {
   themeProps: ThemeProps
   onOpenWrapped?: () => void
   onOpenDashboard?: () => void
+  summaryContent?: ReactNode
 }
 
 function DashboardBrand() {
@@ -47,6 +48,7 @@ export function MemradarTopBar({
   themeProps,
   onOpenWrapped,
   onOpenDashboard,
+  summaryContent,
 }: MemradarTopBarProps) {
   const { t } = useI18n()
   const [updatesOpen, setUpdatesOpen] = useState(false)
@@ -66,7 +68,7 @@ export function MemradarTopBar({
 
   return (
     <>
-      <div className="animate-in mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="animate-in mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-3 text-sm text-text/55">
             <a
@@ -93,8 +95,8 @@ export function MemradarTopBar({
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap lg:w-auto">
-          <div className="order-2 flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-col items-end gap-3 xl:w-auto xl:pt-1">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap xl:w-auto">
             {onOpenWrapped && (
               <button
                 onClick={onOpenWrapped}
@@ -105,20 +107,18 @@ export function MemradarTopBar({
                 <span className="relative z-[1] hidden sm:inline">{t('dashboard.wrapped')}</span>
               </button>
             )}
-          </div>
 
-          <button
-            onClick={() => setUpdatesOpen(true)}
-            className="order-1 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright whitespace-nowrap"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('dashboard.news')}</span>
-            <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-              {latestProductUpdate.version}
-            </span>
-          </button>
+            <button
+              onClick={() => setUpdatesOpen(true)}
+              className="flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright whitespace-nowrap"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('dashboard.news')}</span>
+              <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                {latestProductUpdate.version}
+              </span>
+            </button>
 
-          <div className="order-3">
             <ThemeSwitcher
               theme={themeProps.theme}
               accent={themeProps.accent}
@@ -126,6 +126,12 @@ export function MemradarTopBar({
               onAccentChange={themeProps.setAccent}
             />
           </div>
+
+          {summaryContent && (
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 xl:max-w-[46rem]">
+              {summaryContent}
+            </div>
+          )}
         </div>
       </div>
 

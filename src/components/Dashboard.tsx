@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   BarChart3,
@@ -354,6 +355,76 @@ function LanguageBar({ languages }: { languages: LanguageScore[] }) {
   )
 }
 
+type SummaryChipTone = 'accent' | 'cyan' | 'amber' | 'neutral'
+
+function DashboardSummaryChip({
+  icon,
+  title,
+  tooltip,
+  tone = 'neutral',
+  trailing,
+  compact = false,
+  onClick,
+}: {
+  icon: ReactNode
+  title: string
+  tooltip: string
+  tone?: SummaryChipTone
+  trailing?: ReactNode
+  compact?: boolean
+  onClick?: () => void
+}) {
+  const toneClasses: Record<SummaryChipTone, { shell: string; icon: string }> = {
+    accent: {
+      shell: 'border-accent/28 bg-accent/10 text-text-bright hover:border-accent/45 hover:bg-accent/14',
+      icon: 'bg-accent/14 text-accent',
+    },
+    cyan: {
+      shell: 'border-cyan/28 bg-cyan/10 text-text-bright hover:border-cyan/45 hover:bg-cyan/14',
+      icon: 'bg-cyan/14 text-cyan',
+    },
+    amber: {
+      shell: 'border-amber/28 bg-amber/10 text-text-bright hover:border-amber/45 hover:bg-amber/14',
+      icon: 'bg-amber/14 text-amber',
+    },
+    neutral: {
+      shell: 'border-border bg-bg-card/80 text-text hover:border-border/80 hover:bg-bg-hover',
+      icon: 'bg-white/6 text-text/70',
+    },
+  }
+
+  const chipClasses = compact
+    ? `flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-colors ${toneClasses[tone].shell}`
+    : `flex h-11 min-w-0 items-center gap-2 rounded-2xl border px-3.5 transition-colors ${toneClasses[tone].shell}`
+  const chipContent = (
+    <>
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${toneClasses[tone].icon}`}>
+        {icon}
+      </span>
+      {!compact && <span className="max-w-[11rem] truncate text-sm font-semibold">{title}</span>}
+      {!compact && trailing}
+    </>
+  )
+
+  return (
+    <div className="group relative min-w-0">
+      {onClick ? (
+        <button type="button" onClick={onClick} className={chipClasses}>
+          {chipContent}
+        </button>
+      ) : (
+        <div className={chipClasses}>
+          {chipContent}
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 whitespace-pre-line rounded-xl border border-border bg-bg-hover/95 px-3 py-2 text-xs leading-relaxed text-text shadow-xl group-hover:block group-focus-within:block">
+        {tooltip}
+      </div>
+    </div>
+  )
+}
+
 export function Dashboard({
   sessions,
   onSelectSession,
@@ -501,20 +572,16 @@ export function Dashboard({
     return entries.sort((a, b) => a[1] - b[1])[0][0]
   }, [stats.dailyTokens])
   const leastTokenDayAmount = leastTokenDay ? stats.dailyTokens[leastTokenDay] || 0 : 0
-  const axisOrder = ['style', 'scope', 'rhythm'] as const
-  const axisColors = {
-    style: 'var(--color-accent)',
-    scope: 'var(--color-cyan)',
-    rhythm: 'var(--color-amber)',
-  } as const
-  const aiRoleLabel = isKorean ? '내 AI의 직업' : 'AI Role'
   const aiRoleFallbackTitle = isKorean ? '아직 탐색 중' : 'Still Exploring'
   const aiRoleFallbackBody = isKorean
     ? '메시지가 더 쌓이면 대표 역할이 보여요.'
     : 'More messages will reveal the most common role.'
   const nextUsageCategory = topUsageCategories[1] ?? null
+  const dualRoleActive = Boolean(
+    topUsageCategory && nextUsageCategory && topUsageCategory.score <= nextUsageCategory.score * 1.5
+  )
   const aiRoleSummary = topUsageCategory
-    ? nextUsageCategory && topUsageCategory.score <= nextUsageCategory.score * 1.5
+    ? dualRoleActive
       ? isKorean
         ? `${topUsageCategory.title}와(과) ${nextUsageCategory.title}, 투잡 뛰는 중`
         : `${topUsageCategory.title} and ${nextUsageCategory.title}, split roles`
@@ -522,7 +589,6 @@ export function Dashboard({
         ? `${topUsageCategory.title} 성향이 가장 강해요`
         : `${topUsageCategory.title} is the strongest pattern`
     : aiRoleFallbackBody
-  const usageTotalScore = topUsageCategories.reduce((sum, category) => sum + category.score, 0) || 1
 
   const longestStreak = useMemo(() => {
     let longest = 0
@@ -701,167 +767,67 @@ export function Dashboard({
     </>
   )
 
+  const personalityChipTooltip = `${personality.subtitle}\n${personality.description}`
+  const primaryRoleTooltip = topUsageCategory
+    ? `${topUsageCategory.subtitle}\n${aiRoleSummary}`
+    : aiRoleFallbackBody
+  const secondaryRoleTooltip = nextUsageCategory
+    ? `${nextUsageCategory.subtitle}\n${isKorean ? '함께 자주 나타나는 보조 역할이에요.' : 'A secondary role that shows up alongside the main one.'}`
+    : aiRoleFallbackBody
+  const switchChipTooltip = isPersonalityMode
+    ? (isKorean ? '대시보드 통계 화면으로 돌아가요.' : 'Return to the dashboard overview.')
+    : (isKorean ? '전체 성향 도감으로 전환해서 축 설명과 유형 도감을 볼 수 있어요.' : 'Switch to the full type view with axis explanations and the type gallery.')
+  const summaryContent = (
+    <>
+      <DashboardSummaryChip
+        icon={<Brain className="h-4 w-4" />}
+        title={personality.title}
+        tooltip={personalityChipTooltip}
+        tone="accent"
+        trailing={
+          <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-text/55">
+            {personality.type}
+          </span>
+        }
+      />
+
+      <DashboardSummaryChip
+        icon={<Code2 className="h-4 w-4" />}
+        title={topUsageCategory?.title ?? aiRoleFallbackTitle}
+        tooltip={primaryRoleTooltip}
+        tone="cyan"
+      />
+
+      {dualRoleActive && nextUsageCategory && (
+        <DashboardSummaryChip
+          icon={<MessageSquare className="h-4 w-4" />}
+          title={nextUsageCategory.title}
+          tooltip={secondaryRoleTooltip}
+          tone="amber"
+        />
+      )}
+
+      {handleSectionSwitch && (
+        <DashboardSummaryChip
+          icon={<ArrowLeftRight className="h-4 w-4" />}
+          title={sectionSwitchLabel}
+          tooltip={switchChipTooltip}
+          compact
+          onClick={handleSectionSwitch}
+        />
+      )}
+    </>
+  )
+
   return (
     <div className="dashboard-shell">
       <MemradarTopBar
         sessionCount={stats.totalSessions}
         themeProps={themeProps}
         onOpenWrapped={onOpenWrapped}
+        onOpenDashboard={onOpenDashboard}
+        summaryContent={summaryContent}
       />
-
-      <div className="animate-in mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="h-full rounded-[26px] border border-border bg-bg-card p-5">
-          <div className="mx-auto w-full max-w-xl text-center">
-            <div className="mb-3 flex items-center justify-center gap-2">
-              <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                style={{
-                  background: 'color-mix(in srgb, var(--t-accent) 10%, var(--t-bg-card))',
-                  color: 'color-mix(in srgb, var(--t-accent) 82%, var(--t-text-bright) 18%)',
-                }}
-              >
-                {isKorean ? '내 전체 성향' : 'My Overall Type'}
-              </span>
-              <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-mono"
-                style={{
-                  background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)',
-                  color: 'color-mix(in srgb, var(--t-text) 52%, transparent)',
-                }}
-              >
-                {personality.type}
-              </span>
-            </div>
-
-            <div className="mb-3 text-[56px] leading-none">{personality.emoji}</div>
-            <h2 className="mb-1 text-3xl font-bold text-text-bright">{personality.title}</h2>
-            <p className="mb-3 text-sm text-accent">{personality.subtitle}</p>
-            <p className="mx-auto max-w-lg text-sm leading-relaxed text-text/70">{personality.description}</p>
-
-            <div className="mx-auto mt-5 w-full max-w-md space-y-3 text-left">
-              {axisOrder.map((key) => {
-                const axis = personality.axes[key]
-                const pct = Math.round(axis.value * 100)
-                const leftActive = axis.value < 0.5
-                return (
-                  <div key={key} className="w-full">
-                    <div className="mb-0.5 flex justify-between text-[10px]">
-                      <span
-                        className="font-semibold"
-                        style={{ color: leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
-                      >
-                        {axis.label[0]}
-                      </span>
-                      <span
-                        className="font-semibold"
-                        style={{ color: !leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
-                      >
-                        {axis.label[1]}
-                      </span>
-                    </div>
-                    <div
-                      className="relative h-1.5 overflow-hidden rounded-full"
-                      style={{ background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)' }}
-                    >
-                      <div
-                        className="absolute top-0 h-full rounded-full transition-all duration-500"
-                        style={axis.value >= 0.5
-                          ? { left: '50%', width: `${pct - 50}%`, background: axisColors[key], opacity: 0.5 }
-                          : { right: '50%', width: `${50 - pct}%`, background: axisColors[key], opacity: 0.5 }
-                        }
-                      />
-                      <div
-                        className="absolute top-0 left-1/2 h-full w-px"
-                        style={{ background: 'color-mix(in srgb, var(--t-border) 72%, transparent)' }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="mt-5 grid gap-3 text-left sm:grid-cols-2">
-              <div
-                className="rounded-xl border p-3.5"
-                style={{
-                  borderColor: 'color-mix(in srgb, var(--t-border) 88%, transparent)',
-                  background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
-                }}
-              >
-                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">STRENGTHS</div>
-                <div className="text-xs leading-relaxed text-text/70">{personality.strengths}</div>
-              </div>
-              <div
-                className="rounded-xl border p-3.5"
-                style={{
-                  borderColor: 'color-mix(in srgb, var(--t-border) 88%, transparent)',
-                  background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
-                }}
-              >
-                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">HEADS UP</div>
-                <div className="text-xs leading-relaxed text-text/70">{personality.caution}</div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="rounded-[26px] border border-border bg-bg-card p-5">
-          <div className="mb-1 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <Code2 className="h-4 w-4 shrink-0 text-accent" />
-              <h2 className="truncate text-lg font-bold text-text-bright">{aiRoleLabel}</h2>
-            </div>
-            {handleSectionSwitch && (
-              <button
-                type="button"
-                onClick={handleSectionSwitch}
-                className="flex h-8 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
-              >
-                <ArrowLeftRight className="h-4 w-4" />
-                <span>{sectionSwitchLabel}</span>
-              </button>
-            )}
-          </div>
-          <p className="mb-4 text-sm text-text/50">{aiRoleSummary}</p>
-          {topUsageCategories.length > 0 ? (
-            <div className="space-y-2.5">
-              {topUsageCategories.map((category, index) => {
-                const pct = Math.max(4, Math.round((category.score / usageTotalScore) * 100))
-                return (
-                  <div key={category.id} className="flex items-center gap-3">
-                    <span className="w-6 text-center text-lg">{category.emoji}</span>
-                    <div className="w-28 shrink-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-text-bright">{category.title}</span>
-                      </div>
-                    </div>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: category.color,
-                          opacity: index === 0 ? 0.85 : 0.6,
-                        }}
-                      />
-                    </div>
-                    <div className="w-12 shrink-0 text-right text-[11px] text-text/40">
-                      {category.score}회
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border/70 bg-white/4 p-4 text-sm text-text/55">
-              <div className="font-semibold text-text-bright">{aiRoleFallbackTitle}</div>
-              <div className="mt-1">{aiRoleFallbackBody}</div>
-            </div>
-          )}
-
-        </div>
-      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         {isPersonalityMode ? (
