@@ -35,19 +35,27 @@ interface TypeDef {
   caution: string
 }
 
-const READ_TOOL_HINTS = ['read', 'grep', 'glob', 'ls', 'search', 'fetch', 'view']
-const EXECUTE_TOOL_HINTS = ['write', 'edit', 'multiedit', 'bash', 'todowrite', 'notebookedit']
-
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0.5
-  return Math.max(0, Math.min(1, value))
+/** Sigmoid normalization: maps value to 0~1 range centered at midpoint */
+function sigmoid(x: number, midpoint: number, steepness: number): number {
+  if (!Number.isFinite(x)) return 0.5
+  return 1 / (1 + Math.exp(-steepness * (x - midpoint)))
 }
 
-function countToolsByHints(toolsUsed: Record<string, number>, hints: string[]): number {
-  return Object.entries(toolsUsed).reduce((total, [toolName, count]) => {
-    const normalized = toolName.toLowerCase().replace(/[^a-z]/g, '')
-    return hints.some((hint) => normalized.includes(hint)) ? total + count : total
-  }, 0)
+/** Extract project root from cwd by finding the deepest git-like boundary */
+function extractProject(cwd: string): string {
+  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  // On Windows: C:/Users/alice/source/repos/foo → need at least 5-6 depth
+  // On Unix: /home/alice/projects/foo → need 4 depth
+  // Use min(parts.length, 6) to cover both cases without collapsing siblings
+  return parts.slice(0, Math.min(parts.length, 6)).join('/')
+}
+
+/** Compute median of a numeric array */
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0
+  const sorted = [...arr].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
 const TYPE_DEFS: Record<TypeCode, TypeDef> = {
@@ -127,56 +135,123 @@ const TYPE_DEFS: Record<TypeCode, TypeDef> = {
 
 export function computePersonality(sessions: Session[], stats: Stats): PersonalityResult {
   const defaultAxes: Record<AxisKey, AxisScore> = {
-    style: { label: ['읽기형', '실행형'], value: 0.5 },
-    scope: { label: ['깊이파', '넓이파'], value: 0.5 },
-    rhythm: { label: ['마라토너', '스프린터'], value: 0.5 },
+    style: { label: ['탐험가', '설계자'], value: 0.5 },
+    scope: { label: ['한우물', '유목민'], value: 0.5 },
+    rhythm: { label: ['스프린터', '마라토너'], value: 0.5 },
   }
 
   if (sessions.length === 0 || stats.totalMessages < 3) {
     return { type: 'EWS', axes: defaultAxes, ...TYPE_DEFS.EWS }
   }
 
-  const readTools = countToolsByHints(stats.toolsUsed, READ_TOOL_HINTS)
-  const executeTools = countToolsByHints(stats.toolsUsed, EXECUTE_TOOL_HINTS)
-
-  // Axis 1: Style — Reader vs Executor
-  // 0 = pure reader, 1 = pure executor
-  const styleTotal = readTools + executeTools
-  const styleRaw = styleTotal > 0 ? executeTools / styleTotal : 0.5
-  const styleValue = clamp01(styleRaw)
-
-  // Axis 2: Scope — Deep vs Wide
-  const uniqueTools = Object.keys(stats.toolsUsed).length
-  const uniqueProjects = new Set(sessions.map((s) => s.cwd).filter(Boolean)).size
-  const modelVariety = Object.keys(stats.modelsUsed).length
-  const diversityScore = (
-    Math.min(uniqueTools / 10, 1) * 0.4 +
-    Math.min(uniqueProjects / 5, 1) * 0.3 +
-    Math.min(modelVariety / 4, 1) * 0.3
+  // Sort sessions chronologically (app/CLI may pass them in arbitrary order)
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
   )
-  const scopeValue = clamp01(diversityScore)
 
-  // Axis 3: Rhythm — Marathon vs Sprint
-  const durations = sessions
-    .map((s) => new Date(s.endTime).getTime() - new Date(s.startTime).getTime())
-    .filter((d) => d > 0 && d < 24 * 60 * 60 * 1000)
-  const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
-  const avgDurationMins = avgDuration / 60000
-  // Short & frequent = sprint, Long & steady = marathon
-  // >30min avg = marathon territory, <10min = sprint territory
-  const marathonScore = Math.min(avgDurationMins / 30, 1)
-  const rhythmValue = 1 - clamp01(marathonScore) // 0=marathon, 1=sprint
+  // ═══ Axis 1: Conversation Style — 설계자(A) vs 탐험가(E) ═══
+  // Measures user's conversation pattern, NOT AI tool usage
 
+  const userMessages = sorted.flatMap((s) =>
+    s.messages.filter((m) => m.role === 'user'),
+  )
+  const avgMsgLen = userMessages.length > 0
+    ? userMessages.reduce((sum, m) => sum + m.text.length, 0) / userMessages.length
+    : 100
+
+  const turnsPerSession = sorted.length > 0
+    ? sorted.reduce((sum, s) => sum + s.messageCount.user, 0) / sorted.length
+    : 8
+
+  const tokenRatio = stats.totalTokens.input > 0
+    ? stats.totalTokens.output / stats.totalTokens.input
+    : 5
+
+  const styleValue =
+    sigmoid(avgMsgLen, 100, 0.02) * 0.4 +          // longer msg → Architect
+    (1 - sigmoid(turnsPerSession, 8, 0.2)) * 0.3 +  // fewer turns → Architect
+    sigmoid(tokenRatio, 5, 0.3) * 0.3               // higher AI output → Architect
+
+  // ═══ Axis 2: Work Scope — 한우물(D) vs 유목민(W) ═══
+  // Measures project diversity from cwd, NOT tool diversity
+
+  const projectIds = sorted
+    .map((s) => (s.cwd ? extractProject(s.cwd) : ''))
+    .filter(Boolean)
+  const uniqueProjects = new Set(projectIds)
+
+  const firstTime = new Date(sorted[0].startTime).getTime()
+  const lastTime = new Date(sorted[sorted.length - 1].endTime).getTime()
+  const activeWeeks = Math.max((lastTime - firstTime) / (7 * 24 * 3600000), 1)
+  const projectsPerWeek = uniqueProjects.size / activeWeeks
+
+  let switchCount = 0
+  for (let i = 1; i < projectIds.length; i++) {
+    if (projectIds[i] !== projectIds[i - 1]) switchCount++
+  }
+  const switchRate = projectIds.length > 1
+    ? switchCount / (projectIds.length - 1)
+    : 0
+
+  const projectCounts: Record<string, number> = {}
+  for (const pid of projectIds) projectCounts[pid] = (projectCounts[pid] || 0) + 1
+  const topProjectShare = projectIds.length > 0
+    ? Math.max(...Object.values(projectCounts)) / projectIds.length
+    : 1
+
+  const scopeValue =
+    sigmoid(projectsPerWeek, 2.5, 0.8) * 0.4 +      // more projects → Wide
+    sigmoid(switchRate, 0.3, 5) * 0.4 +              // more switching → Wide
+    (1 - sigmoid(topProjectShare, 0.6, 5)) * 0.2     // less concentrated → Wide
+
+  // ═══ Axis 3: Work Rhythm — 마라토너(M) vs 스프린터(S) ═══
+  // Measures session duration patterns + time concentration
+
+  const durations = sorted
+    .map((s) => (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000)
+    .filter((d) => d > 0 && d < 1440)
+  const medianDuration = median(durations)
+
+  // Shannon entropy of hourly activity distribution
+  const hours = stats.hourlyActivity
+  const totalActivity = hours.reduce((a, b) => a + b, 0)
+  let hourlyEntropy = 0
+  if (totalActivity > 0) {
+    for (const h of hours) {
+      if (h > 0) {
+        const p = h / totalActivity
+        hourlyEntropy -= p * Math.log2(p)
+      }
+    }
+  }
+  const concentration = totalActivity > 0
+    ? 1 - (hourlyEntropy / Math.log2(24))
+    : 0.5
+
+  // Session type ratio: Quick(<20min) vs Deep(>=60min)
+  const quickCount = durations.filter((d) => d < 20).length
+  const deepCount = durations.filter((d) => d >= 60).length
+  const sessionTypeScore = (quickCount + deepCount) > 0
+    ? deepCount / (quickCount + deepCount)
+    : 0.5
+
+  const rhythmValue =
+    sigmoid(medianDuration, 45, 0.06) * 0.4 +       // longer median → Marathon
+    sigmoid(concentration, 0.5, 4) * 0.3 +           // more concentrated → Marathon
+    sigmoid(sessionTypeScore, 0.5, 4) * 0.3          // more Deep sessions → Marathon
+
+  // ═══ Derive type code ═══
   const axes: Record<AxisKey, AxisScore> = {
-    style: { label: ['읽기형', '실행형'], value: styleValue },
-    scope: { label: ['깊이파', '넓이파'], value: scopeValue },
-    rhythm: { label: ['마라토너', '스프린터'], value: rhythmValue },
+    style: { label: ['탐험가', '설계자'], value: styleValue },
+    scope: { label: ['한우물', '유목민'], value: scopeValue },
+    rhythm: { label: ['스프린터', '마라토너'], value: rhythmValue },
   }
 
-  // Derive type code
+  // TypeCode mapping (strings unchanged for backward compat)
+  // E = Architect(설계자), R = Explorer(탐험가)
   const s = styleValue >= 0.5 ? 'E' : 'R'
   const d = scopeValue >= 0.5 ? 'W' : 'D'
-  const r = rhythmValue >= 0.5 ? 'S' : 'M'
+  const r = rhythmValue >= 0.5 ? 'M' : 'S'
   const type = `${s}${d}${r}` as TypeCode
 
   return { type, axes, ...TYPE_DEFS[type] }

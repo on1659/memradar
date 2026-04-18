@@ -4,6 +4,8 @@ import type { Session } from '../types'
 import { computeStats } from '../parser'
 import { computePersonality } from '../lib/personality'
 import type { PersonalityResult, TypeCode, AxisKey } from '../lib/personality'
+import { USAGE_CATEGORIES } from '../lib/usageProfile'
+import type { UsageCategory } from '../lib/usageProfile'
 
 interface Props {
   sessions: Session[]
@@ -13,98 +15,15 @@ interface Props {
 const ALL_TYPES: TypeCode[] = ['RDM', 'RDS', 'RWM', 'RWS', 'EDM', 'EDS', 'EWM', 'EWS']
 
 const AXIS_LABELS: Record<string, [string, string]> = {
-  R: ['읽기형', 'Reader'],
-  E: ['실행형', 'Executor'],
-  D: ['깊이파', 'Deep'],
-  W: ['넓이파', 'Wide'],
+  R: ['탐험가', 'Explorer'],
+  E: ['설계자', 'Architect'],
+  D: ['한우물', 'Deep'],
+  W: ['유목민', 'Wide'],
   M: ['마라토너', 'Marathon'],
   S: ['스프린터', 'Sprint'],
 }
 
-// --- Usage category analysis ---
-interface UsageCategory {
-  id: string
-  title: string
-  subtitle: string
-  emoji: string
-  keywords: string[]
-  color: string
-}
-
-const USAGE_CATEGORIES: UsageCategory[] = [
-  {
-    id: 'feature',
-    title: '풀스택 기획자',
-    subtitle: '기능 뚝딱 제조기',
-    emoji: '🏭',
-    keywords: ['만들어', '추가', '구현', '개발', 'implement', 'create', 'build', 'add', 'feature', '기능', '페이지', 'component', '컴포넌트', 'api', '엔드포인트', 'endpoint', 'route', '라우트'],
-    color: 'var(--color-accent)',
-  },
-  {
-    id: 'debug',
-    title: '버그 헌터',
-    subtitle: 'AI 119 신고 전문',
-    emoji: '🚨',
-    keywords: ['버그', 'bug', 'fix', '수정', '고쳐', '에러', 'error', '오류', '안돼', '안됨', '작동', 'broken', 'crash', 'fail', '실패', 'issue', 'debug', '디버그', 'warning', '경고', 'undefined', 'null'],
-    color: 'var(--color-rose)',
-  },
-  {
-    id: 'refactor',
-    title: '코드 성형외과',
-    subtitle: '못생긴 코드 참을 수 없는 자',
-    emoji: '💅',
-    keywords: ['리팩토', 'refactor', '정리', 'cleanup', 'clean up', '개선', 'improve', 'optimize', '최적화', 'simplify', '단순화', 'restructure', '구조', 'rename', '이름', 'extract', 'split'],
-    color: 'var(--color-cyan)',
-  },
-  {
-    id: 'review',
-    title: '코드 감정사',
-    subtitle: '"이거 왜 이렇게 짰어?" 전문가',
-    emoji: '🧐',
-    keywords: ['리뷰', 'review', '분석', 'analyze', '확인', 'check', '봐줘', '살펴', '설명', 'explain', '이해', 'understand', '뭐야', '어떻게', '왜', 'why', 'how', 'what', '읽어', 'read'],
-    color: 'var(--color-green)',
-  },
-  {
-    id: 'writing',
-    title: 'AI 고스트라이터',
-    subtitle: '글은 AI가 쓰고 이름은 내가 올리고',
-    emoji: '✍️',
-    keywords: ['문서', 'doc', 'readme', '작성', 'write', '글', 'text', '블로그', 'blog', '마크다운', 'markdown', '번역', 'translate', '요약', 'summary', 'summarize', '보고서', 'report', '이메일', 'email'],
-    color: 'var(--color-amber)',
-  },
-  {
-    id: 'design',
-    title: 'AI 아트 디렉터',
-    subtitle: '"여기 1px 옮겨" 장인',
-    emoji: '🎨',
-    keywords: ['디자인', 'design', 'ui', 'ux', '스타일', 'style', 'css', 'tailwind', '레이아웃', 'layout', '반응형', 'responsive', '색상', 'color', '테마', 'theme', 'animation', '애니메이션', 'font', '폰트'],
-    color: '#a78bfa',
-  },
-  {
-    id: 'devops',
-    title: '배포 마스터',
-    subtitle: 'npm publish 중독자',
-    emoji: '🚀',
-    keywords: ['배포', 'deploy', 'ci', 'cd', 'docker', 'build', '빌드', 'npm', 'publish', 'package', 'vercel', 'aws', 'server', '서버', 'config', '설정', 'env', 'pipeline', 'github', 'action'],
-    color: '#f97316',
-  },
-  {
-    id: 'data',
-    title: '데이터 연금술사',
-    subtitle: 'JSON을 금으로 바꾸는 자',
-    emoji: '🧙',
-    keywords: ['데이터', 'data', 'database', 'db', 'sql', 'query', '쿼리', 'csv', 'json', 'parse', '파싱', 'schema', '스키마', 'migration', '마이그레이션', 'model', '모델', 'api', 'fetch'],
-    color: '#06b6d4',
-  },
-  {
-    id: 'test',
-    title: '품질 감독관',
-    subtitle: '통과할 때까지 테스트하는 집착러',
-    emoji: '🧪',
-    keywords: ['테스트', 'test', 'spec', 'jest', 'playwright', 'e2e', 'unit', '단위', 'mock', 'assert', 'expect', 'coverage', '커버리지'],
-    color: '#22c55e',
-  },
-]
+// --- Usage category analysis (uses shared USAGE_CATEGORIES from usageProfile.ts) ---
 
 interface CategoryScore {
   category: UsageCategory
@@ -249,12 +168,12 @@ function UsageHighlights({ categories }: { categories: CategoryScore[] }) {
   const top = categories[0]
   const next = categories[1]
   const topVerdict = next && top.score <= next.score * 1.5
-    ? `${top.category.title}와 ${next.category.title} 성향이 함께 강해요`
-    : `당신의 대표 AI 활용 직업은 ${top.category.title}입니다`
+    ? `${top.category.title}와(과) ${next.category.title}, 투잡 뛰는 중`
+    : `당신의 AI는 주로 이런 일을 해요`
 
   return (
     <div className="animate-in h-full rounded-xl border border-border bg-bg-card p-5">
-      <h2 className="mb-1 text-lg font-bold text-text-bright">AI 활용 직업</h2>
+      <h2 className="mb-1 text-lg font-bold text-text-bright">내 AI의 직업</h2>
       <p className="mb-4 text-sm text-text/50">{topVerdict}</p>
       <div className="space-y-3">
         {categories.slice(0, 2).map((entry, index) => (
@@ -278,7 +197,7 @@ function UsageProfileRest({ categories }: { categories: CategoryScore[] }) {
 
   return (
     <div className="animate-in mb-6">
-      <h2 className="mb-3 text-lg font-bold text-text-bright">다른 AI 활용 직업</h2>
+      <h2 className="mb-3 text-lg font-bold text-text-bright">AI의 다른 직업들</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {remainingCategories.map((entry, index) => (
           <UsageCategoryCard
@@ -380,12 +299,12 @@ function computePersonalityStatic(type: TypeCode): PersonalityResult {
   // Create fake axes that match the type code
   const styleValue = type[0] === 'E' ? 0.8 : 0.2
   const scopeValue = type[1] === 'W' ? 0.8 : 0.2
-  const rhythmValue = type[2] === 'S' ? 0.8 : 0.2
+  const rhythmValue = type[2] === 'M' ? 0.8 : 0.2
 
   const axes: Record<AxisKey, { label: [string, string]; value: number }> = {
-    style: { label: ['읽기형', '실행형'], value: styleValue },
-    scope: { label: ['깊이파', '넓이파'], value: scopeValue },
-    rhythm: { label: ['마라토너', '스프린터'], value: rhythmValue },
+    style: { label: ['탐험가', '설계자'], value: styleValue },
+    scope: { label: ['한우물', '유목민'], value: scopeValue },
+    rhythm: { label: ['스프린터', '마라토너'], value: rhythmValue },
   }
 
   // We need the actual type defs — call computePersonality with mock data
@@ -535,31 +454,34 @@ export function PersonalityView({ sessions, onBack }: Props) {
         <h2 className="text-lg font-bold text-text-bright mb-3">3축 시스템</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-lg border border-border bg-bg-card p-4">
-            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 1 — Work Style</div>
+            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 1 — Conversation Style</div>
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-text-bright font-medium">읽기형 (R)</span>
+              <span className="text-text-bright font-medium">설계자 (A)</span>
               <span className="text-text/30">vs</span>
-              <span className="text-text-bright font-medium">실행형 (E)</span>
+              <span className="text-text-bright font-medium">탐험가 (E)</span>
             </div>
-            <p className="text-xs text-text/50">Read/Grep/Glob 비율 vs Write/Edit/Bash 비율로 측정</p>
+            <p className="text-xs text-text/50">메시지 길이와 대화 턴 수로 측정</p>
+            <p className="mt-1.5 text-[11px] text-text/30 italic">"한 번에 다 설명" vs "대화하면서 찾아감"</p>
           </div>
           <div className="rounded-lg border border-border bg-bg-card p-4">
-            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 2 — Scope</div>
+            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 2 — Work Scope</div>
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-text-bright font-medium">깊이파 (D)</span>
+              <span className="text-text-bright font-medium">한우물 (D)</span>
               <span className="text-text/30">vs</span>
-              <span className="text-text-bright font-medium">넓이파 (W)</span>
+              <span className="text-text-bright font-medium">유목민 (W)</span>
             </div>
-            <p className="text-xs text-text/50">도구 다양성, 프로젝트 수, 모델 다양성으로 측정</p>
+            <p className="text-xs text-text/50">프로젝트 집중도와 전환 빈도로 측정</p>
+            <p className="mt-1.5 text-[11px] text-text/30 italic">"끝날 때까지 안 건드려" vs "동시에 굴려"</p>
           </div>
           <div className="rounded-lg border border-border bg-bg-card p-4">
-            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 3 — Rhythm</div>
+            <div className="text-xs text-accent/60 font-semibold mb-1">AXIS 3 — Work Rhythm</div>
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="text-text-bright font-medium">마라토너 (M)</span>
               <span className="text-text/30">vs</span>
               <span className="text-text-bright font-medium">스프린터 (S)</span>
             </div>
-            <p className="text-xs text-text/50">평균 세션 시간으로 측정 (30분+ = 마라톤, 10분- = 스프린트)</p>
+            <p className="text-xs text-text/50">세션 종류(Quick/Standard/Deep) 비율로 측정</p>
+            <p className="mt-1.5 text-[11px] text-text/30 italic">"1-2시간 기본" vs "틈틈이 짧게"</p>
           </div>
         </div>
       </div>

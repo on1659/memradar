@@ -17,7 +17,7 @@ export function UsageSlide({ sessions }: Props) {
   return (
     <SlideLayout gradient="from-[#0a0612] via-[#120a1e] to-[#0a0612]">
       <FadeInText delay={0.2} className="mb-6 text-sm text-accent/60 uppercase tracking-widest">
-        당신의 AI 스타일은?
+        내 AI는 무슨 일을 할까?
       </FadeInText>
 
       <motion.div

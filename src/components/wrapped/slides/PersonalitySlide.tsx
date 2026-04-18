@@ -13,18 +13,33 @@ const AXIS_COLORS: Record<AxisKey, string> = {
   rhythm: 'bg-amber/60',
 }
 
-const AXIS_HELP: Record<AxisKey, [string, string]> = {
+const AXIS_HELP_KO: Record<AxisKey, [string, string]> = {
   style: [
-    '읽기형: 코드를 먼저 살피고 원인을 파악하는 쪽에 가까워요.',
-    '실행형: 바로 수정하고 만들면서 전진하는 쪽에 가까워요.',
+    '탐험가: AI와 짧은 대화를 주고받으며 탐색하는 스타일에 가까워요.',
+    '설계자: 프롬프트를 길게 쓰고 한 번에 맡기는 스타일에 가까워요.',
   ],
   scope: [
-    '깊이파: 한 문제를 깊게 파고들어 구조와 원인을 이해하는 성향이에요.',
-    '넓이파: 여러 파일, 도구, 주제를 넓게 오가며 해결하는 성향이에요.',
+    '한우물: 한 프로젝트에 집중해서 깊게 파는 성향이에요.',
+    '유목민: 여러 프로젝트를 동시에 오가며 작업하는 성향이에요.',
   ],
   rhythm: [
-    '마라토너: 긴 호흡으로 오래 이어가는 작업 리듬에 가까워요.',
     '스프린터: 짧고 빠른 반복으로 문제를 해결하는 작업 리듬에 가까워요.',
+    '마라토너: 긴 호흡으로 오래 이어가는 작업 리듬에 가까워요.',
+  ],
+}
+
+const AXIS_HELP_EN: Record<AxisKey, [string, string]> = {
+  style: [
+    'Explorer: You tend to have short back-and-forth conversations with AI.',
+    'Architect: You tend to write long, detailed prompts and delegate at once.',
+  ],
+  scope: [
+    'Deep: You focus deeply on a single project.',
+    'Wide: You work across multiple projects simultaneously.',
+  ],
+  rhythm: [
+    'Sprinter: You solve problems in short, rapid bursts.',
+    'Marathoner: You work in long, sustained sessions.',
   ],
 }
 
@@ -56,29 +71,30 @@ function TooltipLabel({
 
 function getAxisHandleCopy(
   axis: PersonalityResult['axes'][AxisKey],
+  axisKey: AxisKey,
   locale: 'ko' | 'en'
 ) {
-  const pct = Math.max(0, Math.min(100, Math.round(axis.value * 100)))
-  const leftPct = 100 - pct
-  const rightPct = pct
   const leaningRight = axis.value >= 0.5
   const balanced = Math.abs(axis.value - 0.5) < 0.04
   const dominantLabel = leaningRight ? axis.label[1] : axis.label[0]
+  const dominantIdx = leaningRight ? 1 : 0
+
+  const help = locale === 'ko' ? AXIS_HELP_KO : AXIS_HELP_EN
 
   if (locale === 'ko') {
     return {
-      title: balanced ? '현재 위치: 균형형' : `현재 위치: ${dominantLabel}`,
+      title: balanced ? '균형형' : dominantLabel,
       description: balanced
-        ? `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%로 두 성향이 거의 비슷해요.`
-        : `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%로 ${dominantLabel} 쪽이 조금 더 강해요.`,
+        ? '두 성향이 거의 비슷해요.'
+        : help[axisKey][dominantIdx],
     }
   }
 
   return {
-    title: balanced ? 'Current position: balanced' : `Current position: ${dominantLabel}`,
+    title: balanced ? 'Balanced' : dominantLabel,
     description: balanced
-      ? `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%, so both tendencies are nearly even.`
-      : `${axis.label[0]} ${leftPct}% · ${axis.label[1]} ${rightPct}%, leaning slightly toward ${dominantLabel}.`,
+      ? 'Both tendencies are nearly even.'
+      : help[axisKey][dominantIdx],
   }
 }
 
@@ -121,10 +137,8 @@ export function PersonalitySlide({ personality }: Props) {
           const axis = personality.axes[key]
           const leftActive = axis.value < 0.5
           const pct = Math.max(0, Math.min(100, Math.round(axis.value * 100)))
-          const leftPct = 100 - pct
-          const rightPct = pct
           const handlePct = Math.max(2, Math.min(98, pct))
-          const handleTooltip = getAxisHandleCopy(axis, locale)
+          const handleTooltip = getAxisHandleCopy(axis, key, locale)
           const handleTooltipAlignClass = handlePct > 14 && handlePct < 86 ? '-translate-x-1/2' : ''
           const handleTooltipStyle =
             handlePct <= 14
@@ -140,13 +154,11 @@ export function PersonalitySlide({ personality }: Props) {
               transition={{ delay: 1.3 + i * 0.15 }}
             >
               <div className="flex justify-between mb-1">
-                <TooltipLabel active={leftActive} description={AXIS_HELP[key][0]}>
-                  <span>{axis.label[0]}</span>
-                  <span className="ml-1 text-[10px] font-normal text-text/35">{leftPct}%</span>
+                <TooltipLabel active={leftActive} description={(locale === 'ko' ? AXIS_HELP_KO : AXIS_HELP_EN)[key][0]}>
+                  {axis.label[0]}
                 </TooltipLabel>
-                <TooltipLabel active={!leftActive} description={AXIS_HELP[key][1]}>
-                  <span>{axis.label[1]}</span>
-                  <span className="ml-1 text-[10px] font-normal text-text/35">{rightPct}%</span>
+                <TooltipLabel active={!leftActive} description={(locale === 'ko' ? AXIS_HELP_KO : AXIS_HELP_EN)[key][1]}>
+                  {axis.label[1]}
                 </TooltipLabel>
               </div>
               <div className="group relative cursor-help">

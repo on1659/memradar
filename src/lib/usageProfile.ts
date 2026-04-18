@@ -6,74 +6,84 @@ export interface UsageCategory {
   subtitle: string
   emoji: string
   keywords: string[]
+  color: string
 }
 
 export interface UsageCategoryScore extends UsageCategory {
   score: number
 }
 
-const USAGE_CATEGORIES: UsageCategory[] = [
+export const USAGE_CATEGORIES: UsageCategory[] = [
   {
     id: 'feature',
-    title: '만능 빌더',
-    subtitle: '기획부터 구현까지, 빈칸을 결과물로 바꾸는 타입',
-    emoji: '🛠️',
+    title: '풀스택 기획자',
+    subtitle: '기능 뚝딱 제조기',
+    emoji: '🏭',
+    color: 'var(--color-accent, #7c6ff7)',
     keywords: ['만들', '추가', '구현', '개발', 'implement', 'create', 'build', 'add', 'feature', '기능', '페이지', 'component', '컴포넌트', 'api', 'endpoint', 'route'],
   },
   {
     id: 'debug',
-    title: '버그 해결사',
-    subtitle: '문제가 보이면 바로 붙잡는 타입',
-    emoji: '🚑',
+    title: '버그 헌터',
+    subtitle: 'AI 119 신고 전문',
+    emoji: '🚨',
+    color: 'var(--color-rose, #f472b6)',
     keywords: ['버그', 'bug', 'fix', '수정', '고쳐', '에러', 'error', '오류', '안됨', '작동', 'broken', 'crash', 'fail', 'issue', 'debug', 'warning', 'undefined', 'null'],
   },
   {
     id: 'refactor',
-    title: '리팩터 메이커',
-    subtitle: '코드를 다듬고 구조를 정리하는 타입',
-    emoji: '🧹',
+    title: '코드 성형외과',
+    subtitle: '못생긴 코드 참을 수 없는 자',
+    emoji: '💅',
+    color: 'var(--color-cyan, #22d3ee)',
     keywords: ['리팩터', 'refactor', '정리', 'cleanup', 'clean up', '개선', 'improve', 'optimize', '최적화', 'simplify', 'restructure', '구조', 'rename', 'extract', 'split'],
   },
   {
     id: 'review',
-    title: '코드 감정관',
-    subtitle: '읽고 분석하고 설명하는 데 강한 타입',
+    title: '코드 감정사',
+    subtitle: '"이거 왜 이렇게 짰어?" 전문가',
     emoji: '🧐',
+    color: 'var(--color-green, #34d399)',
     keywords: ['리뷰', 'review', '분석', 'analyze', '확인', 'check', '설명', 'explain', '이해', 'understand', '왜', 'why', 'how', 'what', 'read'],
   },
   {
     id: 'writing',
-    title: '문서 메이커',
-    subtitle: '글과 문서를 정리해 주는 타입',
+    title: 'AI 고스트라이터',
+    subtitle: '글은 AI가 쓰고 이름은 내가 올리고',
     emoji: '✍️',
+    color: 'var(--color-amber, #fbbf24)',
     keywords: ['문서', 'doc', 'readme', '작성', 'write', '글', 'text', 'blog', 'markdown', '번역', 'translate', '요약', 'summary', 'summarize', 'report', 'email'],
   },
   {
     id: 'design',
-    title: 'UI 디렉터',
-    subtitle: '디테일과 레이아웃에 민감한 타입',
+    title: 'AI 아트 디렉터',
+    subtitle: '"여기 1px 옮겨" 장인',
     emoji: '🎨',
+    color: '#a78bfa',
     keywords: ['디자인', 'design', 'ui', 'ux', 'style', 'css', 'tailwind', '레이아웃', 'layout', 'responsive', '색상', 'color', '테마', 'theme', 'animation', 'font'],
   },
   {
     id: 'devops',
-    title: '배포 오퍼레이터',
-    subtitle: '빌드와 배포를 끝까지 챙기는 타입',
+    title: '배포 마스터',
+    subtitle: 'npm publish 중독자',
     emoji: '🚀',
+    color: '#f97316',
     keywords: ['배포', 'deploy', 'ci', 'cd', 'docker', 'build', '빌드', 'npm', 'publish', 'package', 'vercel', 'aws', 'server', 'config', 'env', 'pipeline', 'github', 'action'],
   },
   {
     id: 'data',
-    title: '데이터 탐험가',
-    subtitle: '데이터 흐름과 구조를 읽는 타입',
-    emoji: '🧭',
+    title: '데이터 연금술사',
+    subtitle: 'JSON을 금으로 바꾸는 자',
+    emoji: '🧙',
+    color: '#06b6d4',
     keywords: ['데이터', 'data', 'database', 'db', 'sql', 'query', '쿼리', 'csv', 'json', 'parse', 'schema', 'migration', 'model', 'fetch'],
   },
   {
     id: 'test',
-    title: '테스트 드라이버',
-    subtitle: '통과할 때까지 검증하는 타입',
-    emoji: '✅',
+    title: '품질 감독관',
+    subtitle: '통과할 때까지 테스트하는 집착러',
+    emoji: '🧪',
+    color: '#22c55e',
     keywords: ['테스트', 'test', 'spec', 'jest', 'playwright', 'e2e', 'unit', 'mock', 'assert', 'expect', 'coverage'],
   },
 ]
