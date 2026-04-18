@@ -210,6 +210,17 @@ React 19 · TypeScript · Vite 8 · Tailwind CSS v4 · Framer Motion · Lucide I
 
 ---
 
+## Privacy
+
+Memradar는 **어떤 데이터도 외부로 전송하지 않는다.**
+
+- 세션 로그는 로컬 머신에서만 읽히고, `localhost` 서버 또는 브라우저 안에서만 처리된다.
+- 외부 API 호출, 서버 업로드, 텔레메트리, 분석 수집 일체 없음.
+- 네트워크 연결이 없어도 동작한다 (`--static` 모드의 Google Fonts 제외).
+- 소스 코드를 직접 확인: [`cli/index.mjs`](./cli/index.mjs)
+
+---
+
 ## License
 
 MIT. [LICENSE](./LICENSE) 참고.

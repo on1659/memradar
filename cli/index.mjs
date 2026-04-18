@@ -8,6 +8,13 @@ import { fileURLToPath } from 'node:url'
 import { exec } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'))
+
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+  console.log(`memradar v${pkg.version}`)
+  process.exit(0)
+}
+
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
 const isStaticMode = process.argv.includes('--static')
