@@ -28,17 +28,52 @@ async function checkForUpdate() {
   }
 }
 
-function printUpdateNotice(latest) {
+async function handleUpdate(latest) {
   if (!latest || latest === pkg.version) return
-  const line1 = `  업데이트 가능: v${pkg.version} → v${latest}`
-  const line2 = '  npm update -g memradar'
-  const width = Math.max(line1.length, line2.length) + 2
-  const bar = '─'.repeat(width)
-  console.log(`  ╭${bar}╮`)
-  console.log(`  │${line1.padEnd(width)} │`)
-  console.log(`  │${line2.padEnd(width)} │`)
-  console.log(`  ╰${bar}╯`)
+
+  console.log(`  ╭──────────────────────────────────────────╮`)
+  console.log(`  │  업데이트: v${pkg.version} → v${latest}`.padEnd(44) + '│')
+  console.log(`  ╰──────────────────────────────────────────╯`)
   console.log()
+
+  if (!process.stdin.isTTY) {
+    console.log('  npm install -g memradar@latest 로 업데이트하세요.')
+    console.log()
+    return
+  }
+
+  process.stdout.write('  지금 업데이트할까요? [Y/n] ')
+
+  const answer = await new Promise((resolve) => {
+    process.stdin.setEncoding('utf8')
+    process.stdin.resume()
+    const timer = setTimeout(() => { process.stdin.pause(); resolve('n') }, 15000)
+    process.stdin.once('data', (data) => {
+      clearTimeout(timer)
+      process.stdin.pause()
+      resolve(data.trim().toLowerCase())
+    })
+  })
+
+  console.log()
+
+  if (answer === '' || answer === 'y' || answer === 'yes') {
+    console.log('  npm install -g memradar@latest 설치 중...')
+    console.log()
+    await new Promise((resolve, reject) => {
+      const child = exec('npm install -g memradar@latest', (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+      child.stdout?.pipe(process.stdout)
+      child.stderr?.pipe(process.stderr)
+    }).catch((err) => {
+      console.error('  업데이트 실패:', err.message)
+    })
+    console.log()
+    console.log('  업데이트 완료! memradar를 다시 실행해주세요.')
+    process.exit(0)
+  }
 }
 
 const updateCheckPromise = checkForUpdate()
@@ -385,7 +420,7 @@ if (!isStaticMode) {
   console.log('  Press Ctrl+C to stop')
   console.log()
 
-  printUpdateNotice(await updateCheckPromise)
+  handleUpdate(await updateCheckPromise)
 
   if (shouldOpenBrowser) {
     openBrowser(url)
@@ -731,7 +766,7 @@ if (!isStaticMode) {
   console.log('  ------------------------------')
   console.log()
 
-  printUpdateNotice(await updateCheckPromise)
+  handleUpdate(await updateCheckPromise)
 
   if (shouldOpenBrowser) {
     openBrowser(outPath)
