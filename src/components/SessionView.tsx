@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, User, Zap } from 'lucide-react'
+import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session } from '../types'
@@ -184,7 +184,7 @@ export function SessionView({ session, onBack, highlightMessageIndex, sessionInd
 
   useEffect(() => {
     onMount?.()
-  }, [])
+  }, [onMount])
 
   useEffect(() => {
     if (highlightMessageIndex != null) {

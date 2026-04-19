@@ -15,7 +15,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { Session, Stats } from '../types'
+import type { Session, SessionSource, Stats } from '../types'
 import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
@@ -799,7 +799,7 @@ export function Dashboard({
     if (restoreScrollY != null && restoreScrollY > 0) {
       window.scrollTo({ top: restoreScrollY, behavior: 'instant' })
     }
-  }, [])
+  }, [restoreScrollY])
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
