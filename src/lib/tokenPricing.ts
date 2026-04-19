@@ -1,4 +1,5 @@
 import type { Session, SessionSource, TokenUsage } from '../types'
+import { getAccentTone, isThemeId } from '../theme/themePolicy'
 
 interface ModelPrice {
   input: number
@@ -35,10 +36,22 @@ const CODEX_MODEL_PRICING: Array<[pattern: RegExp, price: ModelPrice]> = [
   [/^gpt-5$/i, { input: 1.25, cachedInput: 0.125, output: 10 }],
 ]
 
-export function getSourceColor(source: SessionSource) {
-  return source === 'claude'
-    ? { text: '#f59e0b', soft: 'rgba(245, 158, 11, 0.16)', border: 'rgba(245, 158, 11, 0.28)' }
-    : { text: '#6366f1', soft: 'rgba(99, 102, 241, 0.16)', border: 'rgba(99, 102, 241, 0.28)' }
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+export function getSourceColor(source: SessionSource, theme?: string) {
+  const themeId = theme && isThemeId(theme) ? theme : 'dark'
+  const accentId = source === 'claude' ? 'amber' : 'indigo'
+  const tone = getAccentTone(themeId, accentId)
+  return {
+    text: tone.color,
+    soft: hexToRgba(tone.color, 0.16),
+    border: hexToRgba(tone.color, 0.28),
+  }
 }
 
 function getCodexPrice(modelName?: string): ModelPrice {
