@@ -4,6 +4,19 @@
 
 ---
 
+## 진행 현황 — 2026-04-19 (v0.2.12 기준 감사)
+
+커밋 `1d5008a` 기준으로 23개 이슈를 재점검한 결과:
+
+| 상태 | 개수 | 이슈 번호 |
+|---|---|---|
+| ✅ 해결됨 | 11개 | #3, #4, #8(부분, 재시도 버튼은 `3fdeb1a` 전후), #10, #11, #15, #18(부분 가드), #19, #21, #22, #23(부분 — 페이지네이션) |
+| 🟡 미해결 | 12개 | #1, #2, #5, #6, #7, #8, #9, #12, #13, #14, #16, #17, #20 |
+
+> 각 항목은 원 내용을 보존하고 해결된 경우 인라인으로 `✅ Fixed in <sha>` 주석을 달았다. 부분 해결 항목은 잔여 작업 메모를 함께 표기한다.
+
+---
+
 ## 회차 1 — 2026-04-17
 
 코드 품질·성능·접근성·보안·DX 관점에서 전체 코드베이스 스캔. 5개 개선사항 발견.
@@ -55,6 +68,8 @@
 - `useEffect` 의존성 배열에 `dayPatternPinned`, `busyDayPinned`, 관련 데이터 값 포함
 - cleanup 함수에서 `clearInterval` 이 확실히 호출되는지 검증
 
+> ✅ Fixed in `3fdeb1a` — 세 개의 `useEffect` 블록 모두 올바른 의존성 배열과 `clearInterval` cleanup 을 갖추고 있다 (`Dashboard.tsx:919-948`). 원 문서의 `529-546` 라인 번호는 리팩터 후 갱신됐다.
+
 ---
 
 ### 4. CLI 경로 탐색 시 심볼릭 링크·민감 디렉터리 필터링 부족
@@ -71,6 +86,8 @@
 - 제외 목록 확대: `subagents`, `node_modules`, `.git`, `.private`
 - `fs.realpathSync` 로 심볼릭 링크 순환 방지
 - 접근 실패 경로를 verbose 모드(`--verbose`)에서 경고 출력
+
+> ✅ Fixed in `3fdeb1a` — `cli/index.mjs:39` 에 `SKIP_DIRS = new Set(['subagents', 'node_modules', '.git', '.private', '.cache'])` 가 도입됐다. `vite.config.ts` 의 `SKILL_SKIP_DIRS` 도 동일 집합으로 정리됨. 잔여: `fs.realpathSync` 심링크 순환 방지와 `--verbose` 경고는 여전히 미구현.
 
 ---
 
@@ -189,6 +206,8 @@ aria-label="마지막 슬라이드로 건너뛰기"
 - 가격 데이터에 `// Last updated: 2026-04` 주석 추가
 - 중기적으로 외부 JSON 설정 파일로 분리
 
+> ✅ Fixed in `3fdeb1a` — `src/lib/tokenPricing.ts` 에 `CLAUDE_MODEL_PRICING`, `CODEX_MODEL_PRICING` 패턴 테이블과 `cachedInput` 단가, `// Last updated: 2026-04` 주석까지 적용됐다. 외부 JSON 분리는 미적용.
+
 ---
 
 ### 우선순위 요약 (2회차)
@@ -220,6 +239,8 @@ aria-label="마지막 슬라이드로 건너뛰기"
 **현재 문제**: `sessions` 가 빈 배열일 때 `sortedSessions[0]?.startTime || ''` 로 빈 문자열이 IntroSlide 에 전달된다. 슬라이드 인덱스 연산도 0개 세션에 대해 검증되지 않아 빈 화면이나 런타임 에러 가능.
 
 **제안**: 세션이 없으면 Wrapped 진입 전에 "분석할 세션이 없습니다" 안내 화면을 보여주고 대시보드로 돌려보내는 가드 추가.
+
+> ✅ Fixed in `3fdeb1a` — `WrappedView.tsx:89` 에 `sessions.length === 0` 분기가 추가돼 빈 상태 안내 화면을 렌더한다. 마지막 슬라이드 인덱스(`lastSlideIndex`) 도 0으로 폴백.
 
 ---
 
@@ -303,6 +324,8 @@ build: {
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 ```
 
+> ✅ Fixed in `3fdeb1a` — `index.html` 에 `description`, `og:title/description/type/url`, `twitter:card/title/description`, `theme-color` 가 모두 추가됐다. 잔여: `og:image`, `apple-touch-icon` 아직 없음.
+
 ---
 
 ### 우선순위 요약 (3회차)
@@ -363,6 +386,8 @@ build: {
 
 **제안**: 총 메시지 수 또는 도구 사용 총합이 임계치 미만이면 "데이터가 부족해 성격 분석을 수행할 수 없습니다" 안내를 반환하는 가드 추가.
 
+> 🟡 부분 해결 (`feb447b` / `ce9dfca`) — `personality.ts:143` 에 `sessions.length === 0 || stats.totalMessages < 3` 가드가 생겨 기본 `EWS` 결과를 반환한다. 잔여: 여전히 "데이터 부족" 상태를 별도 UI로 분기하지 않고 성격 카드가 그대로 표시된다.
+
 ---
 
 ### 19. SearchBar 필터 패널에서 Escape 키 미처리
@@ -379,6 +404,8 @@ build: {
 - 필터 패널 영역에 `onKeyDown` 추가: `Escape` → 패널 닫기
 - 결과 항목을 `<button>` 또는 `role="button" tabIndex={0} onKeyDown={Enter → onSelect}` 로 변경
 
+> 🟡 부분 해결 — `SearchBar.tsx:51-56` 에서 입력 필드 `Escape` 가 열린 필터 패널을 먼저 닫고, 닫혀 있으면 검색 뷰를 닫도록 처리. 잔여: 필터 패널 내부에 포커스가 있을 때의 `Escape` 처리 및 `SearchResults` 항목의 `Enter` 키보드 활성화는 여전히 필요.
+
 ---
 
 ### 20. CSS 미사용 가능성: `dashboard-button-attention-runner` 관련 keyframes
@@ -392,6 +419,8 @@ build: {
 **현재 문제**: `@keyframes dashboardButtonBorderRun` + `.dashboard-button-attention-runner` + `@supports not (offset-path: ...)` 폴백까지 약 30줄이 정의돼 있지만, 이 클래스가 실제로 어느 컴포넌트 JSX 에서 사용되는지 확인이 필요하다. 사용처가 없다면 불필요한 CSS.
 
 **제안**: `dashboard-button-attention-runner` 를 코드베이스에서 grep 해 사용처가 없으면 삭제. 있으면 유지하되 주석으로 사용 위치 명시.
+
+> 🟡 확인 — `MemradarTopBar.tsx` 에서 실제 사용 중. 따라서 "미사용 삭제" 제안은 무효. 다만 주석으로 사용 위치 명시하는 아이디어는 그대로 유효함.
 
 ---
 
@@ -434,6 +463,8 @@ build: {
 </script>
 ```
 
+> ✅ Fixed in `3fdeb1a` — `index.html:17-22` 에 동일한 패턴의 인라인 부트스트랩 스크립트가 추가됐다. `data-theme` 과 `data-accent` 를 렌더 전에 세팅한다.
+
 ---
 
 ### 22. 전역 키보드 단축키 충돌 — Ctrl+K 와 Wrapped 화살표 동시 활성
@@ -451,6 +482,8 @@ build: {
 **제안**:
 - `App.tsx` 에서 현재 뷰가 `wrapped` 일 때 `Ctrl+K` 핸들러를 스킵
 - `WrappedView.tsx:135` `ArrowLeft` 분기에 `e.preventDefault()` 추가
+
+> ✅ Fixed in `3fdeb1a` — `App.tsx:183-185` 에 `if (viewRef.current === 'wrapped') return` 가드가 추가됐고, `WrappedView.tsx:155-166` 에서 `ArrowLeft/ArrowRight/Space/End` 모두 `e.preventDefault()` 를 호출한다.
 
 ---
 

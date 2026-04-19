@@ -1,8 +1,25 @@
 # Achievement / Badge System
 
-> ⬜ **Phase 2 계획 문서**. 현재 Memradar 에는 아직 업적·뱃지 시스템이 구현돼 있지 않다. 이 문서는 구현 시 따를 기획·데이터 구조·UI 규칙을 정의한다. 전체 로드맵은 [ROADMAP.md §2.5](./ROADMAP.md) 참고.
+> **상태: 미구현 (Phase 2 계획 문서)** — _최종 확인 2026-04-19, memradar v0.2.12_
+>
+> 현재 Memradar 에는 업적·뱃지 시스템이 **전혀 구현돼 있지 않다**.
+> `src/lib/achievements.ts`, 관련 UI 컴포넌트, IndexedDB 퍼시스턴스 모두 존재하지 않는다.
+> 이 문서는 구현 시 따를 **기획·데이터 구조·UI 규칙 스펙**이며, 어떤 부분도 현재 동작 중인 기능을 설명하지 않는다.
+> 전체 로드맵은 [ROADMAP.md §2.5](./ROADMAP.md) 참고.
 
-## 업적 목록
+## 현재 코드베이스 상태 (참고)
+
+구현 시 언락 신호 소스로 활용할 수 있는 **이미 존재하는** 데이터 구조 (v0.2.12 기준):
+
+- `Session` (`src/types.ts`) — `messages`, `startTime`, `endTime`, `totalTokens`, `messageCount`, `model`, `source`
+- `Stats` (`src/types.ts`) — `totalSessions`, `totalMessages`, `totalTokens`, `modelsUsed`, `toolsUsed`, `hourlyActivity`, `dailyActivity`, `dailyTokens`, `longestSession`, `topSkills`
+
+세션 지속 시간은 `endTime - startTime` 으로 파생해야 한다 (세션 객체에 duration 필드 없음).
+연속일(streak)은 `dailyActivity` 키를 정렬해 파생해야 한다.
+
+---
+
+## 업적 목록 (계획 스펙, 미구현)
 
 ### Tier 1: 입문 (쉬움)
 
@@ -43,9 +60,11 @@
 | 🌊 | Token Ocean | 총 10,000,000+ 토큰 사용 | 파도 |
 | 🎭 | All-Rounder | 모든 Tier 2 뱃지 획득 | 마스크 |
 
+합계: **4티어 × 총 19개 뱃지** (Tier 1: 4, Tier 2: 6, Tier 3: 5, Tier 4: 4).
+
 ---
 
-## 뱃지 UI 디자인
+## 뱃지 UI 디자인 (계획안)
 
 ### 잠김 상태
 - 흑백 아이콘
@@ -64,10 +83,13 @@
 
 ---
 
-## 데이터 구조
+## 데이터 구조 (계획안)
 
 ```typescript
-interface Achievement {
+// 구현 시 src/lib/achievements.ts 에 배치 예정
+import type { Session, Stats } from '../types'
+
+export interface Achievement {
   id: string
   name: string
   description: string
@@ -79,10 +101,17 @@ interface Achievement {
     detail?: string   // "3/5일"
   }
 }
+
+export interface AchievementRecord {
+  id: string
+  unlockedAt: string // ISO timestamp, 최초 달성 시점
+  progress: number
+  detail?: string
+}
 ```
 
-## 진행률 추적
+## 진행률 추적 (계획안)
 
-뱃지별 진행 상황은 IndexedDB에 저장.
-새 세션 로딩 시 전체 업적을 다시 체크하고,
-새로 달성한 업적이 있으면 알림 표시.
+- 뱃지별 진행 상황은 **IndexedDB** 에 저장 (현재 IndexedDB 사용처 없음 — 구현 시 신규 스토어 추가 필요).
+- 새 세션 로딩 시 전체 업적을 다시 체크하고, 새로 달성한 업적이 있으면 알림 표시.
+- 제안 스토어 이름: `memradar-achievements`, 키: `id`, 값: `AchievementRecord`.

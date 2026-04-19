@@ -1,3 +1,5 @@
+> **아카이브: 2026-04-18 리뷰 요청. 2026-04-19 현재 재디자인은 v0.2.12에 출시 완료. 최신 스펙은 `docs/PERSONALITY-REDESIGN.md`, 구현은 `src/lib/personality.ts`.**
+
 # Claude Review Request: Personality Redesign
 
 > 목적: `memradar`의 코딩 성향 3축 8유형 리디자인안이 기획적으로 타당한지, 실제 코드/데이터 구조에서 구현 가능한지 검토받기 위한 문서.
@@ -145,3 +147,10 @@
 - 지금 repo 구조에서 문서가 말하는 수준으로 구현이 실제 가능한가
 
 즉, 심리학적 포장보다도 제품/데이터/코드 관점에서 냉정하게 봐주면 좋겠습니다.
+
+---
+
+## 아카이브 정정 메모 (2026-04-19)
+
+- 본문의 `src/components/PersonalityView.tsx` 참조는 현재 코드에 존재하지 않습니다. v0.2.12에서 Dashboard에 sectionMode로 통합되어 `src/components/Dashboard.tsx` 내부로 흡수되었습니다.
+- 본문 중간 표현은 리뷰 당시 상태 보존을 위해 수정하지 않았습니다. 최신 스펙은 `docs/PERSONALITY-REDESIGN.md`, 구현은 `src/lib/personality.ts`를 참조하세요.

@@ -1,6 +1,6 @@
 # Architecture
 
-Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(`v0.1.8`) 구현을 기준으로 작성됐고, 미래 계획은 명시적으로 표시한다.
+Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(`v0.2.12`) 구현을 기준으로 작성됐고, 미래 계획은 명시적으로 표시한다.
 
 ## 기술 결정
 
@@ -18,13 +18,15 @@ Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(
 
 ## 현재 스택
 
-- **프레임워크**: React 19 + TypeScript
-- **빌드**: Vite 8
-- **스타일**: Tailwind CSS v4
-- **아이콘**: Lucide React
-- **날짜**: date-fns
-- **애니메이션**: Framer Motion
-- **이미지 캡처**: html-to-image
+- **프레임워크**: React 19.2 + TypeScript 6
+- **빌드**: Vite 8.0 (`build` = `tsc -b && vite build`)
+- **스타일**: Tailwind CSS v4.2 (`@tailwindcss/vite` 플러그인)
+- **아이콘**: Lucide React 1.8
+- **날짜**: date-fns 4
+- **애니메이션**: Framer Motion 12.38
+- **이미지 캡처**: html-to-image 1.11
+- **테스트**: Playwright (`test:e2e`) + `test:cli` + `test:harness`(lint→build→cli→e2e)
+- **배포**: Vercel (`vercel.json` = `{buildCommand:"npm run build", outputDirectory:"dist", framework:"vite"}`)
 
 ## 현재 디렉터리 구조
 
@@ -36,7 +38,8 @@ src/
 │   ├── claude.ts           # Claude Code 파서
 │   └── codex.ts            # Codex 파서
 ├── lib/                    # 순수 로직 (React 없음)
-│   ├── personality.ts      # 코딩 성격 (3축 8유형)
+│   ├── personality.ts      # 코딩 성격 3축 8유형 (Reader/Executor·Deep/Wide·Marathon/Sprint → RDM/RDS/RWM/RWS/EDM/EDS/EWM/EWS)
+│   ├── languageProfile.ts  # 28개 언어 감지·집계
 │   ├── usageProfile.ts     # 사용 카테고리 분석
 │   ├── search.ts           # 검색 인덱스·매칭·스니펫
 │   ├── modelNames.ts       # 모델명 정규화
@@ -44,15 +47,17 @@ src/
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/
-│   ├── Dashboard.tsx
+│   ├── MemradarTopBar.tsx  # 상단 네비게이션
+│   ├── Dashboard.tsx       # Personality(3축)·LanguageProfile·UsageProfile 등을 sectionMode 로 통합
 │   ├── DropZone.tsx
 │   ├── SessionView.tsx
-│   ├── PersonalityView.tsx
+│   ├── PersonalityView.tsx # (Dashboard 에 병합되어 내부 섹션으로 사용)
 │   ├── ErrorBoundary.tsx
 │   ├── ThemeSwitcher.tsx
 │   ├── Heatmap.tsx
 │   ├── HourChart.tsx
 │   ├── WordCloud.tsx
+│   ├── TopSkills.tsx
 │   ├── theme.ts
 │   ├── search/
 │   │   ├── SearchView.tsx
@@ -82,10 +87,12 @@ src/
 └── index.css               # 테마 변수·keyframes·공유 클래스
 
 cli/
-└── index.mjs               # `npx memradar` CLI 진입점
+└── index.mjs               # `npx memradar` CLI 진입점 (ESM Node, 기본 포트 3939)
 ```
 
-향후 추가 예정(로드맵): `src/lib/replay.ts`, `src/lib/achievements.ts`, `src/components/replay/`, `src/components/evolution/`, `src/components/achievements/` 등. 상세는 [ROADMAP.md](./ROADMAP.md) 참고.
+해시 라우팅(App.tsx)의 뷰는 `drop`, `dashboard`, `session/<id>`, `search`, `wrapped`, `personality` 6종이다.
+
+향후 추가 예정(로드맵): Achievements, Interactive Replay(timeline scrubber), Code Evolution, Growth 섹션, Community 기능 등은 아직 미출시. 상세는 [ROADMAP.md](./ROADMAP.md) 참고.
 
 ## 데이터 흐름
 
@@ -124,12 +131,16 @@ interface Provider {
 
 ## CLI 아키텍처
 
-`cli/index.mjs` 는 Node 스크립트.
+`cli/index.mjs` 는 Node ESM 스크립트이며 기본 동작은 로컬 HTTP 서버(포트 **3939**)를 띄우는 것이다.
 
-1. `MEMRADAR_PROJECTS_DIR`(기본 `~/.claude/projects`) 과 `MEMRADAR_CODEX_DIR`(기본 `~/.codex/sessions`) 스캔
-2. `.jsonl` 파일을 모아 `dist/` 번들과 함께 HTML 하나로 머지
-3. `MEMRADAR_OUTPUT_HTML`(기본 `os.tmpdir()`) 에 저장
-4. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저로 오픈
+1. `~/.claude/projects/` 및 선택적으로 `~/.codex/sessions/` 를 스캔해 `.jsonl` 세션을 수집
+2. `dist/` 번들을 서빙하며 아래 API 를 노출한다:
+   - `GET /api/sessions` — 감지된 세션 목록
+   - `GET /api/session-content` — 개별 세션 원본 콘텐츠
+   - `GET /api/skills` — 스킬 인벤토리
+3. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
+4. `--static` 모드에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `/tmp/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다
+5. `--version` 플래그 지원
 
 출력된 HTML 은 파일 시스템(`file://`) 또는 배포된 URL 양쪽에서 동일하게 동작하도록 해시 라우팅을 쓴다.
 

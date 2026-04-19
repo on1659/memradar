@@ -1,7 +1,10 @@
 # Personality System Redesign — Implementation Plan
 
-> 구현 계획서
-> 작성일: 2026-04-18
+> 상태: ✅ 완료 (v0.2.12, 2026-04-18 commit ce9dfca)
+> 원 작성일: 2026-04-18 / 스탬프: v0.2.12 / 2026-04-19
+> 관련 커밋: feb447b, ce9dfca, f650407, 3fdeb1a
+> 이 문서는 완료된 구현의 사후 기록입니다. 각 Step의 "할 것"은 ✅ 체크로 보존하고,
+> 실제 코드와 다른 부분은 본문에 주석(`※ 실제:`)으로 병기했습니다.
 
 ---
 
@@ -31,7 +34,12 @@
 
 ---
 
-## 2. Step 1: `src/lib/personality.ts` — 알고리즘 교체
+## 2. Step 1: `src/lib/personality.ts` — 알고리즘 교체  ✅ 완료
+
+- ✅ 구 알고리즘(READ/EXECUTE tool hints 기반) 제거
+- ✅ `sigmoid` / `extractProject` / `median` 헬퍼 추가
+- ✅ 3축(style/scope/rhythm) 사용자 행동 기반 계산으로 교체
+- ✅ TypeCode 매핑 문자열(RDM…EWS) 불변 유지
 
 ### 2-1. 삭제할 코드
 
@@ -59,7 +67,9 @@ function sigmoid(x: number, midpoint: number, steepness: number): number {
 ```typescript
 function extractProject(cwd: string): string {
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
-  return parts.slice(0, Math.min(parts.length, 4)).join('/')
+  // ※ 실제 구현: Math.min(parts.length, 6) — Windows(C:/Users/alice/source/repos/foo)와
+  //             Unix(/home/alice/projects/foo) 양쪽을 모두 커버하기 위해 4 → 6으로 상향됨.
+  return parts.slice(0, Math.min(parts.length, 6)).join('/')
 }
 ```
 
@@ -182,10 +192,12 @@ const rhythmValue =
 #### 축 라벨 & TypeCode 매핑
 
 ```typescript
+// ※ 실제 구현에서는 label 배열이 [left=낮은값, right=높은값] 규약을 지키도록
+//    style/rhythm을 반전 배치했습니다. TypeCode 매핑은 계획 그대로 유지됩니다.
 const axes = {
-  style:  { label: ['설계자', '탐험가'], value: styleValue },
-  scope:  { label: ['한우물', '유목민'], value: scopeValue },
-  rhythm: { label: ['마라토너', '스프린터'], value: rhythmValue },
+  style:  { label: ['탐험가', '설계자'],   value: styleValue },   // value 높을수록 설계자(E)
+  scope:  { label: ['한우물', '유목민'],   value: scopeValue },   // value 높을수록 유목민(W)
+  rhythm: { label: ['스프린터', '마라토너'], value: rhythmValue }, // value 높을수록 마라토너(M)
 }
 
 // TypeCode 매핑 (문자열 불변)
@@ -196,17 +208,26 @@ const r = rhythmValue >= 0.5 ? 'M' : 'S'
 
 ---
 
-## 3. Step 2: `src/lib/usageProfile.ts` — 1줄 변경
+## 3. Step 2: `src/lib/usageProfile.ts` — 1줄 변경  ✅ 완료
+
+- ✅ `feature` 카테고리 타이틀 리네이밍 반영
 
 ```
 // line 18
 - title: '만능 빌더',
-+ title: '기능 빌더',
++ title: '풀스택 기획자',   // ※ 실제로 적용된 최종 네이밍 (계획 초안의 '기능 빌더'에서 재조정)
 ```
 
 ---
 
-## 4. Step 3: `src/components/PersonalityView.tsx` — UI 업데이트
+## 4. Step 3: `src/components/PersonalityView.tsx` — UI 업데이트  ✅ 완료
+
+- ✅ AXIS_LABELS 교체 (설계자/탐험가, 한우물/유목민, 마라토너/스프린터)
+- ✅ computePersonalityStatic 축 라벨 정합
+- ✅ 3축 설명 카드 문구 교체
+- ✅ "내 AI의 직업" 리브랜딩
+- ℹ️ 이후 commit 3fdeb1a에서 PersonalityView가 Dashboard에 `sectionMode`로 병합되어
+    컴포넌트 구조/라인 번호는 더 이상 아래 스니펫과 1:1 매칭되지 않습니다.
 
 ### 4-1. AXIS_LABELS 변경 (line 15-22)
 
@@ -248,7 +269,9 @@ rhythm: { label: ['마라토너', '스프린터'], value: rhythmValue },
 
 ---
 
-## 5. Step 4: `PersonalitySlide.tsx` — 툴팁 업데이트
+## 5. Step 4: `PersonalitySlide.tsx` — 툴팁 업데이트  ✅ 완료
+
+- ✅ AXIS_HELP 텍스트 3축 모두 신규 문구로 교체
 
 ```typescript
 // line 16-29
@@ -270,7 +293,9 @@ const AXIS_HELP: Record<AxisKey, [string, string]> = {
 
 ---
 
-## 6. Step 5: `UsageSlide.tsx` — 제목 변경
+## 6. Step 5: `UsageSlide.tsx` — 제목 변경  ✅ 완료
+
+- ✅ Wrapped 슬라이드 타이틀 "내 AI는 무슨 일을 할까?"로 교체
 
 ```
 // line 19-20
@@ -308,7 +333,7 @@ const AXIS_HELP: Record<AxisKey, [string, string]> = {
 
 ---
 
-## 9. 검증
+## 9. 검증 (원 계획 체크리스트)
 
 1. `npm run build` — 타입 에러 없이 빌드 성공
 2. `npm run dev` — 개발 서버 정상 실행
@@ -318,3 +343,21 @@ const AXIS_HELP: Record<AxisKey, [string, string]> = {
    - 공감 포인트 문구 표시
 4. 다양한 유형이 나오는지 확인 (만능빌더 쏠림 해소)
 5. Wrapped 슬라이드 정상 렌더링
+
+---
+
+## 10. 사후 검증 결과 (v0.2.12 기준)
+
+| # | 항목 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| 1 | `personality.ts`에 sigmoid/extractProject/median 헬퍼 존재 | ✅ | `src/lib/personality.ts` L38–59 |
+| 2 | 3축(style/scope/rhythm) 사용자 행동 기반 계산으로 교체 | ✅ | `src/lib/personality.ts` L152–248 |
+| 3 | TypeCode 8종 문자열(RDM…EWS) 불변 유지 | ✅ | `src/lib/personality.ts` L9, L61–134 |
+| 4 | `usageProfile.ts` feature 카테고리 타이틀 변경 | ✅ | `src/lib/usageProfile.ts` L18 (`'풀스택 기획자'`) |
+| 5 | PersonalityView AXIS_LABELS / 3축 설명 카드 / 리브랜딩 | ⏳ | Dashboard 병합(commit 3fdeb1a)으로 파일 구조 변경 — 육안 확인 필요 |
+| 6 | `PersonalitySlide.tsx` AXIS_HELP 문구 교체 | ⏳ | 본 감사에서 직접 확인하지 않음 |
+| 7 | `UsageSlide.tsx` 제목 "내 AI는 무슨 일을 할까?" 변경 | ⏳ | 본 감사에서 직접 확인하지 않음 |
+| 8 | `npm run build` / `npm run dev` 정상 | ⏳ | 런타임 검증 필요 |
+
+> `⏳` 표시는 본 문서 업데이트 범위(단일 문서 감사) 밖이라 코드 열람만으로 단정할 수 없는 항목입니다.
+> 알고리즘/카테고리 계층의 핵심 변경(1–4)은 소스에서 모두 확인되었습니다.
