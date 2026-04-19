@@ -312,6 +312,10 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 /* 성공     */ border-green/20 bg-green/8  text-green
 ```
 
+세션 행 모델 배지 (`renderSessionRow` 내 `session.model`):  
+소스 색상(`getSourceColor`)을 그대로 사용하되 `opacity: 0.75`로 소스 배지와 구분한다.  
+고정 cyan 대신 소스 색을 따르는 이유: 밝은 테마에서 `#22d3ee`(cyan)는 대비가 낮아 잘 안 보임.
+
 "개발중" 같은 상태 표시에는 `bg-white/10 text-[10px] text-text/50` (`ShareSlide.tsx` 공유 메뉴 참조).
 
 ### 5.5 메시지 말풍선
