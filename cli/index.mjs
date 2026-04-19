@@ -5,7 +5,7 @@ import path from 'node:path'
 import os from 'node:os'
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
-import { exec } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'))
@@ -31,47 +31,20 @@ async function checkForUpdate() {
 async function handleUpdate(latest) {
   if (!latest || latest === pkg.version) return
 
-  console.log(`  ── 업데이트 가능: v${pkg.version} → v${latest} ──`)
+  console.log(`  ── 새 버전 감지: v${pkg.version} → v${latest} — 최신 버전으로 재실행합니다 ──`)
   console.log()
 
-  if (!process.stdin.isTTY) {
-    console.log('  npm install -g memradar@latest 로 업데이트하세요.')
-    console.log()
-    return
-  }
-
-  process.stdout.write('  지금 업데이트할까요? [Y/n] ')
-
-  const answer = await new Promise((resolve) => {
-    process.stdin.setEncoding('utf8')
-    process.stdin.resume()
-    const timer = setTimeout(() => { process.stdin.pause(); resolve('n') }, 15000)
-    process.stdin.once('data', (data) => {
-      clearTimeout(timer)
-      process.stdin.pause()
-      resolve(data.trim().toLowerCase())
+  await new Promise((resolve) => {
+    const args = [`memradar@${latest}`, ...process.argv.slice(2)]
+    const child = spawn('npx', ['--yes', ...args], { stdio: 'inherit', shell: true })
+    child.on('close', resolve)
+    child.on('error', () => {
+      console.log(`  자동 업데이트 실패. npx memradar@latest 로 직접 실행해주세요.`)
+      resolve()
     })
   })
 
-  console.log()
-
-  if (answer === '' || answer === 'y' || answer === 'yes') {
-    console.log('  npm install -g memradar@latest 설치 중...')
-    console.log()
-    await new Promise((resolve, reject) => {
-      const child = exec('npm install -g memradar@latest', (err) => {
-        if (err) reject(err)
-        else resolve()
-      })
-      child.stdout?.pipe(process.stdout)
-      child.stderr?.pipe(process.stderr)
-    }).catch((err) => {
-      console.error('  업데이트 실패:', err.message)
-    })
-    console.log()
-    console.log('  업데이트 완료! memradar를 다시 실행해주세요.')
-    process.exit(0)
-  }
+  process.exit(0)
 }
 
 const updateCheckPromise = checkForUpdate()
@@ -399,6 +372,8 @@ if (!isStaticMode) {
     })
   }
 
+  await handleUpdate(await updateCheckPromise)
+
   const actualPort = await tryListen(DEFAULT_PORT)
   const url = `http://localhost:${actualPort}`
 
@@ -418,8 +393,6 @@ if (!isStaticMode) {
   console.log('  Press Ctrl+C to stop')
   console.log()
 
-  handleUpdate(await updateCheckPromise)
-
   if (shouldOpenBrowser) {
     openBrowser(url)
   }
@@ -433,6 +406,8 @@ if (!isStaticMode) {
   })
 } else {
   // ─── Static HTML mode (--static) ────────────────────────────────────
+
+  await handleUpdate(await updateCheckPromise)
 
   const outPath = process.env.MEMRADAR_OUTPUT_HTML || path.join(os.tmpdir(), 'memradar.html')
 
@@ -763,8 +738,6 @@ if (!isStaticMode) {
   console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
   console.log('  ------------------------------')
   console.log()
-
-  handleUpdate(await updateCheckPromise)
 
   if (shouldOpenBrowser) {
     openBrowser(outPath)
