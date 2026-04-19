@@ -38,6 +38,163 @@ function getLogRoots() {
 
 const SKIP_DIRS = new Set(['subagents', 'node_modules', '.git', '.private', '.cache'])
 
+function parseFrontmatter(text) {
+  if (!text.startsWith('---')) return { frontmatter: {}, body: text }
+  const end = text.indexOf('\n---', 3)
+  if (end === -1) return { frontmatter: {}, body: text }
+  const fmText = text.slice(3, end).replace(/^\r?\n/, '')
+  const body = text.slice(end + 4).replace(/^\r?\n/, '')
+  const fm = {}
+  const lines = fmText.split(/\r?\n/)
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
+    if (!m) { i++; continue }
+    const key = m[1]
+    let value = m[2]
+    if (value === '|' || value === '|-' || value === '>') {
+      const collected = []
+      i++
+      while (i < lines.length && /^\s+/.test(lines[i])) {
+        collected.push(lines[i].replace(/^\s+/, ''))
+        i++
+      }
+      fm[key] = collected.join(' ').trim()
+      continue
+    }
+    fm[key] = value.replace(/^["']|["']$/g, '').trim()
+    i++
+  }
+  return { frontmatter: fm, body }
+}
+
+function summarizeDescription(raw) {
+  if (!raw) return ''
+  const flat = raw.replace(/\s+/g, ' ').trim()
+  if (flat.length <= 140) return flat
+  return flat.slice(0, 137).trimEnd() + '…'
+}
+
+function readSkillFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf-8')
+  } catch {
+    return null
+  }
+}
+
+function extractCommandDescription(text) {
+  const { frontmatter, body } = parseFrontmatter(text)
+  if (frontmatter.description) return summarizeDescription(frontmatter.description)
+  const firstLine = body.split(/\r?\n/).find((line) => line.trim().length > 0) || ''
+  const headingMatch = firstLine.match(/^#+\s*\/?[\w:-]+\s*[-—]\s*(.+)$/)
+  if (headingMatch) return summarizeDescription(headingMatch[1])
+  const plain = firstLine.replace(/^#+\s*/, '').trim()
+  return summarizeDescription(plain)
+}
+
+function scanDir(dir, predicate, collect, depth = 0) {
+  if (depth > 8) return
+  let entries
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue
+      scanDir(full, predicate, collect, depth + 1)
+    } else if (entry.isFile() && predicate(entry.name, full)) {
+      collect(full)
+    }
+  }
+}
+
+function scanSkills() {
+  const home = os.homedir()
+  const descriptions = {}
+  const setIfMissing = (name, desc) => {
+    if (!name || descriptions[name]) return
+    if (!desc) return
+    descriptions[name] = desc
+  }
+
+  const personalCommandsDir = path.join(home, '.claude', 'commands')
+  scanDir(
+    personalCommandsDir,
+    (name) => name.endsWith('.md') && !name.endsWith('.tmpl.md') && !name.startsWith('_'),
+    (full) => {
+      const text = readSkillFile(full)
+      if (!text) return
+      const rel = path.relative(personalCommandsDir, full).replace(/\\/g, '/')
+      const name = rel.replace(/\.md$/, '')
+      setIfMissing(name, extractCommandDescription(text))
+    }
+  )
+
+  const personalSkillsDir = path.join(home, '.claude', 'skills')
+  scanDir(
+    personalSkillsDir,
+    (name) => name === 'SKILL.md',
+    (full) => {
+      const text = readSkillFile(full)
+      if (!text) return
+      const { frontmatter } = parseFrontmatter(text)
+      const name = frontmatter.name || path.basename(path.dirname(full))
+      setIfMissing(name, summarizeDescription(frontmatter.description))
+    }
+  )
+
+  const pluginsManifest = path.join(home, '.claude', 'plugins', 'installed_plugins.json')
+  let plugins = {}
+  try {
+    plugins = JSON.parse(fs.readFileSync(pluginsManifest, 'utf-8')).plugins || {}
+  } catch {
+    plugins = {}
+  }
+  for (const [key, entries] of Object.entries(plugins)) {
+    const pluginName = key.split('@')[0]
+    const entry = Array.isArray(entries) ? entries[entries.length - 1] : null
+    const installPath = entry?.installPath
+    if (!installPath || !fs.existsSync(installPath)) continue
+
+    const skillsDir = path.join(installPath, 'skills')
+    scanDir(
+      skillsDir,
+      (name) => name === 'SKILL.md',
+      (full) => {
+        const text = readSkillFile(full)
+        if (!text) return
+        const { frontmatter } = parseFrontmatter(text)
+        const skillName = frontmatter.name || path.basename(path.dirname(full))
+        const desc = summarizeDescription(frontmatter.description)
+        setIfMissing(`${pluginName}:${skillName}`, desc)
+        setIfMissing(skillName, desc)
+      }
+    )
+
+    const commandsDir = path.join(installPath, 'commands')
+    scanDir(
+      commandsDir,
+      (name) => name.endsWith('.md') && !name.endsWith('.tmpl.md') && !name.startsWith('_'),
+      (full) => {
+        const text = readSkillFile(full)
+        if (!text) return
+        const rel = path.relative(commandsDir, full).replace(/\\/g, '/')
+        const cmdName = rel.replace(/\.md$/, '')
+        const desc = extractCommandDescription(text)
+        setIfMissing(`${pluginName}:${cmdName}`, desc)
+        setIfMissing(cmdName, desc)
+      }
+    )
+  }
+
+  return descriptions
+}
+
 function findJsonlFiles(dir, files = [], depth = 0) {
   if (depth > 12) return files
   try {
@@ -55,9 +212,7 @@ function findJsonlFiles(dir, files = [], depth = 0) {
         files.push(fullPath)
       }
     }
-  } catch {
-    // Skip inaccessible directories.
-  }
+  } catch { }
   return files
 }
 
@@ -157,6 +312,11 @@ if (!isStaticMode) {
 
     if (pathname === '/api/sessions') return handleSessions(req, res)
     if (pathname === '/api/session-content') return handleSessionContent(req, res)
+    if (pathname === '/api/skills') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify(scanSkills()))
+      return
+    }
     return serveStatic(req, res)
   })
 
@@ -263,9 +423,7 @@ if (!isStaticMode) {
             : undefined,
           toolUses,
         })
-      } catch {
-        // Skip invalid JSONL lines.
-      }
+      } catch { }
     }
 
     if (rawMessages.length === 0) return null
@@ -413,9 +571,7 @@ if (!isStaticMode) {
           toolUses: pendingToolUses,
         })
         pendingToolUses = []
-      } catch {
-        // Skip invalid JSONL lines.
-      }
+      } catch { }
     }
 
     if (rawMessages.length === 0) return null
@@ -515,7 +671,9 @@ if (!isStaticMode) {
   const jsContent = fs.readFileSync(path.join(assetsDir, jsFile), 'utf-8')
   const cssContent = fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8')
 
+  const skills = scanSkills()
   const safeJson = JSON.stringify(sessions).replace(/<\/script/gi, '<\\/script')
+  const safeSkills = JSON.stringify(skills).replace(/<\/script/gi, '<\\/script')
   const safeJs = jsContent.replace(/<\/script/gi, '<\\/script')
 
   const html = `<!doctype html>
@@ -531,7 +689,7 @@ if (!isStaticMode) {
   </head>
   <body>
     <div id="root"></div>
-    <script>window.__MEMRADAR_SESSIONS__=${safeJson};</script>
+    <script>window.__MEMRADAR_SESSIONS__=${safeJson};window.__MEMRADAR_SKILLS__=${safeSkills};</script>
     <script type="module">${safeJs}</script>
   </body>
 </html>`

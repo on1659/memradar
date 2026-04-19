@@ -71,7 +71,7 @@ function Cloud({ words }: { words: [string, number][] }) {
           )
         : null}
 
-      <div className="flex min-h-[160px] flex-wrap items-baseline justify-center gap-x-3 gap-y-1 py-2">
+      <div className="flex min-h-[136px] flex-wrap items-baseline justify-center gap-x-3 gap-y-1 py-1.5">
         {words.slice(0, 30).map(([word, count], i) => {
           const ratio = (count - minCount) / range
           const size = 13 + ratio * 26

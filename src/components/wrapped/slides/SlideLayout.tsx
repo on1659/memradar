@@ -1,5 +1,77 @@
 import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+
+function TypingCursor({ showAt, hideAt }: { showAt: number; hideAt: number }) {
+  const [visible, setVisible] = useState(false)
+  const [gone, setGone] = useState(false)
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setVisible(true), showAt * 1000)
+    const t2 = window.setTimeout(() => setGone(true), hideAt * 1000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [showAt, hideAt])
+
+  if (!visible || gone) return null
+
+  return (
+    <motion.span
+      className="ml-[1px] inline-block rounded-sm bg-accent/70"
+      style={{ width: '2px', height: '0.82em', verticalAlign: 'middle' }}
+      animate={{ opacity: [1, 0] }}
+      transition={{ duration: 0.55, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+    />
+  )
+}
+
+export function TypewriterText({
+  children,
+  delay = 0,
+  stagger = 0.1,
+  className = '',
+  style,
+  showCursor = false,
+  cursorHideAt,
+}: {
+  children: string
+  delay?: number
+  stagger?: number
+  className?: string
+  style?: CSSProperties
+  showCursor?: boolean
+  cursorHideAt?: number
+}) {
+  const [count, setCount] = useState(0)
+  const timersRef = useRef<number[]>([])
+
+  useEffect(() => {
+    setCount(0)
+    timersRef.current.forEach(clearTimeout)
+    timersRef.current = []
+
+    for (let i = 0; i < children.length; i++) {
+      const t = window.setTimeout(
+        () => setCount(i + 1),
+        (delay + i * stagger) * 1000,
+      )
+      timersRef.current.push(t)
+    }
+
+    return () => { timersRef.current.forEach(clearTimeout) }
+  }, [children, delay, stagger])
+
+  const autoHideAt = delay + children.length * stagger + 0.35
+  const hideAt = cursorHideAt ?? autoHideAt
+
+  return (
+    <div className={className} style={style}>
+      <span>{children.slice(0, count)}</span>
+      {/* invisible remainder holds layout so no reflow */}
+      <span style={{ opacity: 0 }} aria-hidden="true">{children.slice(count)}</span>
+      {showCursor && <TypingCursor showAt={delay} hideAt={hideAt} />}
+    </div>
+  )
+}
 
 interface SlideLayoutProps {
   children: ReactNode

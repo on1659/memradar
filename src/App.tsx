@@ -12,6 +12,7 @@ import type { Session } from './types'
 declare global {
   interface Window {
     __MEMRADAR_SESSIONS__?: Session[]
+    __MEMRADAR_SKILLS__?: Record<string, string>
   }
 }
 
@@ -55,7 +56,6 @@ function App() {
 
   const loadSessions = useCallback(async () => {
     try {
-      // Check for embedded pre-parsed sessions (static HTML mode)
       const embedded = window.__MEMRADAR_SESSIONS__
       if (embedded && embedded.length > 0) {
         setSessions(embedded)
@@ -63,7 +63,6 @@ function App() {
         return
       }
 
-      // Server mode: fetch from API
       const res = await fetch('/api/sessions')
       if (!res.ok) throw new Error('API not available')
       const fileList: { path: string; name: string; project: string }[] = await res.json()
@@ -104,7 +103,6 @@ function App() {
     }
   }, [])
 
-  // Auto-load from local API
   useEffect(() => {
     loadSessions()
   }, [loadSessions])
@@ -136,7 +134,6 @@ function App() {
     }
   }, [])
 
-  // Handle browser back/forward
   useEffect(() => {
     function handlePopState(e: PopStateEvent) {
       const state = e.state

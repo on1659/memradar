@@ -64,12 +64,10 @@ export function parseJsonl(text: string, fileName: string): Session | null {
 
   if (rawMessages.length === 0) return null
 
-  // Merge consecutive same-role messages into turns
   const messages: ParsedMessage[] = []
   for (const msg of rawMessages) {
     const prev = messages[messages.length - 1]
     if (prev && prev.role === msg.role) {
-      // Merge into previous message
       prev.text += '\n\n' + msg.text
       prev.timestamp = prev.timestamp || msg.timestamp
       if (msg.tokens) {
@@ -141,6 +139,16 @@ const STOP_WORDS = new Set([
   '근데', '그리고', '그래서', '하지만', '그런데', '그러면', '아니면',
 ])
 
+const BUILTIN_COMMANDS = new Set([
+  'exit', 'clear', 'help', 'model', 'fast', 'login', 'logout',
+  'compact', 'resume', 'continue', 'config', 'status', 'cost',
+  'doctor', 'init', 'memory', 'bug', 'release-notes', 'terminal-setup',
+  'ide', 'mcp', 'vim', 'hooks', 'permissions', 'agents', 'add-dir',
+  'upgrade', 'migrate-installer', 'todos', 'share', 'usage',
+  'allowed-tools', 'pr-comments', 'review', 'think', 'output-style',
+  'export', 'import', 'feedback',
+])
+
 export function computeStats(sessions: Session[]): Stats {
   const hourlyActivity = new Array(24).fill(0)
   const dailyActivity: Record<string, number> = {}
@@ -149,6 +157,7 @@ export function computeStats(sessions: Session[]): Stats {
   const toolsUsed: Record<string, number> = {}
   const userWordCount: Record<string, number> = {}
   const assistantWordCount: Record<string, number> = {}
+  const skillCount: Record<string, number> = {}
   let totalMessages = 0
 
   for (const session of sessions) {
@@ -180,6 +189,15 @@ export function computeStats(sessions: Session[]): Stats {
         if (w.length < 2 || STOP_WORDS.has(w)) continue
         wc[w] = (wc[w] || 0) + 1
       }
+
+      if (msg.role === 'user') {
+        const skillMatches = msg.text.matchAll(/<command-name>\/([^<\s]+)<\/command-name>/g)
+        for (const match of skillMatches) {
+          const name = match[1]
+          if (BUILTIN_COMMANDS.has(name)) continue
+          skillCount[name] = (skillCount[name] || 0) + 1
+        }
+      }
     }
   }
 
@@ -193,6 +211,26 @@ export function computeStats(sessions: Session[]): Stats {
   const topWords = toTop30(allWordCount)
   const topWordsUser = toTop30(userWordCount)
   const topWordsAssistant = toTop30(assistantWordCount)
+
+  const topSkills = Object.entries(skillCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+
+  const SESSION_BUCKETS: [string, number, number][] = [
+    ['1-5턴', 1, 5],
+    ['6-20턴', 6, 20],
+    ['21-50턴', 21, 50],
+    ['51턴+', 51, Infinity],
+  ]
+  const sessionLengthCount: Record<string, number> = {}
+  for (const session of sessions) {
+    const n = session.messages.filter((m) => m.role === 'user').length
+    const bucket = SESSION_BUCKETS.find(([, lo, hi]) => n >= lo && n <= hi)
+    if (bucket) sessionLengthCount[bucket[0]] = (sessionLengthCount[bucket[0]] || 0) + 1
+  }
+  const sessionLengthDist = SESSION_BUCKETS
+    .map(([label]) => [label, sessionLengthCount[label] || 0] as [string, number])
+    .filter(([, v]) => v > 0)
 
   const totalTokens = sessions.reduce(
     (acc, s) => ({
@@ -223,6 +261,8 @@ export function computeStats(sessions: Session[]): Stats {
     topWords,
     topWordsUser,
     topWordsAssistant,
+    topSkills,
+    sessionLengthDist,
     longestSession,
     busiestDay,
     dailyTokens,

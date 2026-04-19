@@ -72,6 +72,8 @@ export interface Stats {
   topWords: [string, number][]
   topWordsUser: [string, number][]
   topWordsAssistant: [string, number][]
+  topSkills: [string, number][]
+  sessionLengthDist: [string, number][]
   longestSession: Session | null
   busiestDay: string
   dailyTokens: Record<string, number>

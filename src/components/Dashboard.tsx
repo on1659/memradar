@@ -1,12 +1,16 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   BarChart3,
   Brain,
   Calendar,
+  CircleHelp,
   Code2,
   Flame,
   MessageSquare,
+  Terminal,
+  Timer,
   TrendingUp,
   Zap,
 } from 'lucide-react'
@@ -15,7 +19,7 @@ import type { Session, Stats } from '../types'
 import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
-import { analyzeUsageTopCategories } from '../lib/usageProfile'
+import { analyzeUsageTopCategories, type UsageCategoryScore } from '../lib/usageProfile'
 import { shortModelName } from '../lib/modelNames'
 import { calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
@@ -73,21 +77,26 @@ function getSessionDisplayName(session: Session): string {
 
 function DonutChart({ data }: { data: [string, number][] }) {
   const total = data.reduce((sum, [, count]) => sum + count, 0)
+  const visibleData = data.slice(0, 5)
+  const otherCount = data.slice(5).reduce((sum, [, count]) => sum + count, 0)
+  const chartData = otherCount > 0 ? [...visibleData, ['__other__', otherCount] as [string, number]] : visibleData
   const colors = [
     'var(--color-accent)',
     'var(--color-green)',
     'var(--color-amber)',
     'var(--color-rose)',
     'var(--color-cyan)',
+    'color-mix(in srgb, var(--color-text) 36%, transparent)',
   ]
   const outerRadius = 70
   const innerRadius = 45
   const cx = 90
   const cy = 90
 
-  const arcs = data.slice(0, 5).map(([model, count], index) => {
+  const arcs = chartData.map(([model, count], index) => {
     const pct = count / total
-    const startAngle = data
+    const label = model === '__other__' ? '기타 모델' : shortModelName(model)
+    const startAngle = chartData
       .slice(0, index)
       .reduce((angle, [, previousCount]) => angle + (previousCount / total) * 360, 0)
     const endAngle = startAngle + pct * 360
@@ -109,7 +118,7 @@ function DonutChart({ data }: { data: [string, number][] }) {
 
     return (
       <path key={model} d={d} fill={colors[index % colors.length]} opacity={0.8}>
-        <title>{shortModelName(model)}: {Math.round(pct * 100)}%</title>
+        <title>{label}: {Math.round(pct * 100)}%</title>
       </path>
     )
   })
@@ -126,7 +135,7 @@ function DonutChart({ data }: { data: [string, number][] }) {
         </text>
       </svg>
       <div className="min-w-0 flex-1 space-y-1.5">
-        {data.slice(0, 5).map(([model, count], index) => (
+        {visibleData.map(([model, count], index) => (
           <div key={model} className="flex items-center gap-2 text-sm">
             <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colors[index % colors.length] }} />
             <span className="truncate text-text">{shortModelName(model)}</span>
@@ -142,6 +151,9 @@ void DonutChart
 
 function InteractiveDonutChart({ data }: { data: [string, number][] }) {
   const total = data.reduce((sum, [, count]) => sum + count, 0)
+  const visibleData = data.slice(0, 5)
+  const otherCount = data.slice(5).reduce((sum, [, count]) => sum + count, 0)
+  const chartData = otherCount > 0 ? [...visibleData, ['__other__', otherCount] as [string, number]] : visibleData
   const [hoveredModel, setHoveredModel] = useState<{
     label: string
     raw: string
@@ -154,17 +166,18 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
     'var(--color-amber)',
     'var(--color-rose)',
     'var(--color-cyan)',
+    'color-mix(in srgb, var(--color-text) 36%, transparent)',
   ]
   const outerRadius = 70
   const innerRadius = 45
   const cx = 90
   const cy = 90
 
-  const arcs = data.slice(0, 5).map(([model, count], index) => {
+  const arcs = chartData.map(([model, count], index) => {
     const pct = count / total
-    const label = shortModelName(model)
+    const label = model === '__other__' ? '기타 모델' : shortModelName(model)
     const color = colors[index % colors.length]
-    const startAngle = data
+    const startAngle = chartData
       .slice(0, index)
       .reduce((angle, [, previousCount]) => angle + (previousCount / total) * 360, 0)
     const endAngle = startAngle + pct * 360
@@ -214,7 +227,7 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
         </div>
       )}
 
-      <svg viewBox="0 0 180 180" className="h-36 w-36 shrink-0 overflow-visible">
+      <svg viewBox="0 0 180 180" className="h-32 w-32 shrink-0 overflow-visible">
         {arcs}
         <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--color-text-bright)" fontSize="18" fontWeight="700">
           {total}
@@ -224,7 +237,7 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
         </text>
       </svg>
       <div className="min-w-0 flex-1 space-y-1.5">
-        {data.slice(0, 5).map(([model, count], index) => (
+        {visibleData.map(([model, count], index) => (
           <div
             key={model}
             className="dashboard-hover-grow flex items-center gap-2 rounded-lg px-1 py-0.5 text-sm"
@@ -248,7 +261,335 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
   )
 }
 
+function GenericDonutChart({ data, centerLabel = '' }: { data: [string, number][]; centerLabel?: string }) {
+  const total = data.reduce((sum, [, c]) => sum + c, 0)
+  if (total === 0) return <p className="py-6 text-center text-sm text-text/40">데이터가 없어요</p>
+  const visibleData = data.slice(0, 5)
+  const otherCount = data.slice(5).reduce((sum, [, c]) => sum + c, 0)
+  const chartData = otherCount > 0 ? [...visibleData, ['__other__', otherCount] as [string, number]] : visibleData
+  const [hovered, setHovered] = useState<{ label: string; percent: number; color: string } | null>(null)
+  const colors = [
+    'var(--color-accent)',
+    'var(--color-green)',
+    'var(--color-amber)',
+    'var(--color-rose)',
+    'var(--color-cyan)',
+    'color-mix(in srgb, var(--color-text) 36%, transparent)',
+  ]
+  const outerRadius = 70
+  const innerRadius = 45
+  const cx = 90
+  const cy = 90
+
+  const arcs = chartData.map(([key, count], index) => {
+    const pct = count / total
+    const label = key === '__other__' ? '기타' : key
+    const color = colors[index % colors.length]
+    const startAngle = chartData.slice(0, index).reduce((a, [, c]) => a + (c / total) * 360, 0)
+    const endAngle = startAngle + pct * 360
+    const startRad = (startAngle - 90) * Math.PI / 180
+    const endRad = (endAngle - 90) * Math.PI / 180
+    const largeArc = pct > 0.5 ? 1 : 0
+    const x1 = cx + outerRadius * Math.cos(startRad)
+    const y1 = cy + outerRadius * Math.sin(startRad)
+    const x2 = cx + outerRadius * Math.cos(endRad)
+    const y2 = cy + outerRadius * Math.sin(endRad)
+    const x3 = cx + innerRadius * Math.cos(endRad)
+    const y3 = cy + innerRadius * Math.sin(endRad)
+    const x4 = cx + innerRadius * Math.cos(startRad)
+    const y4 = cy + innerRadius * Math.sin(startRad)
+    const d = `M${x1},${y1} A${outerRadius},${outerRadius} 0 ${largeArc},1 ${x2},${y2} L${x3},${y3} A${innerRadius},${innerRadius} 0 ${largeArc},0 ${x4},${y4} Z`
+    return (
+      <path
+        key={key}
+        d={d}
+        fill={color}
+        className="dashboard-donut-slice"
+        opacity={0.8}
+        onMouseEnter={() => setHovered({ label, percent: Math.round(pct * 100), color })}
+        onMouseLeave={() => setHovered(null)}
+      >
+        <title>{label}: {Math.round(pct * 100)}%</title>
+      </path>
+    )
+  })
+
+  return (
+    <div className="relative flex items-center gap-4">
+      {hovered && (
+        <div className="pointer-events-none absolute -top-8 left-3 z-10 rounded-full border border-border bg-bg-hover px-3 py-1 text-xs text-text-bright shadow-lg">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: hovered.color }} />
+            <span>{hovered.label}</span>
+            <span className="text-text/45">{hovered.percent}%</span>
+          </span>
+        </div>
+      )}
+      <svg viewBox="0 0 180 180" className="h-32 w-32 shrink-0 overflow-visible">
+        {arcs}
+        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--color-text-bright)" fontSize="18" fontWeight="700">
+          {total}
+        </text>
+        {centerLabel && (
+          <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--color-text)" fontSize="10">
+            {centerLabel}
+          </text>
+        )}
+      </svg>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        {visibleData.map(([key, count], index) => (
+          <div
+            key={key}
+            className="dashboard-hover-grow flex items-center gap-2 rounded-lg px-1 py-0.5 text-sm"
+            onMouseEnter={() => setHovered({ label: key, percent: Math.round((count / total) * 100), color: colors[index % colors.length] })}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colors[index % colors.length] }} />
+            <span className="truncate text-text">{key}</span>
+            <span className="ml-auto shrink-0 text-text/40">{Math.round((count / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function InteractiveRoleDonutChart({
+  categories,
+  metricMode,
+  isKorean,
+}: {
+  categories: UsageCategoryScore[]
+  metricMode: 'count' | 'ratio'
+  isKorean: boolean
+}) {
+  const total = categories.reduce((sum, category) => sum + category.score, 0) || 1
+  const maxScore = categories[0]?.score || 1
+
+  return (
+    <div className="space-y-2.5">
+      {categories.map((category, index) => {
+        const sharePct = Math.round((category.score / total) * 100)
+        const barPct = Math.max(4, Math.round((category.score / maxScore) * 100))
+        const metricLabel = metricMode === 'count'
+          ? (isKorean ? `${category.score}회` : `${category.score}`)
+          : `${sharePct}%`
+        const tooltipDescription = `${category.subtitle}. ${isKorean ? '이 역할과 관련된 요청 패턴이 자주 잡혔어요.' : 'This role pattern showed up frequently in your requests.'}`
+
+        return (
+          <DashboardHoverTooltip
+            key={category.id}
+            title={category.title}
+            description={tooltipDescription}
+            align="left"
+            wrapperClassName="group relative block"
+            buttonClassName="dashboard-hover-grow block w-full rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--t-text-bright)_4%,transparent)] focus:outline-none focus:ring-1 focus:ring-accent/35"
+            tooltipWidthClass="w-64"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-6 shrink-0 text-center text-lg">{category.emoji}</span>
+              <div className="w-28 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-xs font-bold text-text-bright">{category.title}</span>
+                </div>
+              </div>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${barPct}%`,
+                    backgroundColor: category.color,
+                    opacity: index === 0 ? 0.85 : 0.6,
+                  }}
+                />
+              </div>
+              <div className="w-12 shrink-0 text-right text-[11px] text-text/40">
+                <span
+                  key={`${category.id}-${metricMode}`}
+                  className="dashboard-cycle-drop inline-block"
+                  style={{ animationDelay: `${index * 45}ms` }}
+                >
+                  {metricLabel}
+                </span>
+              </div>
+            </div>
+          </DashboardHoverTooltip>
+        )
+      })}
+    </div>
+  )
+}
+
 const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+type DashboardAxisKey = 'style' | 'scope' | 'rhythm'
+
+const DASHBOARD_AXIS_HELP: Record<DashboardAxisKey, [string, string]> = {
+  style: [
+    '탐험가: AI와 주고받으면서 방향을 잡는 대화형 작업 방식이에요.',
+    '설계자: 긴 요청으로 구조와 맥락을 한 번에 맡기는 설계형 작업 방식이에요.',
+  ],
+  scope: [
+    '한우물: 한 프로젝트를 오래 붙잡고 깊게 파는 집중형 작업 방식이에요.',
+    '유목민: 여러 프로젝트를 오가며 넓게 다루는 멀티형 작업 방식이에요.',
+  ],
+  rhythm: [
+    '스프린터: 짧고 빠른 반복으로 문제를 해결하는 작업 리듬이에요.',
+    '마라토너: 긴 세션으로 오래 이어가며 쌓아가는 작업 리듬이에요.',
+  ],
+}
+
+const DASHBOARD_PERSONALITY_PANEL_HELP = {
+  strengths: '이 유형에서 특히 강하게 드러나는 작업 강점이에요.',
+  headsUp: '이 유형일 때 한 번 더 의식하면 좋은 작업 습관이에요.',
+} as const
+
+const DASHBOARD_USAGE_CARD_HELP =
+  '사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요.'
+
+function DashboardHoverTooltip({
+  children,
+  title,
+  description,
+  align = 'center',
+  wrapperClassName = 'group relative inline-flex',
+  buttonClassName = 'inline-flex',
+  tooltipWidthClass = 'w-56',
+}: {
+  children: ReactNode
+  title?: string
+  description: string
+  align?: 'left' | 'center' | 'right'
+  wrapperClassName?: string
+  buttonClassName?: string
+  tooltipWidthClass?: string
+}) {
+  const tooltipPositionClass =
+    align === 'left'
+      ? 'left-0'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-1/2 -translate-x-1/2'
+
+  return (
+    <span className={wrapperClassName}>
+      <button type="button" className={buttonClassName}>
+        {children}
+      </button>
+      <span
+        className={`pointer-events-none absolute bottom-full z-30 mb-2 ${tooltipWidthClass} rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
+      >
+        {title && <span className="block font-semibold text-text-bright">{title}</span>}
+        <span className={title ? 'mt-1 block text-text/75' : 'block text-text'}>
+          {description}
+        </span>
+      </span>
+    </span>
+  )
+}
+
+function DashboardTooltipLabel({
+  active,
+  children,
+  description,
+  align = 'center',
+}: {
+  active: boolean
+  children: string
+  description: string
+  align?: 'left' | 'center' | 'right'
+}) {
+  const tooltipPositionClass =
+    align === 'left'
+      ? 'left-0'
+      : align === 'right'
+        ? 'right-0'
+        : 'left-1/2 -translate-x-1/2'
+
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="cursor-help rounded px-0.5 py-0.5 transition-colors focus:outline-none focus:ring-1 focus:ring-accent/40"
+        style={{ color: active ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
+      >
+        {children}
+      </button>
+      <span
+        className={`pointer-events-none absolute bottom-full z-30 mb-2 w-52 rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
+      >
+        {description}
+      </span>
+    </span>
+  )
+}
+
+function getDashboardAxisTooltipCopy(axis: { label: [string, string]; value: number }, axisKey: DashboardAxisKey) {
+  const leaningRight = axis.value >= 0.5
+  const balanced = Math.abs(axis.value - 0.5) < 0.04
+  const dominantIndex = leaningRight ? 1 : 0
+
+  if (balanced) {
+    return {
+      title: '균형형',
+      description: '양쪽 성향이 거의 비슷하게 섞여 있어요.',
+    }
+  }
+
+  return {
+    title: axis.label[dominantIndex],
+    description: DASHBOARD_AXIS_HELP[axisKey][dominantIndex],
+  }
+}
+
+function DashboardAxisBar({
+  axis,
+  axisKey,
+  color,
+}: {
+  axis: { label: [string, string]; value: number }
+  axisKey: DashboardAxisKey
+  color: string
+}) {
+  const pct = Math.round(axis.value * 100)
+  const leftActive = axis.value < 0.5
+  const axisTooltip = getDashboardAxisTooltipCopy(axis, axisKey)
+
+  return (
+    <div className="w-full">
+      <div className="mb-0.5 flex justify-between text-[10px]">
+        <DashboardTooltipLabel active={leftActive} description={DASHBOARD_AXIS_HELP[axisKey][0]} align="left">
+          {axis.label[0]}
+        </DashboardTooltipLabel>
+        <DashboardTooltipLabel active={!leftActive} description={DASHBOARD_AXIS_HELP[axisKey][1]} align="right">
+          {axis.label[1]}
+        </DashboardTooltipLabel>
+      </div>
+      <div className="group relative cursor-help">
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-56 -translate-x-1/2 rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+          <span className="block font-semibold text-text-bright">{axisTooltip.title}</span>
+          <span className="mt-1 block text-text/75">{axisTooltip.description}</span>
+        </div>
+        <div
+          className="relative h-1.5 overflow-hidden rounded-full"
+          style={{ background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)' }}
+        >
+          <div
+            className="absolute top-0 h-full rounded-full transition-all duration-500"
+            style={axis.value >= 0.5
+              ? { left: '50%', width: `${pct - 50}%`, background: color, opacity: 0.5 }
+              : { right: '50%', width: `${50 - pct}%`, background: color, opacity: 0.5 }
+            }
+          />
+          <div
+            className="absolute top-0 left-1/2 h-full w-px"
+            style={{ background: 'color-mix(in srgb, var(--t-border) 72%, transparent)' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function DayOfWeekPatternPanel({
   values,
@@ -320,36 +661,110 @@ function LanguageBar({ languages }: { languages: LanguageScore[] }) {
     return <p className="py-4 text-center text-sm text-text/40">감지된 언어가 없습니다</p>
   }
 
-  const max = languages[0].count
   const total = languages.reduce((sum, l) => sum + l.count, 0)
+  const [hoveredLanguage, setHoveredLanguage] = useState<{
+    name: string
+    percent: number
+    color: string
+  } | null>(null)
+  const visibleLanguages = languages.slice(0, 5)
+  const otherLanguageCount = languages.slice(5).reduce((sum, lang) => sum + lang.count, 0)
+  const chartLanguages = otherLanguageCount > 0
+    ? [
+        ...visibleLanguages,
+        { name: '기타 언어', count: otherLanguageCount, color: 'color-mix(in srgb, var(--color-text) 36%, transparent)' },
+      ]
+    : visibleLanguages
+  const outerRadius = 70
+  const innerRadius = 45
+  const cx = 90
+  const cy = 90
+
+  const arcs = chartLanguages.map((lang, index) => {
+    const pct = lang.count / total
+    const startAngle = chartLanguages
+      .slice(0, index)
+      .reduce((angle, previous) => angle + (previous.count / total) * 360, 0)
+    const endAngle = startAngle + pct * 360
+
+    const startRadians = (startAngle - 90) * Math.PI / 180
+    const endRadians = (endAngle - 90) * Math.PI / 180
+    const largeArc = pct > 0.5 ? 1 : 0
+
+    const x1 = cx + outerRadius * Math.cos(startRadians)
+    const y1 = cy + outerRadius * Math.sin(startRadians)
+    const x2 = cx + outerRadius * Math.cos(endRadians)
+    const y2 = cy + outerRadius * Math.sin(endRadians)
+    const x3 = cx + innerRadius * Math.cos(endRadians)
+    const y3 = cy + innerRadius * Math.sin(endRadians)
+    const x4 = cx + innerRadius * Math.cos(startRadians)
+    const y4 = cy + innerRadius * Math.sin(startRadians)
+
+    const d = `M${x1},${y1} A${outerRadius},${outerRadius} 0 ${largeArc},1 ${x2},${y2} L${x3},${y3} A${innerRadius},${innerRadius} 0 ${largeArc},0 ${x4},${y4} Z`
+
+    return (
+      <path
+        key={lang.name}
+        d={d}
+        fill={lang.color}
+        className="dashboard-donut-slice"
+        opacity={0.82}
+        onMouseEnter={() => setHoveredLanguage({
+          name: lang.name,
+          percent: Number(((lang.count / total) * 100).toFixed(1)),
+          color: lang.color,
+        })}
+        onMouseLeave={() => setHoveredLanguage(null)}
+      >
+        <title>{lang.name}: {((lang.count / total) * 100).toFixed(1)}%</title>
+      </path>
+    )
+  })
 
   return (
-    <div className="space-y-1.5">
-      {languages.slice(0, 8).map((lang, i) => {
-        const width = Math.max(Math.round((lang.count / max) * 100), 4)
-        const pct = ((lang.count / total) * 100).toFixed(1)
+    <div className="relative flex items-center gap-4">
+      {hoveredLanguage && (
+        <div className="pointer-events-none absolute -top-8 left-3 z-10 rounded-full border border-border bg-bg-hover px-3 py-1 text-xs text-text-bright shadow-lg">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: hoveredLanguage.color }} />
+            <span>{hoveredLanguage.name}</span>
+            <span className="text-text/45">{hoveredLanguage.percent}%</span>
+          </span>
+        </div>
+      )}
 
-        return (
-          <div
-            key={lang.name}
-            className="dashboard-cycle-drop flex items-center gap-2 rounded-md px-1 py-0.5"
-            style={{ animationDelay: `${i * 50}ms` }}
-          >
-            <span
-              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: lang.color }}
-            />
-            <span className="w-20 shrink-0 truncate text-xs text-text-bright">{lang.name}</span>
-            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-              <div
-                className="dashboard-pattern-bar h-full rounded-full"
-                style={{ width: `${width}%`, background: lang.color, opacity: 0.55 }}
+      <svg viewBox="0 0 180 180" className="h-32 w-32 shrink-0 overflow-visible">
+        {arcs}
+        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--color-text-bright)" fontSize="18" fontWeight="700">
+          {languages.length}
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--color-text)" fontSize="10">
+          언어
+        </text>
+      </svg>
+
+      <div className="min-w-0 flex-1 space-y-1.5">
+        {visibleLanguages.map((lang, i) => {
+          const pct = ((lang.count / total) * 100).toFixed(1)
+
+          return (
+            <div
+              key={lang.name}
+              className="dashboard-hover-grow flex items-center gap-2 rounded-lg px-1 py-0.5 text-sm"
+              style={{ animationDelay: `${i * 50}ms` }}
+              onMouseEnter={() => setHoveredLanguage({ name: lang.name, percent: Number(pct), color: lang.color })}
+              onMouseLeave={() => setHoveredLanguage(null)}
+            >
+              <span
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ background: lang.color }}
               />
+              <span className="truncate text-text">{lang.name}</span>
+              <span className="ml-auto shrink-0 text-text/40">{pct}%</span>
             </div>
-            <span className="w-10 shrink-0 text-right text-[10px] text-text/40">{pct}%</span>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -371,6 +786,7 @@ export function Dashboard({
   const [tokenDayPinned, setTokenDayPinned] = useState(false)
   const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
   const [dayPatternPinned, setDayPatternPinned] = useState(false)
+  const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
   const [sessionSourceFilter, setSessionSourceFilter] = useState<'all' | 'claude' | 'codex'>('all')
   const [sessionSort, setSessionSort] = useState<'date' | 'tokens'>('date')
@@ -522,7 +938,9 @@ export function Dashboard({
         ? `${topUsageCategory.title} 성향이 가장 강해요`
         : `${topUsageCategory.title} is the strongest pattern`
     : aiRoleFallbackBody
-  const usageTotalScore = topUsageCategories.reduce((sum, category) => sum + category.score, 0) || 1
+  const aiRoleTooltipDescription = isKorean
+    ? DASHBOARD_USAGE_CARD_HELP
+    : 'Shows which roles your AI most often took based on recurring request patterns in your messages.'
 
   const longestStreak = useMemo(() => {
     let longest = 0
@@ -598,6 +1016,16 @@ export function Dashboard({
 
     return () => window.clearInterval(timer)
   }, [dayPatternPinned])
+
+  useEffect(() => {
+    if (topUsageCategories.length === 0) return
+
+    const timer = window.setInterval(() => {
+      setAiRoleMetricMode((prev) => prev === 'count' ? 'ratio' : 'count')
+    }, 10000)
+
+    return () => window.clearInterval(timer)
+  }, [topUsageCategories.length])
 
   useEffect(() => {
     if (tokenDayPinned) return
@@ -709,7 +1137,7 @@ export function Dashboard({
         onOpenWrapped={onOpenWrapped}
       />
 
-      <div className="animate-in mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="dashboard-overview-grid animate-in mb-5">
         <div className="h-full rounded-[26px] border border-border bg-bg-card p-5">
           <div className="mx-auto w-full max-w-xl text-center">
             <div className="mb-3 flex items-center justify-center gap-2">
@@ -741,41 +1169,8 @@ export function Dashboard({
             <div className="mx-auto mt-5 w-full max-w-md space-y-3 text-left">
               {axisOrder.map((key) => {
                 const axis = personality.axes[key]
-                const pct = Math.round(axis.value * 100)
-                const leftActive = axis.value < 0.5
                 return (
-                  <div key={key} className="w-full">
-                    <div className="mb-0.5 flex justify-between text-[10px]">
-                      <span
-                        className="font-semibold"
-                        style={{ color: leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
-                      >
-                        {axis.label[0]}
-                      </span>
-                      <span
-                        className="font-semibold"
-                        style={{ color: !leftActive ? 'var(--t-text-bright)' : 'color-mix(in srgb, var(--t-text) 52%, transparent)' }}
-                      >
-                        {axis.label[1]}
-                      </span>
-                    </div>
-                    <div
-                      className="relative h-1.5 overflow-hidden rounded-full"
-                      style={{ background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)' }}
-                    >
-                      <div
-                        className="absolute top-0 h-full rounded-full transition-all duration-500"
-                        style={axis.value >= 0.5
-                          ? { left: '50%', width: `${pct - 50}%`, background: axisColors[key], opacity: 0.5 }
-                          : { right: '50%', width: `${50 - pct}%`, background: axisColors[key], opacity: 0.5 }
-                        }
-                      />
-                      <div
-                        className="absolute top-0 left-1/2 h-full w-px"
-                        style={{ background: 'color-mix(in srgb, var(--t-border) 72%, transparent)' }}
-                      />
-                    </div>
-                  </div>
+                  <DashboardAxisBar key={key} axis={axis} axisKey={key} color={axisColors[key]} />
                 )
               })}
             </div>
@@ -788,7 +1183,15 @@ export function Dashboard({
                   background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
                 }}
               >
-                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">STRENGTHS</div>
+                <DashboardHoverTooltip
+                  title="STRENGTHS"
+                  description={DASHBOARD_PERSONALITY_PANEL_HELP.strengths}
+                  align="left"
+                  wrapperClassName="group relative block"
+                  buttonClassName="mb-1 inline-flex cursor-help rounded text-[10px] font-semibold tracking-wide text-text/35 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                >
+                  STRENGTHS
+                </DashboardHoverTooltip>
                 <div className="text-xs leading-relaxed text-text/70">{personality.strengths}</div>
               </div>
               <div
@@ -798,7 +1201,15 @@ export function Dashboard({
                   background: 'color-mix(in srgb, var(--t-text-bright) 6%, transparent)',
                 }}
               >
-                <div className="mb-1 text-[10px] font-semibold tracking-wide text-text/35">HEADS UP</div>
+                <DashboardHoverTooltip
+                  title="HEADS UP"
+                  description={DASHBOARD_PERSONALITY_PANEL_HELP.headsUp}
+                  align="right"
+                  wrapperClassName="group relative block"
+                  buttonClassName="mb-1 inline-flex cursor-help rounded text-[10px] font-semibold tracking-wide text-text/35 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                >
+                  HEADS UP
+                </DashboardHoverTooltip>
                 <div className="text-xs leading-relaxed text-text/70">{personality.caution}</div>
               </div>
             </div>
@@ -811,6 +1222,15 @@ export function Dashboard({
             <div className="flex min-w-0 items-center gap-2">
               <Code2 className="h-4 w-4 shrink-0 text-accent" />
               <h2 className="truncate text-lg font-bold text-text-bright">{aiRoleLabel}</h2>
+              <DashboardHoverTooltip
+                title={aiRoleLabel}
+                description={aiRoleTooltipDescription}
+                align="left"
+                tooltipWidthClass="w-60"
+                buttonClassName="rounded-full p-0.5 text-text/35 transition-colors hover:text-text/70 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              >
+                <CircleHelp className="h-3.5 w-3.5" />
+              </DashboardHoverTooltip>
             </div>
             {handleSectionSwitch && (
               <button
@@ -823,36 +1243,13 @@ export function Dashboard({
               </button>
             )}
           </div>
-          <p className="mb-4 text-sm text-text/50">{aiRoleSummary}</p>
+          <p className="mb-3 text-sm text-text/50">{aiRoleSummary}</p>
           {topUsageCategories.length > 0 ? (
-            <div className="space-y-2.5">
-              {topUsageCategories.map((category, index) => {
-                const pct = Math.max(4, Math.round((category.score / usageTotalScore) * 100))
-                return (
-                  <div key={category.id} className="flex items-center gap-3">
-                    <span className="w-6 text-center text-lg">{category.emoji}</span>
-                    <div className="w-28 shrink-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-text-bright">{category.title}</span>
-                      </div>
-                    </div>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: category.color,
-                          opacity: index === 0 ? 0.85 : 0.6,
-                        }}
-                      />
-                    </div>
-                    <div className="w-12 shrink-0 text-right text-[11px] text-text/40">
-                      {category.score}회
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <InteractiveRoleDonutChart
+              categories={topUsageCategories}
+              metricMode={aiRoleMetricMode}
+              isKorean={isKorean}
+            />
           ) : (
             <div className="rounded-xl border border-border/70 bg-white/4 p-4 text-sm text-text/55">
               <div className="font-semibold text-text-bright">{aiRoleFallbackTitle}</div>
@@ -1024,7 +1421,7 @@ export function Dashboard({
       </div>
 
       <div className="dashboard-activity-grid animate-in">
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight">
+        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-activity-card-heatmap">
           <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
             <TrendingUp className="h-3.5 w-3.5 text-green" />
             활동 히트맵
@@ -1068,7 +1465,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card">
+        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-activity-card-pattern">
           <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
             <Calendar className="h-3.5 w-3.5 text-cyan" />
             요일별 패턴
@@ -1084,8 +1481,8 @@ export function Dashboard({
       </div>
 
       <div className="dashboard-analytics-grid">
-        <div className="dashboard-card dashboard-card-roomy animate-in">
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-text-bright">
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-model">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <Brain className="h-4 w-4 text-accent" /> 사용한 모델
           </h2>
           <div className="dashboard-card-body-center">
@@ -1093,9 +1490,19 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="dashboard-card dashboard-card-roomy animate-in">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-text-bright">
-            <MessageSquare className="h-5 w-5 text-cyan" />
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-language">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Code2 className="h-4 w-4 text-green" />
+            {isKorean ? '사용한 언어' : 'Languages'}
+          </h2>
+          <div className="dashboard-card-body-center">
+            <LanguageBar languages={topLanguages} />
+          </div>
+        </div>
+
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-hour">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <MessageSquare className="h-4 w-4 text-cyan" />
             시간대별 활동
           </h2>
           <div className="dashboard-card-body-center">
@@ -1103,9 +1510,25 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="dashboard-card dashboard-card-roomy animate-in">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-text-bright">
-            <Brain className="h-5 w-5 text-rose" />
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-skills">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Terminal className="h-4 w-4 text-violet" />
+            자주 쓴 스킬
+          </h2>
+          <GenericDonutChart data={stats.topSkills} centerLabel="스킬" />
+        </div>
+
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-session-length">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Timer className="h-4 w-4 text-accent" />
+            세션 길이
+          </h2>
+          <GenericDonutChart data={stats.sessionLengthDist} centerLabel="세션" />
+        </div>
+
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-words">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Brain className="h-4 w-4 text-rose" />
             자주 쓴 단어
           </h2>
           <WordCloud
@@ -1113,14 +1536,6 @@ export function Dashboard({
             wordsUser={stats.topWordsUser}
             wordsAssistant={stats.topWordsAssistant}
           />
-        </div>
-
-        <div className="dashboard-card dashboard-card-roomy animate-in">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-text-bright">
-            <Code2 className="h-5 w-5 text-green" />
-            {isKorean ? '사용한 언어' : 'Languages'}
-          </h2>
-          <LanguageBar languages={topLanguages} />
         </div>
       </div>
 

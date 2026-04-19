@@ -6,6 +6,7 @@ import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
 import { analyzeUsageTopCategories, getUsageHeadline } from '../../lib/usageProfile'
 import { useI18n } from '../../i18n'
+import { CoverSlide } from './slides/CoverSlide'
 import { IntroSlide } from './slides/IntroSlide'
 import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
@@ -69,7 +70,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     ? '대시보드로 이동'
     : 'Go to Dashboard'
 
-  const lastSlideIndex = sessions.length === 0 ? 0 : 6
+  const lastSlideIndex = sessions.length === 0 ? 0 : 7
 
   useEffect(() => {
     if (sessions.length === 0) return
@@ -109,6 +110,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   }
 
   const slides = [
+    <CoverSlide key="cover" totalSessions={stats.totalSessions} />,
     <IntroSlide key="intro" firstDate={sortedSessions[0]?.startTime || ''} totalSessions={stats.totalSessions} />,
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
     <ModelSlide key="model" modelsUsed={stats.modelsUsed} />,
