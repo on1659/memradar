@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { DropZone } from './components/DropZone'
-import { Dashboard } from './components/Dashboard'
+import { Dashboard, type DashboardFilters } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
@@ -53,6 +53,13 @@ function App() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [view, setView] = useState<View>({ type: 'loading' })
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 })
+  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilters>({
+    sessionFilter: '',
+    sessionSourceFilter: 'all',
+    sessionSort: 'date',
+    dateFrom: '',
+    dateTo: '',
+  })
 
   const loadSessions = useCallback(async () => {
     try {
@@ -285,6 +292,8 @@ function App() {
       onOpenDashboard={() => navigate({ type: 'dashboard' })}
       themeProps={themeProps}
       restoreScrollY={savedScrollY.current}
+      filters={dashboardFilters}
+      onFiltersChange={setDashboardFilters}
     />
   )
 }

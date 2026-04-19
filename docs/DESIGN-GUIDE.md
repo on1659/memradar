@@ -340,6 +340,14 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 - `interrupted: true`이면 "중단됨" amber 배지 표시.
 - 도구 호출: 중복 제거 후 `border-text/15 bg-text/8 text-text/55` 배지로 나열.
 - 세션 헤더 제목은 `SessionTitle` 컴포넌트 — 80자 초과 시 접기/펼치기 토글, `#N` 순번 표시.
+- **토큰 배지 (통일 스타일):** 세션 헤더·히스토리 목록·메시지 우측 모두 동일한 중립 배지 사용.
+
+  ```text
+  rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright
+  ```
+
+  표시 포맷: `{K/M 단위} 토큰`. 값이 0이면 히스토리 목록에서 숨김.
+- **세션 헤더 배지 간격:** `gap-x-1.5 gap-y-1` (소스·모델·토큰·메시지수 배지 행).
 
 ### 5.6 입력 요소
 

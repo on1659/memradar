@@ -44,6 +44,7 @@ const SYSTEM_XML_TAGS = [
   'summary',
   'turn_aborted',
   'result',
+  'image',
 ]
 
 // ─── Bracket-style tool annotations ──────────────────────────────────────────

@@ -30,6 +30,14 @@ import { PersonalitySections } from './PersonalityView'
 import { WordCloud } from './WordCloud'
 import { analyzeLanguages, type LanguageScore } from '../lib/languageProfile'
 
+export interface DashboardFilters {
+  sessionFilter: string
+  sessionSourceFilter: 'all' | 'claude' | 'codex'
+  sessionSort: 'date' | 'tokens'
+  dateFrom: string
+  dateTo: string
+}
+
 interface DashboardProps {
   sessions: Session[]
   onSelectSession: (session: Session, index: number) => void
@@ -38,6 +46,8 @@ interface DashboardProps {
   onOpenDashboard?: () => void
   sectionMode?: 'dashboard' | 'personality'
   restoreScrollY?: number
+  filters?: DashboardFilters
+  onFiltersChange?: (filters: DashboardFilters) => void
   themeProps: {
     theme: string
     accent: string
@@ -779,6 +789,8 @@ export function Dashboard({
   onOpenDashboard,
   sectionMode = 'dashboard',
   restoreScrollY,
+  filters,
+  onFiltersChange,
   themeProps,
 }: DashboardProps) {
   const { locale, t } = useI18n()
@@ -791,15 +803,30 @@ export function Dashboard({
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
-  const [sessionFilter, setSessionFilter] = useState('')
+  const [sessionFilterLocal, setSessionFilterLocal] = useState(filters?.sessionFilter ?? '')
+  const [dateFromLocal, setDateFromLocal] = useState(filters?.dateFrom ?? '')
+  const [dateToLocal, setDateToLocal] = useState(filters?.dateTo ?? '')
+  const [sessionSourceFilterLocal, setSessionSourceFilterLocal] = useState<'all' | 'claude' | 'codex'>(filters?.sessionSourceFilter ?? 'all')
+  const [sessionSortLocal, setSessionSortLocal] = useState<'date' | 'tokens'>(filters?.sessionSort ?? 'date')
+
+  const sessionFilter = sessionFilterLocal
+  const dateFrom = dateFromLocal
+  const dateTo = dateToLocal
+  const sessionSourceFilter = sessionSourceFilterLocal
+  const sessionSort = sessionSortLocal
+
+  const setSessionFilter = (v: string) => { setSessionFilterLocal(v); onFiltersChange?.({ sessionFilter: v, dateFrom, dateTo, sessionSourceFilter, sessionSort }) }
+  const setDateFrom = (v: string) => { setDateFromLocal(v); onFiltersChange?.({ sessionFilter, dateFrom: v, dateTo, sessionSourceFilter, sessionSort }) }
+  const setDateTo = (v: string) => { setDateToLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo: v, sessionSourceFilter, sessionSort }) }
+  const setSessionSourceFilter = (v: 'all' | 'claude' | 'codex') => { setSessionSourceFilterLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter: v, sessionSort }) }
+  const setSessionSort = (v: 'date' | 'tokens') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v }) }
+
   const [showLowestTokenDay, setShowLowestTokenDay] = useState(false)
   const [tokenDayPinned, setTokenDayPinned] = useState(false)
   const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
   const [dayPatternPinned, setDayPatternPinned] = useState(false)
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
-  const [sessionSourceFilter, setSessionSourceFilter] = useState<'all' | 'claude' | 'codex'>('all')
-  const [sessionSort, setSessionSort] = useState<'date' | 'tokens'>('date')
 
   const sortedSessions = useMemo(
     () =>
@@ -815,18 +842,33 @@ export function Dashboard({
 
   const filteredSessions = useMemo(() => {
     const query = sessionFilter.toLowerCase()
+    const fromTs = dateFrom ? new Date(dateFrom).getTime() : null
+    const toTs = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null
 
     return sortedSessions.filter((session) => {
       const matchesSource = sessionSourceFilter === 'all' || session.source === sessionSourceFilter
       if (!matchesSource) return false
-      if (!sessionFilter.trim()) return true
 
+      if (fromTs !== null && new Date(session.startTime).getTime() < fromTs) return false
+      if (toTs !== null && new Date(session.startTime).getTime() > toTs) return false
+
+      if (!sessionFilter.trim()) return true
       return (
         cleanClaudeText(session.messages[0]?.text ?? '').text.toLowerCase().includes(query) ||
         session.messages.some((message) => message.text.toLowerCase().includes(query))
       )
     })
-  }, [sessionFilter, sessionSourceFilter, sortedSessions])
+  }, [sessionFilter, sessionSourceFilter, dateFrom, dateTo, sortedSessions])
+
+  const sessionDateBounds = useMemo(() => {
+    if (sessions.length === 0) return { min: '', max: '' }
+    const times = sessions.map(s => new Date(s.startTime).getTime())
+    const toDateStr = (ts: number) => new Date(ts).toISOString().slice(0, 10)
+    return {
+      min: toDateStr(Math.min(...times)),
+      max: new Date().toISOString().slice(0, 10),
+    }
+  }, [sessions])
 
   const sourceSessions = useMemo(
     () => ({
@@ -1624,6 +1666,35 @@ export function Dashboard({
             placeholder={sessionSearchPlaceholder}
             className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-bright placeholder:text-text/30 focus:border-accent/50 focus:outline-none"
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-text/40">날짜</span>
+            <input
+              type="date"
+              value={dateFrom}
+              min={sessionDateBounds.min}
+              max={dateTo || sessionDateBounds.max}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="rounded-lg border border-border bg-bg px-2 py-1 text-[11px] text-text-bright focus:border-accent/50 focus:outline-none [color-scheme:dark]"
+            />
+            <span className="text-[11px] text-text/40">~</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || sessionDateBounds.min}
+              max={sessionDateBounds.max}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="rounded-lg border border-border bg-bg px-2 py-1 text-[11px] text-text-bright focus:border-accent/50 focus:outline-none [color-scheme:dark]"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => { setDateFrom(''); setDateTo('') }}
+                className="rounded-full border border-border px-2 py-0.5 text-[11px] text-text/50 transition-colors hover:border-rose/40 hover:text-rose/70"
+              >
+                초기화
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="max-h-[600px] divide-y divide-border overflow-y-auto">

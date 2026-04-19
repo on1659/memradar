@@ -211,7 +211,7 @@ export function SessionView({ session, onBack, highlightMessageIndex, sessionInd
         <div className="rounded-xl border border-border bg-bg-card p-5">
           <SessionTitle text={cleanClaudeText(session.messages[0]?.text ?? '').text} index={sessionIndex} />
           <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text/60">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-text/60">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {new Date(session.startTime).toLocaleString('ko-KR')}
@@ -314,13 +314,20 @@ export function SessionView({ session, onBack, highlightMessageIndex, sessionInd
                     {isUser ? 'You' : assistantLabel}
                   </span>
                   <span className="text-[10px] text-text/40">{formatTime(msg.timestamp)}</span>
-                  {msg.tokens && (
-                    <span className="ml-auto rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
-                      {msg.tokens.output >= 1000
-                        ? `${(msg.tokens.output / 1000).toFixed(1)}K`
-                        : msg.tokens.output} 토큰
-                    </span>
-                  )}
+                  {msg.tokens && (() => {
+                    const count = isUser ? msg.tokens.input : msg.tokens.output
+                    if (!count) return null
+                    const fmt = count >= 1000 ? `${(count / 1000).toFixed(1)}K` : count
+                    return isUser ? (
+                      <span className="ml-auto rounded-full border border-green/20 bg-green/8 px-2 py-0.5 text-[10px] font-medium text-green/80">
+                        {fmt} 토큰
+                      </span>
+                    ) : (
+                      <span className="ml-auto rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
+                        {fmt} 토큰
+                      </span>
+                    )
+                  })()}
                 </div>
                 <MessageContent text={msg.text} isUser={isUser} />
                 {msg.toolUses.length > 0 && (
