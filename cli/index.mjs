@@ -31,9 +31,7 @@ async function checkForUpdate() {
 async function handleUpdate(latest) {
   if (!latest || latest === pkg.version) return
 
-  console.log(`  ╭──────────────────────────────────────────╮`)
-  console.log(`  │  업데이트: v${pkg.version} → v${latest}`.padEnd(44) + '│')
-  console.log(`  ╰──────────────────────────────────────────╯`)
+  console.log(`  ── 업데이트 가능: v${pkg.version} → v${latest} ──`)
   console.log()
 
   if (!process.stdin.isTTY) {
