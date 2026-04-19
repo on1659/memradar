@@ -43,7 +43,8 @@ src/
 │   ├── usageProfile.ts     # 사용 카테고리 분석
 │   ├── search.ts           # 검색 인덱스·매칭·스니펫
 │   ├── modelNames.ts       # 모델명 정규화
-│   └── tokenPricing.ts     # 모델별 가격 데이터
+│   ├── tokenPricing.ts     # 모델별 가격 데이터 + 테마 인식형 소스 색상
+│   └── cleanClaudeText.ts  # Claude Code .jsonl 노이즈 제거 (XML 태그·브래킷 어노테이션)
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/

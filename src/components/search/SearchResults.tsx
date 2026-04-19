@@ -1,5 +1,6 @@
 import { User, Bot, Clock } from 'lucide-react'
 import { shortenCwd, type SearchResult } from '../../lib/search'
+import { cleanClaudeText } from '../../lib/cleanClaudeText'
 
 interface SearchResultsProps {
   results: SearchResult[]
@@ -90,7 +91,7 @@ export function SearchResults({ results, onSelect }: SearchResultsProps) {
 
                 {/* Session first message preview */}
                 <div className="mt-1.5 text-[11px] text-text/30 truncate">
-                  세션: {result.session.messages[0]?.text.slice(0, 60) || '(빈 세션)'}
+                  세션: {cleanClaudeText(result.session.messages[0]?.text ?? '').text.slice(0, 60) || '(빈 세션)'}
                 </div>
               </div>
 

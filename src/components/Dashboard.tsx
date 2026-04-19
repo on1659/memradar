@@ -21,6 +21,7 @@ import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
 import { analyzeUsageTopCategories, type UsageCategoryScore } from '../lib/usageProfile'
 import { shortModelName } from '../lib/modelNames'
+import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
@@ -31,11 +32,12 @@ import { analyzeLanguages, type LanguageScore } from '../lib/languageProfile'
 
 interface DashboardProps {
   sessions: Session[]
-  onSelectSession: (session: Session) => void
+  onSelectSession: (session: Session, index: number) => void
   onOpenWrapped?: () => void
   onOpenPersonality?: () => void
   onOpenDashboard?: () => void
   sectionMode?: 'dashboard' | 'personality'
+  restoreScrollY?: number
   themeProps: {
     theme: string
     accent: string
@@ -776,9 +778,17 @@ export function Dashboard({
   onOpenPersonality,
   onOpenDashboard,
   sectionMode = 'dashboard',
+  restoreScrollY,
   themeProps,
 }: DashboardProps) {
   const { locale, t } = useI18n()
+
+  useEffect(() => {
+    if (restoreScrollY != null && restoreScrollY > 0) {
+      window.scrollTo({ top: restoreScrollY, behavior: 'instant' })
+    }
+  }, [])
+
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
   const [sessionFilter, setSessionFilter] = useState('')
@@ -812,7 +822,7 @@ export function Dashboard({
       if (!sessionFilter.trim()) return true
 
       return (
-        session.messages[0]?.text.toLowerCase().includes(query) ||
+        cleanClaudeText(session.messages[0]?.text ?? '').text.toLowerCase().includes(query) ||
         session.messages.some((message) => message.text.toLowerCase().includes(query))
       )
     })
@@ -1045,7 +1055,7 @@ export function Dashboard({
     ? (isKorean ? '가장 토큰 적게 사용한 날' : 'Lowest token day')
     : (isKorean ? '가장 토큰 많이 사용한 날' : 'Highest token day')
 
-  function renderSessionRow(session: Session) {
+  function renderSessionRow(session: Session, index: number) {
     const sessionSourceColor = sourceColor(session.source)
     const sourceLabel = session.source === 'claude' ? 'Claude' : 'Codex'
     const messageCount = session.messageCount.user + session.messageCount.assistant
@@ -1055,12 +1065,15 @@ export function Dashboard({
     return (
       <button
         key={session.id}
-        onClick={() => onSelectSession(session)}
+        onClick={() => onSelectSession(session, index)}
         className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-bg-hover"
       >
+        <div className="w-10 shrink-0 text-right text-sm font-mono font-medium text-text">
+          {index + 1}
+        </div>
         <div className="min-w-0 flex-1">
           <div className="mb-1 truncate text-sm font-medium text-text-bright">
-            {session.messages[0]?.text.slice(0, 80) || untitledSessionLabel}
+            {cleanClaudeText(session.messages[0]?.text ?? '').text.slice(0, 80) || untitledSessionLabel}
           </div>
           <div className="mb-1 truncate text-[11px] text-text/38">
             {sessionNameLabel} · {sessionDisplayName}
@@ -1087,9 +1100,11 @@ export function Dashboard({
                   {shortModelName(session.model)}
                 </span>
               )}
-              <span className="rounded-full border border-text/12 bg-white/4 px-2 py-0.5 text-[10px] font-medium text-text-bright">
-                {formatTokens(sessionTokenTotal)}
-              </span>
+              {sessionTokenTotal > 0 && (
+                <span className="rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
+                  {formatTokens(sessionTokenTotal)} 토큰
+                </span>
+              )}
             </span>
           </div>
         </div>
@@ -1118,7 +1133,7 @@ export function Dashboard({
     </div>
   ) : (
     <>
-      {visibleSessions.map((session) => renderSessionRow(session))}
+      {visibleSessions.map((session, i) => renderSessionRow(session, filteredSessions.length - 1 - i))}
       {hasMore && (
         <button
           onClick={() => setSessionLimit((l) => l + SESSION_PAGE_SIZE)}

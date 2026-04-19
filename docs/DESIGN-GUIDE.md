@@ -334,9 +334,12 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 
 `SessionView.tsx` 의 대화 렌더링. 역할별 색을 유지해 스캔 시 즉시 구분된다.
 
-- **User**: `bg-green/5` 배경, `border-green/10`, `text-text-bright` (초록 틴트로 "내 말").
-- **Assistant**: `bg-bg-card` 배경, `border-border`, `text-text` (중립적인 표준 카드 톤).
-- 도구 호출 결과: `bg-amber/10 text-amber/70` 배지로 구분.
+- **User**: `border-green/15 bg-green/5` 버블, `ml-10`으로 우측 들여쓰기.
+- **Assistant**: `border-border bg-bg-card` 버블, 좌측 정렬.
+- 메시지 본문은 `MessageContent` 컴포넌트가 `cleanClaudeText` → `ReactMarkdown(remarkGfm)`으로 렌더링.
+- `interrupted: true`이면 "중단됨" amber 배지 표시.
+- 도구 호출: 중복 제거 후 `border-text/15 bg-text/8 text-text/55` 배지로 나열.
+- 세션 헤더 제목은 `SessionTitle` 컴포넌트 — 80자 초과 시 접기/펼치기 토글, `#N` 순번 표시.
 
 ### 5.6 입력 요소
 

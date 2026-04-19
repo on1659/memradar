@@ -20,7 +20,7 @@ type View =
   | { type: 'loading' }
   | { type: 'drop' }
   | { type: 'dashboard' }
-  | { type: 'session'; session: Session; highlightMessageIndex?: number }
+  | { type: 'session'; session: Session; highlightMessageIndex?: number; sessionIndex?: number }
   | { type: 'search' }
   | { type: 'wrapped' }
   | { type: 'personality' }
@@ -162,6 +162,8 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [sessions])
 
+  const savedScrollY = useRef(0)
+
   const viewRef = useRef(view.type)
   viewRef.current = view.type
 
@@ -231,8 +233,10 @@ function App() {
     return (
       <SessionView
         session={view.session}
-        onBack={() => history.back()}
+        onBack={() => navigate({ type: 'dashboard' })}
         highlightMessageIndex={view.highlightMessageIndex}
+        sessionIndex={view.sessionIndex}
+        onMount={() => window.scrollTo({ top: 0, behavior: 'instant' })}
       />
     )
   }
@@ -275,11 +279,12 @@ function App() {
   return (
     <Dashboard
       sessions={sessions}
-      onSelectSession={(session) => navigate({ type: 'session', session })}
+      onSelectSession={(session, index) => { savedScrollY.current = window.scrollY; navigate({ type: 'session', session, sessionIndex: index }) }}
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
       onOpenPersonality={() => navigate({ type: 'personality' })}
       onOpenDashboard={() => navigate({ type: 'dashboard' })}
       themeProps={themeProps}
+      restoreScrollY={savedScrollY.current}
     />
   )
 }
