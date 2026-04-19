@@ -312,9 +312,17 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 /* 성공     */ border-green/20 bg-green/8  text-green
 ```
 
-세션 행 모델 배지 (`renderSessionRow` 내 `session.model`):  
-소스 색상(`getSourceColor`)을 그대로 사용하되 `opacity: 0.75`로 소스 배지와 구분한다.  
-고정 cyan 대신 소스 색을 따르는 이유: 밝은 테마에서 `#22d3ee`(cyan)는 대비가 낮아 잘 안 보임.
+**소스/모델 배지 색 (`getSourceColor`):**  
+`src/lib/tokenPricing.ts`의 `getSourceColor(source, theme)`가 현재 테마를 받아 `getAccentTone`으로 색을 결정한다. Claude = amber, Codex = indigo이며 테마별로 명도가 조정된다.
+
+| 테마  | indigo (Codex) | amber (Claude) |
+| ----- | -------------- | -------------- |
+| dark  | `#7c83ff`      | `#f59e0b`      |
+| night | `#818cf8`      | `#f59e0b`      |
+| light | `#4338ca`      | `#f59e0b`      |
+| paper | `#4f46e5`      | `#b45309`      |
+
+모델 배지는 소스 배지와 같은 색을 `opacity: 0.75`로 사용해 구분한다.
 
 "개발중" 같은 상태 표시에는 `bg-white/10 text-[10px] text-text/50` (`ShareSlide.tsx` 공유 메뉴 참조).
 

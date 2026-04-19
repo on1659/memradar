@@ -138,9 +138,10 @@ interface Provider {
    - `GET /api/sessions` — 감지된 세션 목록
    - `GET /api/session-content` — 개별 세션 원본 콘텐츠
    - `GET /api/skills` — 스킬 인벤토리
-3. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
-4. `--static` 모드에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `/tmp/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다
-5. `--version` 플래그 지원
+3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 — 새 버전이 있으면 TTY 환경에서 Y/n 프롬프트를 표시하고, Y 입력 시 `npm install -g memradar@latest` 를 자동 실행 후 종료. 비TTY 환경에서는 안내 메시지만 출력한다
+4. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
+5. `--static` 모드에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `/tmp/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다
+6. `--version` 플래그 지원
 
 출력된 HTML 은 파일 시스템(`file://`) 또는 배포된 URL 양쪽에서 동일하게 동작하도록 해시 라우팅을 쓴다.
 

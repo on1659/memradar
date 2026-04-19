@@ -861,7 +861,8 @@ export function Dashboard({
     codex: sourceSessions.codex.length,
   }
   const hasBothSources = sourceSessions.claude.length > 0 && sourceSessions.codex.length > 0
-  const tokenSourceColor = getSourceColor(tokenSource)
+  const sourceColor = (source: SessionSource) => getSourceColor(source, themeProps.theme)
+  const tokenSourceColor = sourceColor(tokenSource)
   const tokenSourceLabel = tokenSource === 'claude' ? 'Claude' : 'Codex'
   const displayInputTokens = activeTokenTotals.input + (activeTokenTotals.cachedInput || 0)
   const isKorean = locale === 'ko'
@@ -1045,7 +1046,7 @@ export function Dashboard({
     : (isKorean ? '가장 토큰 많이 사용한 날' : 'Highest token day')
 
   function renderSessionRow(session: Session) {
-    const sourceColor = getSourceColor(session.source)
+    const sessionSourceColor = sourceColor(session.source)
     const sourceLabel = session.source === 'claude' ? 'Claude' : 'Codex'
     const messageCount = session.messageCount.user + session.messageCount.assistant
     const sessionTokenTotal = getSessionTotalTokens(session)
@@ -1074,9 +1075,9 @@ export function Dashboard({
               <span
                 className="rounded-full border px-2 py-0.5 text-[10px] font-medium"
                 style={{
-                  color: sourceColor.text,
-                  borderColor: sourceColor.border,
-                  background: sourceColor.soft,
+                  color: sessionSourceColor.text,
+                  borderColor: sessionSourceColor.border,
+                  background: sessionSourceColor.soft,
                 }}
               >
                 {sourceLabel}
@@ -1311,7 +1312,7 @@ export function Dashboard({
                 {(['claude', 'codex'] as const).map((source) => {
                   const active = tokenSource === source
                   const disabled = sourceSessions[source].length === 0
-                  const color = getSourceColor(source)
+                  const color = sourceColor(source)
 
                   return (
                     <button
@@ -1352,13 +1353,13 @@ export function Dashboard({
                   <div className="space-y-1.5">
                     {sourceSessions.claude.length > 0 && (
                       <div className="flex items-center justify-between gap-3">
-                        <span style={{ color: getSourceColor('claude').text }}>Claude</span>
+                        <span style={{ color: sourceColor('claude').text }}>Claude</span>
                         <span className="font-mono">${claudeEstimatedCost.toFixed(2)}</span>
                       </div>
                     )}
                     {sourceSessions.codex.length > 0 && (
                       <div className="flex items-center justify-between gap-3">
-                        <span style={{ color: getSourceColor('codex').text }}>Codex</span>
+                        <span style={{ color: sourceColor('codex').text }}>Codex</span>
                         <span className="font-mono">${codexEstimatedCost.toFixed(2)}</span>
                       </div>
                     )}
@@ -1558,7 +1559,7 @@ export function Dashboard({
             <div className="flex flex-wrap items-center gap-2">
               {(['all', 'claude', 'codex'] as const).map((source) => {
                 const active = sessionSourceFilter === source
-                const sourceColor = source === 'all' ? null : getSourceColor(source)
+                const sessionSourceColor2 = source === 'all' ? null : sourceColor(source)
                 const count = sourceFilterCounts[source]
                 const activeStyles = source === 'all'
                   ? {
@@ -1567,9 +1568,9 @@ export function Dashboard({
                       background: 'var(--color-bg-hover)',
                     }
                   : {
-                      color: sourceColor?.text,
-                      borderColor: sourceColor?.border,
-                      background: sourceColor?.soft,
+                      color: sessionSourceColor2?.text,
+                      borderColor: sessionSourceColor2?.border,
+                      background: sessionSourceColor2?.soft,
                     }
 
                 return (
