@@ -51,7 +51,7 @@ const updateCheckPromise = checkForUpdate()
 
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
-const isStaticMode = process.argv.includes('--static')
+const isStaticMode = !process.argv.includes('--server')
 const DEFAULT_PORT = parseInt(process.env.MEMRADAR_PORT || '3939', 10)
 
 // ─── Common utilities ────────────────────────────────────────────────
