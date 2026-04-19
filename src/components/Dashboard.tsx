@@ -262,12 +262,12 @@ function InteractiveDonutChart({ data }: { data: [string, number][] }) {
 }
 
 function GenericDonutChart({ data, centerLabel = '' }: { data: [string, number][]; centerLabel?: string }) {
+  const [hovered, setHovered] = useState<{ label: string; percent: number; color: string } | null>(null)
   const total = data.reduce((sum, [, c]) => sum + c, 0)
   if (total === 0) return <p className="py-6 text-center text-sm text-text/40">데이터가 없어요</p>
   const visibleData = data.slice(0, 5)
   const otherCount = data.slice(5).reduce((sum, [, c]) => sum + c, 0)
   const chartData = otherCount > 0 ? [...visibleData, ['__other__', otherCount] as [string, number]] : visibleData
-  const [hovered, setHovered] = useState<{ label: string; percent: number; color: string } | null>(null)
   const colors = [
     'var(--color-accent)',
     'var(--color-green)',
@@ -657,16 +657,16 @@ function DayOfWeekPatternPanel({
 }
 
 function LanguageBar({ languages }: { languages: LanguageScore[] }) {
-  if (languages.length === 0) {
-    return <p className="py-4 text-center text-sm text-text/40">감지된 언어가 없습니다</p>
-  }
-
-  const total = languages.reduce((sum, l) => sum + l.count, 0)
   const [hoveredLanguage, setHoveredLanguage] = useState<{
     name: string
     percent: number
     color: string
   } | null>(null)
+  if (languages.length === 0) {
+    return <p className="py-4 text-center text-sm text-text/40">감지된 언어가 없습니다</p>
+  }
+
+  const total = languages.reduce((sum, l) => sum + l.count, 0)
   const visibleLanguages = languages.slice(0, 5)
   const otherLanguageCount = languages.slice(5).reduce((sum, lang) => sum + lang.count, 0)
   const chartLanguages = otherLanguageCount > 0

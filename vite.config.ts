@@ -30,7 +30,7 @@ function sessionApiPlugin(): Plugin {
           files.push(fullPath)
         }
       }
-    } catch { }
+    } catch { return files }
     return files
   }
 
