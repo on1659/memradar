@@ -66,7 +66,7 @@ export function MemradarTopBar({
 
   return (
     <>
-      <div className="animate-in mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="animate-in mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-3 text-sm text-text/55">
             <a
@@ -93,7 +93,7 @@ export function MemradarTopBar({
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap lg:w-auto lg:pt-6">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap lg:w-auto lg:items-end">
           <div className="order-2 flex items-center gap-2">
             {onOpenWrapped && (
               <button

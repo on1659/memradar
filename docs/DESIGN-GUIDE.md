@@ -295,6 +295,10 @@ border-white/10  bg-white/5   /* 또는 bg-white/[0.05] */
 - `disabled` 는 `disabled:opacity-50` (일반) 또는 `disabled:opacity-20` (네비 아이콘).
 - 둥글기는 `rounded-lg` (사각), `rounded-full` (pill) 중 맥락에 맞게. 중간 타협 없음.
 
+**MemradarTopBar 레이아웃 (`MemradarTopBar.tsx`)**:  
+좌측(브랜드+서브타이틀)과 우측(새소식·코드리포트·테마 버튼 3개)은 `lg:flex-row lg:items-end lg:justify-between`으로 배치한다.  
+`items-end`로 우측 버튼이 좌측 서브타이틀 하단 기준선에 맞춰 정렬된다.
+
 ### 5.4 배지·라벨
 
 작은 정보성 태그는 공통 원칙: **둥근 `rounded-full` + `text-[10px] font-medium` + `px-2 py-0.5`**.
