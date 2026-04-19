@@ -15,6 +15,34 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
   process.exit(0)
 }
 
+async function checkForUpdate() {
+  try {
+    const res = await fetch('https://registry.npmjs.org/memradar/latest', {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.version || null
+  } catch {
+    return null
+  }
+}
+
+function printUpdateNotice(latest) {
+  if (!latest || latest === pkg.version) return
+  const line1 = `  업데이트 가능: v${pkg.version} → v${latest}`
+  const line2 = '  npm update -g memradar'
+  const width = Math.max(line1.length, line2.length) + 2
+  const bar = '─'.repeat(width)
+  console.log(`  ╭${bar}╮`)
+  console.log(`  │${line1.padEnd(width)} │`)
+  console.log(`  │${line2.padEnd(width)} │`)
+  console.log(`  ╰${bar}╯`)
+  console.log()
+}
+
+const updateCheckPromise = checkForUpdate()
+
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
 const isStaticMode = process.argv.includes('--static')
@@ -356,6 +384,8 @@ if (!isStaticMode) {
   console.log('  ------------------------------')
   console.log('  Press Ctrl+C to stop')
   console.log()
+
+  printUpdateNotice(await updateCheckPromise)
 
   if (shouldOpenBrowser) {
     openBrowser(url)
@@ -700,6 +730,8 @@ if (!isStaticMode) {
   console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
   console.log('  ------------------------------')
   console.log()
+
+  printUpdateNotice(await updateCheckPromise)
 
   if (shouldOpenBrowser) {
     openBrowser(outPath)
