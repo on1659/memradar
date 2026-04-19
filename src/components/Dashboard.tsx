@@ -1083,15 +1083,7 @@ export function Dashboard({
                 {sourceLabel}
               </span>
               {session.model && (
-                <span
-                  className="rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                  style={{
-                    color: sourceColor.text,
-                    borderColor: sourceColor.border,
-                    background: sourceColor.soft,
-                    opacity: 0.75,
-                  }}
-                >
+                <span className="rounded-full border border-green/25 bg-green/8 px-2 py-0.5 text-[10px] font-medium text-green">
                   {shortModelName(session.model)}
                 </span>
               )}

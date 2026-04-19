@@ -14,11 +14,11 @@
   --color-text-bright: var(--t-text-bright);
   --color-accent: var(--t-accent);
   --color-accent-dim: var(--t-accent-dim);
-  --color-green: #34d399;
+  --color-green: var(--t-green);
   --color-amber: #fbbf24;
   --color-rose: #f472b6;
-  --color-cyan: #22d3ee;
-  --color-violet: #a78bfa;
+  --color-cyan: #0891b2;
+  --color-violet: #7c3aed;
 }
 
 :root {
@@ -47,6 +47,7 @@
   --t-border: #2a3444;
   --t-text: #97a3b6;
   --t-text-bright: #edf2fb;
+  --t-green: #34d399;
 }
 
 /* Night */
@@ -57,6 +58,7 @@
   --t-border: #1d2634;
   --t-text: #8794aa;
   --t-text-bright: #e6edf8;
+  --t-green: #34d399;
 }
 
 /* Light Mode */
@@ -67,6 +69,7 @@
   --t-border: #d7deea;
   --t-text: #5f6b7d;
   --t-text-bright: #172131;
+  --t-green: #047857;
 }
 
 /* Paper */
@@ -77,6 +80,7 @@
   --t-border: #dfd2bd;
   --t-text: #726756;
   --t-text-bright: #2f281f;
+  --t-green: #047857;
 }
 
 /* ── Accent Colors ─────────────────────────────────────────────────── */
@@ -937,7 +941,7 @@ h1, h2 {
   position: absolute;
   inset: 0;
   opacity: 0;
-  animation: loadingStatusRotate 9s ease-in-out infinite;
+  animation: loadingStatusRotate 12s ease-in-out infinite;
 }
 
 .loading-status-rotator span:nth-child(2) {
@@ -946,6 +950,10 @@ h1, h2 {
 
 .loading-status-rotator span:nth-child(3) {
   animation-delay: 6s;
+}
+
+.loading-status-rotator span:nth-child(4) {
+  animation-delay: 9s;
 }
 
 .dashboard-cycle-drop {

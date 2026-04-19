@@ -322,7 +322,7 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 | light | `#4338ca`      | `#f59e0b`      |
 | paper | `#4f46e5`      | `#b45309`      |
 
-모델 배지는 소스 배지와 같은 색을 `opacity: 0.75`로 사용해 구분한다.
+모델 배지는 소스 배지와 동일한 색(`sessionSourceColor`)을 그대로 사용한다. opacity 조정 없음.
 
 "개발중" 같은 상태 표시에는 `bg-white/10 text-[10px] text-text/50` (`ShareSlide.tsx` 공유 메뉴 참조).
 

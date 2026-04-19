@@ -217,6 +217,7 @@ function App() {
           <span>{t('app.loading.status.memory')}</span>
           <span>{t('app.loading.status.flow')}</span>
           <span>{t('app.loading.status.wrapped')}</span>
+          <span>{t('app.loading.status.privacy')}</span>
         </div>
       </div>
     )
