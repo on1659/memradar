@@ -7,7 +7,7 @@
 ## 합의된 제품 방향
 
 - 로드맵 자체는 넓게 두되, 실행 순서는 좁고 명확하게 가져간다. ✅ shipped
-- **Memradar Code Report** 를 제품의 첫 "와" 피처로 삼는다. ✅ shipped (Wrapped, 7 slides)
+- **Memradar Code Report** 를 제품의 첫 "와" 피처로 삼는다. ✅ shipped (Wrapped, 8 slides)
 - **기록 검색**은 Memradar 를 "보는 툴"에서 "아카이브 도구"로 만들어주는 리텐션 피처다. ✅ shipped (full-text + 필터/정렬)
 - **세션 리플레이**는 차별화 피처지만 Code Report · 검색 이후의 작업으로 둔다. ⬜ planned (Interactive Replay 스크러버 미착수)
 

@@ -40,10 +40,10 @@
 
 | # | 항목 | 설명 | 상태 |
 |---|---|---|---|
-| 2.1 | **Memradar Code Report** | Spotify Wrapped 스타일 7장 슬라이드 (Intro / Prompts / Model / Hours / Personality / Usage / Share) — `ToolsSlide.tsx`는 파일만 존재하고 현재 import 되지 않은 향후 확장 슬롯 | ✅ |
+| 2.1 | **Memradar Code Report** | Spotify Wrapped 스타일 8장 슬라이드 (Cover / Intro / Prompts / Model / Hours / Personality / Usage / Share) — `ToolsSlide.tsx`는 파일만 존재하고 현재 import 되지 않은 향후 확장 슬롯 | ✅ |
 | 2.1a | 공유 이미지 생성 | html-to-image 기반 PNG + Web Share API + 클립보드 복사 | ✅ |
 | 2.1b | 코딩 성격 분석 | 3축(탐험가/설계자, 깊이/넓이, 마라톤/스프린트) 기반 8유형, Dashboard 통합 | ✅ |
-| 2.1c | 사용 카테고리 | AI 사용 패턴 9종 분류(🧪 품질 감독관 포함) + 통합 AI Jobs 차트 | ✅ |
+| 2.1c | 사용 카테고리 | AI 사용 패턴 9종 분류(🧪 QA 엔지니어 포함) + 통합 AI Jobs 차트 | ✅ |
 | 2.1d | 언어 프로파일 | 28개 언어 감지·집계 (`src/lib/languageProfile.ts`) | ✅ |
 | 2.1e | 스킬 사용 분석 | 슬래시 커맨드 빈도 · `TopSkills` 카드 · `/api/skills` 스캔 (`~/.claude/commands/`, `~/.claude/skills/`, 플러그인) | ✅ |
 | 2.2 | 기록 검색 | Ctrl+K 풀텍스트 검색 + 스니펫 하이라이트 (`SearchView`, `src/lib/search.ts`) | ✅ |

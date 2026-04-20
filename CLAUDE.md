@@ -10,5 +10,5 @@
 
 ## 제약
 
-- Wrapped 슬라이드는 **7장** — `ToolsSlide.tsx`는 import 금지
+- Wrapped 슬라이드는 **8장** (Cover → Intro → Prompts → Model → Hours → Personality → Usage → Share) — `ToolsSlide.tsx`는 import 금지 (향후 확장 슬롯)
 - 세션 데이터 외부 전송 금지

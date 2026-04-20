@@ -2,7 +2,7 @@
 
 > Spotify Wrapped 스타일의 AI 코딩 회고
 
-사용자의 AI 코딩 대화 데이터를 분석해 **7장의 풀스크린 슬라이드**로 보여주는 인터랙티브 경험. 마지막 슬라이드에서 공유 가능한 카드 이미지를 생성해 SNS에 올릴 수 있다.
+사용자의 AI 코딩 대화 데이터를 분석해 **8장의 풀스크린 슬라이드**로 보여주는 인터랙티브 경험. 마지막 슬라이드에서 공유 가능한 카드 이미지를 생성해 SNS에 올릴 수 있다.
 
 - **버전 기준**: memradar v0.2.12
 - **마지막 갱신**: 2026-04-19
@@ -13,11 +13,20 @@
 
 ---
 
-## 슬라이드 구성 (현재 구현: 7장)
+## 슬라이드 구성 (현재 구현: 8장)
 
-순서는 `WrappedView.tsx` 의 `slides` 배열 순서와 동일하다.
+순서는 `WrappedView.tsx` 의 import 순서와 동일하다. `lastSlideIndex = 7`.
 
-### Slide 1: Intro — "Your Memradar"
+### Slide 1: Cover — "Memradar"
+
+- 큰 타이틀: `Memradar` (Instrument Serif, 타이프라이터 진입)
+- 서브카피: `당신의 AI 성향은?` / `What is your AI style?`
+- 요약: "N개의 세션을 바탕으로 당신의 AI 사용 흐름을 읽어볼게요."
+- 타이틀 카드 역할. 본 내러티브는 Slide 2(Intro) 부터 시작한다.
+
+구현: `src/components/wrapped/slides/CoverSlide.tsx`
+
+### Slide 2: Intro — "Your Memradar"
 
 - Eyebrow: `Your Memradar`
 - 큰 타이틀: `Memradar` (Instrument Serif)
@@ -27,7 +36,7 @@
 
 구현: `src/components/wrapped/slides/IntroSlide.tsx`
 
-### Slide 2: Prompts — "Your Prompts"
+### Slide 3: Prompts — "Your Prompts"
 
 - 총 프롬프트(유저 메시지) 수를 `AnimatedNumber` 로 카운트업
 - 보조 카피: `개의 프롬프트를 작성했습니다`
@@ -36,7 +45,7 @@
 
 구현: `src/components/wrapped/slides/PromptsSlide.tsx`
 
-### Slide 3: Model — "Your Favorite Model"
+### Slide 4: Model — "Your Favorite Model"
 
 - 가장 많이 사용한 모델 1종 강조 + 상위 4개 비율 바
 - 모델 성격 라벨 (`getModelLabel`):
@@ -48,7 +57,7 @@
 구현: `src/components/wrapped/slides/ModelSlide.tsx`
 알고리즘: `src/lib/personality.ts` — `getModelLabel()`
 
-### Slide 4: Hours — "Your Coding Hours"
+### Slide 5: Hours — "Your Coding Hours"
 
 - 24시간 활동 분포 막대
 - 피크 시간대 라벨 (`getCodingTimeLabel`):
@@ -65,7 +74,7 @@
 구현: `src/components/wrapped/slides/HoursSlide.tsx`
 알고리즘: `src/lib/personality.ts` — `getCodingTimeLabel()`
 
-### Slide 5: Personality — "Your Coding Personality"
+### Slide 6: Personality — "Your Coding Personality"
 
 3축 × 2값 = **8 유형** (`src/lib/personality.ts`).
 
@@ -97,7 +106,7 @@
 구현: `src/components/wrapped/slides/PersonalitySlide.tsx`
 알고리즘: `src/lib/personality.ts` — `computePersonality()`
 
-### Slide 6: Usage — "내 AI는 무슨 일을 할까?"
+### Slide 7: Usage — "내 AI는 무슨 일을 할까?"
 
 사용자 메시지의 키워드 매칭으로 분류한 **9 카테고리 TOP 3**. 1위는 대형 이모지로, 2·3위는 칩으로 표시된다.
 
@@ -105,24 +114,23 @@
 |---|---|---|
 | 🏭 | 풀스택 기획자 | 기능 뚝딱 제조기 |
 | 🚨 | 버그 헌터 | AI 119 신고 전문 |
-| 💅 | 코드 성형외과 | 못생긴 코드 참을 수 없는 자 |
-| 🧐 | 코드 감정사 | "이거 왜 이렇게 짰어?" 전문가 |
-| ✍️ | AI 고스트라이터 | 글은 AI가 쓰고 이름은 내가 올리고 |
-| 🎨 | AI 아트 디렉터 | "여기 1px 옮겨" 장인 |
+| 💅 | 리팩터링 전문가 | 못생긴 코드 참을 수 없는 자 |
+| 🧐 | 코드 분석가 | "이거 왜 이렇게 짰어?" 전문가 |
+| ✍️ | 테크니컬 라이터 | 글은 AI가 쓰고 이름은 내가 올리고 |
+| 🎨 | UI 디자이너 | "여기 1px 옮겨" 장인 |
 | 🚀 | 배포 마스터 | npm publish 중독자 |
-| 🧙 | 데이터 연금술사 | JSON을 금으로 바꾸는 자 |
-| 🧪 | 품질 감독관 | 통과할 때까지 테스트하는 집착러 |
+| 🧙 | 데이터 엔지니어 | JSON을 금으로 바꾸는 자 |
+| 🧪 | QA 엔지니어 | 통과할 때까지 테스트하는 집착러 |
 
 헤드라인은 `getUsageHeadline()` 규칙:
 
-- `feature` → `아이디어를 기능으로 연결하는 빌더형`
-- 그 외 → `당신의 AI 활용 스타일은 {카테고리}형`
+- TOP1 있음 → `가장 자주 보인 역할은 {카테고리} 쪽이에요`
 - TOP1 없음 → `당신의 AI 활용 스타일은 아직 탐색 중이에요`
 
 구현: `src/components/wrapped/slides/UsageSlide.tsx`
 알고리즘: `src/lib/usageProfile.ts` — `analyzeUsageTopCategories()`, `getUsageHeadline()`
 
-### Slide 7: Share — "Your Memradar Ending"
+### Slide 8: Share — "Your Memradar Ending"
 
 - 전체 요약 카드 (1장 이미지로 캡처)
 - 포함 정보: 이모지, 성격 유형 타이틀/서브, `usageHeadline`, 3축 슬라이더, Sessions, Messages, Rhythm(`codingLabel`), Top Model
@@ -204,4 +212,4 @@ accent-dim   #6254db
 - **Cost 슬라이드** — 모델별 누적 비용
 - **다국어 내레이션** — 영어 버전 내러티브 톤 정비
 
-초기 기획의 `10장 슬라이드` 초안은 위 아이디어들을 포함한 것이었다. 현재는 **7장 구성**(Tools 제외)이 실제 셀릭된 상태이며, 위 아이디어는 로드맵 [ROADMAP.md](./ROADMAP.md) §2.6 과 연동된다.
+초기 기획의 `10장 슬라이드` 초안은 위 아이디어들을 포함한 것이었다. 현재는 **8장 구성**(Cover 포함, Tools 제외)이 실제 셀릭된 상태이며, 위 아이디어는 로드맵 [ROADMAP.md](./ROADMAP.md) §2.6 과 연동된다.
