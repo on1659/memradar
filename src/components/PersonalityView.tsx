@@ -4,8 +4,8 @@ import type { Session } from '../types'
 import { computeStats } from '../parser'
 import { computePersonality } from '../lib/personality'
 import type { PersonalityResult, TypeCode, AxisKey } from '../lib/personality'
-import { USAGE_CATEGORIES } from '../lib/usageProfile'
-import type { UsageCategory } from '../lib/usageProfile'
+import { USAGE_CATEGORIES, analyzeUsageTopCategories } from '../lib/usageProfile'
+import type { UsageCategoryScore } from '../lib/usageProfile'
 import { MemradarTopBar } from './MemradarTopBar'
 
 interface Props {
@@ -89,48 +89,10 @@ const USAGE_CATEGORY_HELP: Record<string, string> = {
   test: '테스트 작성, 검증 자동화, e2e/unit/spec 관련 요청이 많을 때 올라가요.',
 }
 
-// --- Usage category analysis (uses shared USAGE_CATEGORIES from usageProfile.ts) ---
-
-interface CategoryScore {
-  category: UsageCategory
-  score: number
-  sessionCount: number
-}
-
-function analyzeUsageCategories(sessions: Session[]): CategoryScore[] {
-  const scores: Record<string, { score: number; sessions: Set<string> }> = {}
-  for (const cat of USAGE_CATEGORIES) {
-    scores[cat.id] = { score: 0, sessions: new Set() }
-  }
-
-  for (const session of sessions) {
-    for (const msg of session.messages) {
-      if (msg.role !== 'user') continue
-      const text = msg.text.toLowerCase()
-      for (const cat of USAGE_CATEGORIES) {
-        for (const kw of cat.keywords) {
-          if (text.includes(kw)) {
-            scores[cat.id].score++
-            scores[cat.id].sessions.add(session.id)
-            break // count once per message per category
-          }
-        }
-      }
-    }
-  }
-
-  return USAGE_CATEGORIES
-    .map((cat) => ({
-      category: cat,
-      score: scores[cat.id].score,
-      sessionCount: scores[cat.id].sessions.size,
-    }))
-    .filter((c) => c.score > 0)
-    .sort((a, b) => b.score - a.score)
-}
+// --- Usage category analysis: shared engine from usageProfile.ts (analyzeUsageTopCategories)
 
 function UsageProfile({ sessions }: { sessions: Session[] }) {
-  const categories = useMemo(() => analyzeUsageCategories(sessions), [sessions])
+  const categories = useMemo(() => analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length), [sessions])
   const maxScore = categories[0]?.score || 1
 
   if (categories.length === 0) return null
@@ -138,16 +100,16 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
   // Top category — fun verdict
   const top = categories[0]
   const topVerdict = top.score > (categories[1]?.score || 0) * 1.5
-    ? `당신의 AI 직업은 "${top.category.title}" 입니다`
-    : `"${top.category.title}" 겸 "${categories[1]?.category.title}" — 투잡 뛰는 중`
+    ? `당신의 AI 직업은 "${top.title}" 입니다`
+    : `"${top.title}" 겸 "${categories[1]?.title}" — 투잡 뛰는 중`
 
   return (
     <div className="animate-in h-full rounded-xl border border-border bg-bg-card p-5">
       <h2 className="text-lg font-bold text-text-bright mb-1">AI 활용 직업</h2>
       <p className="text-sm text-text/50 mb-4">{topVerdict}</p>
       <div className="space-y-3">
-        {categories.map(({ category, score, sessionCount }, rank) => {
-          const pct = Math.round((score / maxScore) * 100)
+        {categories.map((category, rank) => {
+          const pct = Math.round((category.score / maxScore) * 100)
           return (
             <div key={category.id} className="rounded-lg border border-border bg-bg-card p-3">
               <div className="flex items-center gap-3 mb-1.5">
@@ -164,8 +126,8 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
                   <span className="text-[11px] text-text/40">{category.subtitle}</span>
                 </div>
                 <div className="shrink-0 text-right text-xs text-text/40">
-                  <div>{score}회</div>
-                  <div>{sessionCount}세션</div>
+                  <div>{Math.round(category.score)}점</div>
+                  <div>{category.sessionCount}세션</div>
                 </div>
               </div>
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -188,7 +150,7 @@ function UsageAllJobs({
   categories,
   onSwitchView,
 }: {
-  categories: CategoryScore[]
+  categories: UsageCategoryScore[]
   onSwitchView?: () => void
 }) {
   const maxScore = categories[0]?.score || 1
@@ -198,7 +160,7 @@ function UsageAllJobs({
   const top = categories[0]
   const next = categories[1]
   const topVerdict = next && top.score <= next.score * 1.5
-    ? `${top.category.title}와(과) ${next.category.title}, 투잡 뛰는 중`
+    ? `${top.title}와(과) ${next.title}, 투잡 뛰는 중`
     : `당신의 AI는 주로 이런 일을 해요`
 
   return (
@@ -229,9 +191,8 @@ function UsageAllJobs({
       </div>
       <p className="mb-4 text-sm text-text/50">{topVerdict}</p>
       <div className="space-y-1">
-        {categories.map((entry, index) => {
-          const { category, score, sessionCount } = entry
-          const pct = Math.round((score / maxScore) * 100)
+        {categories.map((category, index) => {
+          const pct = Math.round((category.score / maxScore) * 100)
           const tooltipDescription = `${category.subtitle}. ${USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 잡혔어요.'}`
           return (
             <HoverTooltip
@@ -262,7 +223,7 @@ function UsageAllJobs({
                   />
                 </div>
                 <div className="w-16 shrink-0 text-right text-[11px] text-text/40">
-                  {score}회 · {sessionCount}세션
+                  {Math.round(category.score)}점 · {category.sessionCount}세션
                 </div>
               </div>
             </HoverTooltip>
@@ -666,7 +627,7 @@ export function PersonalitySections() {
 export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboard, themeProps }: Props) {
   const stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
-  const usageCategories = useMemo(() => analyzeUsageCategories(sessions), [sessions])
+  const usageCategories = useMemo(() => analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length), [sessions])
 
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
 
