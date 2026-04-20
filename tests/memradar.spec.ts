@@ -101,4 +101,25 @@ test.describe('Dashboard loads', () => {
     await expect(page.getByRole('heading', { name: /Memradar/i })).toBeVisible()
     await expect(page.locator('.divide-y.divide-border > button').first()).toBeVisible()
   })
+
+  test('replay opens from session and responds to controls', async ({ page }) => {
+    await page.locator('.divide-y.divide-border > button').filter({ hasText: 'Strict harness smoke test' }).click()
+    await page.locator('[data-replay-open]').click()
+    await expect(page.locator('[data-replay-root]')).toBeVisible()
+    await expect(page.locator('[data-replay-counter]')).toBeVisible()
+    await expect(page.locator('[data-replay-time]')).toBeVisible()
+
+    // Speed toggle
+    await page.locator('[data-replay-speed="2"]').click()
+    await expect(page.locator('[data-replay-speed="2"]')).toHaveClass(/text-accent/)
+
+    // Pause, then step forward
+    await page.locator('[data-replay-play]').click()
+    await page.locator('[data-replay-next]').click()
+
+    // Esc returns to session view
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[data-replay-root]')).toHaveCount(0)
+    await expect(page.locator('[data-replay-open]')).toBeVisible()
+  })
 })

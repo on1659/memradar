@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, User } from 'lucide-react'
+import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, Play, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session } from '../types'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { getSourceColor } from '../lib/tokenPricing'
+import { mdComponents } from './markdown'
+import { useI18n } from '../i18n'
 
 interface SessionViewProps {
   session: Session
   onBack: () => void
+  onReplay?: () => void
   highlightMessageIndex?: number
   sessionIndex?: number
   onMount?: () => void
@@ -32,55 +35,6 @@ function getSessionDisplayName(session: Session): string {
   return rawName.replace(/\.(jsonl?|txt)$/i, '')
 }
 
-
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
-  h1: ({ children }) => (
-    <h1 className="mb-3 mt-6 text-base font-bold text-text-bright first:mt-0">{children}</h1>
-  ),
-  h2: ({ children }) => (
-    <h2 className="mb-2 mt-5 text-[0.95rem] font-semibold text-text-bright first:mt-0">{children}</h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="mb-1.5 mt-4 text-sm font-medium text-text-bright first:mt-0">{children}</h3>
-  ),
-  p: ({ children }) => <p className="mb-3 leading-7 last:mb-0">{children}</p>,
-  ul: ({ children }) => <ul className="mb-3 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
-  li: ({ children }) => <li className="leading-7">{children}</li>,
-  code: ({ children, className }) => {
-    const isBlock = className?.includes('language-')
-    if (isBlock) return <code className="block">{children}</code>
-    return (
-      <code className="rounded bg-bg px-1.5 py-0.5 font-mono text-[0.82em] text-accent/90">
-        {children}
-      </code>
-    )
-  },
-  pre: ({ children }) => (
-    <pre className="mb-3 overflow-x-auto rounded-lg border border-border/60 bg-bg px-4 py-3.5 font-mono text-[0.78em] leading-relaxed last:mb-0">
-      {children}
-    </pre>
-  ),
-  blockquote: ({ children }) => (
-    <blockquote className="mb-3 border-l-2 border-accent/40 pl-4 italic text-text/70 last:mb-0">
-      {children}
-    </blockquote>
-  ),
-  a: ({ children }) => (
-    <span className="cursor-default text-accent/80">{children}</span>
-  ),
-  strong: ({ children }) => <strong className="font-semibold text-text-bright">{children}</strong>,
-  em: ({ children }) => <em className="italic text-text/80">{children}</em>,
-  hr: () => <hr className="my-5 border-border/40" />,
-  table: ({ children }) => (
-    <div className="mb-3 overflow-x-auto last:mb-0">
-      <table className="w-full border-collapse text-xs">{children}</table>
-    </div>
-  ),
-  thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
-  th: ({ children }) => <th className="px-3 py-2 text-left font-medium text-text-bright">{children}</th>,
-  td: ({ children }) => <td className="border-b border-border/30 px-3 py-2">{children}</td>,
-}
 
 function toPlainText(text: string): string {
   return text
@@ -175,7 +129,8 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function SessionView({ session, onBack, highlightMessageIndex, sessionIndex, onMount }: SessionViewProps) {
+export function SessionView({ session, onBack, onReplay, highlightMessageIndex, sessionIndex, onMount }: SessionViewProps) {
+  const { t } = useI18n()
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
@@ -200,13 +155,26 @@ export function SessionView({ session, onBack, highlightMessageIndex, sessionInd
   return (
     <div className="mx-auto min-h-screen max-w-3xl p-6">
       <div className="mb-6 animate-in">
-        <button
-          onClick={onBack}
-          className="mb-4 flex items-center gap-2 text-sm text-text transition-colors hover:text-text-bright"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          대시보드로 돌아가기
-        </button>
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-text transition-colors hover:text-text-bright"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            대시보드로 돌아가기
+          </button>
+          {onReplay && session.messages.length > 0 && (
+            <button
+              onClick={onReplay}
+              className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+              title={t('replay.open')}
+              data-replay-open
+            >
+              <Play className="h-3.5 w-3.5" />
+              {t('replay.open')}
+            </button>
+          )}
+        </div>
 
         <div className="rounded-xl border border-border bg-bg-card p-5">
           <SessionTitle text={cleanClaudeText(session.messages[0]?.text ?? '').text} index={sessionIndex} />

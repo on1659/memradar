@@ -4,6 +4,7 @@ import { Dashboard, type DashboardFilters } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
+import { ReplayView } from './components/replay/ReplayView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import { useI18n } from './i18n'
@@ -21,6 +22,7 @@ type View =
   | { type: 'drop' }
   | { type: 'dashboard' }
   | { type: 'session'; session: Session; highlightMessageIndex?: number; sessionIndex?: number }
+  | { type: 'replay'; session: Session }
   | { type: 'search' }
   | { type: 'wrapped' }
   | { type: 'personality' }
@@ -38,6 +40,12 @@ function viewFromHash(hash: string, sessions: Session[]): View | null {
     const sessionId = decodeURIComponent(rawHash.slice('session/'.length))
     const session = sessions.find((s) => s.id === sessionId)
     return session ? { type: 'session', session } : null
+  }
+
+  if (rawHash.startsWith('replay/')) {
+    const sessionId = decodeURIComponent(rawHash.slice('replay/'.length))
+    const session = sessions.find((s) => s.id === sessionId)
+    return session ? { type: 'replay', session } : null
   }
 
   return null
@@ -133,11 +141,14 @@ function App() {
     setView(newView)
     const hash = newView.type === 'dashboard' ? ''
       : newView.type === 'session' ? `#session/${newView.session.id}`
+      : newView.type === 'replay' ? `#replay/${newView.session.id}`
       : `#${newView.type}`
+    const stateSessionId =
+      newView.type === 'session' || newView.type === 'replay' ? newView.session.id : undefined
     if (replace) {
-      history.replaceState({ viewType: newView.type, sessionId: newView.type === 'session' ? newView.session.id : undefined }, '', hash || location.pathname)
+      history.replaceState({ viewType: newView.type, sessionId: stateSessionId }, '', hash || location.pathname)
     } else {
-      history.pushState({ viewType: newView.type, sessionId: newView.type === 'session' ? newView.session.id : undefined }, '', hash || location.pathname)
+      history.pushState({ viewType: newView.type, sessionId: stateSessionId }, '', hash || location.pathname)
     }
   }, [])
 
@@ -154,6 +165,10 @@ function App() {
       } else if (state.viewType === 'session' && state.sessionId) {
         const session = sessions.find(s => s.id === state.sessionId)
         if (session) setView({ type: 'session', session })
+        else setView({ type: 'dashboard' })
+      } else if (state.viewType === 'replay' && state.sessionId) {
+        const session = sessions.find(s => s.id === state.sessionId)
+        if (session) setView({ type: 'replay', session })
         else setView({ type: 'dashboard' })
       } else if (state.viewType === 'search') {
         setView({ type: 'search' })
@@ -241,9 +256,19 @@ function App() {
       <SessionView
         session={view.session}
         onBack={() => navigate({ type: 'dashboard' })}
+        onReplay={() => navigate({ type: 'replay', session: view.session })}
         highlightMessageIndex={view.highlightMessageIndex}
         sessionIndex={view.sessionIndex}
         onMount={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+      />
+    )
+  }
+
+  if (view.type === 'replay') {
+    return (
+      <ReplayView
+        session={view.session}
+        onBack={() => navigate({ type: 'session', session: view.session })}
       />
     )
   }
