@@ -48,7 +48,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'writing',
-    title: '테크니컬 라이터',
+    title: 'AI 작가',
     subtitle: '글은 AI가 쓰고 이름은 내가 올리고',
     emoji: '✍️',
     color: 'var(--color-amber, #fbbf24)',
@@ -56,7 +56,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'design',
-    title: 'UI 디자이너',
+    title: '아트 디렉터',
     subtitle: '"여기 1px 옮겨" 장인',
     emoji: '🎨',
     color: '#a78bfa',
