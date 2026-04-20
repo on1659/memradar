@@ -32,7 +32,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'refactor',
-    title: '코드 성형외과',
+    title: '리팩터링 전문가',
     subtitle: '못생긴 코드 참을 수 없는 자',
     emoji: '💅',
     color: 'var(--color-cyan, #22d3ee)',
@@ -40,7 +40,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'review',
-    title: '코드 감정사',
+    title: '코드 분석가',
     subtitle: '"이거 왜 이렇게 짰어?" 전문가',
     emoji: '🧐',
     color: 'var(--color-green, #34d399)',
@@ -48,7 +48,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'writing',
-    title: 'AI 고스트라이터',
+    title: '테크니컬 라이터',
     subtitle: '글은 AI가 쓰고 이름은 내가 올리고',
     emoji: '✍️',
     color: 'var(--color-amber, #fbbf24)',
@@ -56,7 +56,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'design',
-    title: 'AI 아트 디렉터',
+    title: 'UI 디자이너',
     subtitle: '"여기 1px 옮겨" 장인',
     emoji: '🎨',
     color: '#a78bfa',
@@ -72,7 +72,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'data',
-    title: '데이터 연금술사',
+    title: '데이터 엔지니어',
     subtitle: 'JSON을 금으로 바꾸는 자',
     emoji: '🧙',
     color: '#06b6d4',
@@ -80,7 +80,7 @@ export const USAGE_CATEGORIES: UsageCategory[] = [
   },
   {
     id: 'test',
-    title: '품질 감독관',
+    title: 'QA 엔지니어',
     subtitle: '통과할 때까지 테스트하는 집착러',
     emoji: '🧪',
     color: '#22c55e',
@@ -117,6 +117,5 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
 
 export function getUsageHeadline(category: UsageCategoryScore | null | undefined): string {
   if (!category) return '당신의 AI 활용 스타일은 아직 탐색 중이에요'
-  if (category.id === 'feature') return '아이디어를 기능으로 연결하는 빌더형'
-  return `당신의 AI 활용 스타일은 ${category.title}형`
+  return `가장 자주 보인 역할은 ${category.title} 쪽이에요`
 }
