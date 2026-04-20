@@ -253,18 +253,24 @@ function scoreGroupTools(toolUses: string[], hints: string[]): number {
   return capped * 1.5
 }
 
-// --- Public API --------------------------------------------------------
+// --- Raw analysis (internal) -------------------------------------------
 
-// §11 undecided 임계. 초기값, 실측 후 조정.
-const UNDECIDED_MIN_MESSAGES = 4
-const UNDECIDED_MIN_MATCHED = 2
+interface RawAnalysis {
+  scores: Record<string, number>
+  sessionsHit: Record<string, Set<string>>
+  matchedByCategory: Record<string, number>
+  totalUserMessages: number
+  matchedMessages: number
+}
 
-export function analyzeUsageTopCategories(sessions: Session[], limit = 3): UsageCategoryScore[] {
+function computeRawAnalysis(sessions: Session[]): RawAnalysis {
   const scores: Record<string, number> = {}
   const sessionsHit: Record<string, Set<string>> = {}
+  const matchedByCategory: Record<string, number> = {}
   for (const cat of CATEGORY_DATA) {
     scores[cat.id] = 0
     sessionsHit[cat.id] = new Set()
+    matchedByCategory[cat.id] = 0
   }
 
   let totalUserMessages = 0
@@ -295,6 +301,7 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
         if (s > 0) {
           scores[cat.id] += s
           sessionsHit[cat.id].add(session.id)
+          matchedByCategory[cat.id]++
           matchedAny = true
         }
       }
@@ -302,17 +309,17 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
     }
   }
 
-  // §11 undecided: 데이터가 얇으면 대표 직업을 억지로 주지 않는다.
-  if (totalUserMessages < UNDECIDED_MIN_MESSAGES) return []
-  if (matchedMessages < UNDECIDED_MIN_MATCHED) return []
+  return { scores, sessionsHit, matchedByCategory, totalUserMessages, matchedMessages }
+}
 
+function buildRankedScores(raw: RawAnalysis, limit: number): UsageCategoryScore[] {
   return CATEGORY_DATA
     .map((cat) => {
       const display = toDisplay(cat)
       return {
         ...display,
-        score: scores[cat.id],
-        sessionCount: sessionsHit[cat.id].size,
+        score: raw.scores[cat.id],
+        sessionCount: raw.sessionsHit[cat.id].size,
       }
     })
     .filter((c) => c.score > 0)
@@ -320,7 +327,110 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
     .slice(0, limit)
 }
 
+// --- Public API --------------------------------------------------------
+
+// §11 undecided 임계. 초기값, 실측 후 조정.
+const UNDECIDED_MIN_MESSAGES = 4
+const UNDECIDED_MIN_MATCHED = 2
+
+function isUndecided(raw: RawAnalysis): boolean {
+  if (raw.totalUserMessages < UNDECIDED_MIN_MESSAGES) return true
+  if (raw.matchedMessages < UNDECIDED_MIN_MATCHED) return true
+  return false
+}
+
+export function analyzeUsageTopCategories(sessions: Session[], limit = 3): UsageCategoryScore[] {
+  const raw = computeRawAnalysis(sessions)
+  if (isUndecided(raw)) return []
+  return buildRankedScores(raw, limit)
+}
+
 export function getUsageHeadline(category: UsageCategoryScore | null | undefined): string {
   if (!category) return '당신의 AI 활용 스타일은 아직 탐색 중이에요'
   return `가장 자주 보인 역할은 ${category.title} 쪽이에요`
+}
+
+// --- Phase 3: mixed role / confidence (experimental) -------------------
+// ⚠️ 이 아래의 모든 수치 상수는 **Phase 3 tentative** 이며, 실측 데이터 분포를
+// 보기 전까지는 의미 있는 값이 아니다 (docs/AI-ROLE-SCORING-REDESIGN.md §2-2, §15).
+// 본 함수는 UI 에 아직 연결되지 않은 상태로 export 만 되어 있으며, 혼합형/confidence
+// UX 도입 결정 시점에 값 튜닝과 UI 연동을 함께 진행한다.
+
+// §9 혼합형 threshold
+const MIXED_TOP_SHARE_MAX = 0.42
+const MIXED_GAP_RATIO_MAX = 0.18
+
+// §10 confidence sigmoid params: f(x) = 1/(1+e^(-slope*(x-midpoint)))
+const CONF_COVERAGE = { midpoint: 0.25, slope: 10, weight: 0.35 }
+const CONF_TOP_SHARE = { midpoint: 0.38, slope: 12, weight: 0.35 }
+const CONF_GAP_RATIO = { midpoint: 0.18, slope: 12, weight: 0.2 }
+const CONF_SUPPORT = { midpoint: 6, slope: 0.8, weight: 0.1 }
+
+// §10-3 confidence label cutoffs
+const CONFIDENCE_LOW_BAR = 0.45
+const CONFIDENCE_MEDIUM_BAR = 0.7
+
+export type UsageConfidence = 'low' | 'medium' | 'high'
+
+export interface UsageRoleAnalysis {
+  categories: UsageCategoryScore[]
+  undecided: boolean
+  mixedRole: boolean
+  confidence: UsageConfidence
+  totalMessages: number
+  matchedMessages: number
+}
+
+function sigmoid(x: number, midpoint: number, slope: number): number {
+  return 1 / (1 + Math.exp(-slope * (x - midpoint)))
+}
+
+function computeMixedRole(categories: UsageCategoryScore[]): boolean {
+  if (categories.length < 2) return false
+  const [top, second] = categories
+  const scoreSum = categories.reduce((sum, c) => sum + c.score, 0)
+  if (scoreSum <= 0 || top.score <= 0) return false
+  const topShare = top.score / scoreSum
+  const gapRatio = (top.score - second.score) / Math.max(top.score, 1)
+  return topShare < MIXED_TOP_SHARE_MAX && gapRatio < MIXED_GAP_RATIO_MAX
+}
+
+function computeConfidence(raw: RawAnalysis, categories: UsageCategoryScore[]): UsageConfidence {
+  if (categories.length === 0) return 'low'
+  const top = categories[0]
+  const second = categories[1]
+  const scoreSum = categories.reduce((sum, c) => sum + c.score, 0)
+
+  const matchedCoverage = raw.totalUserMessages > 0 ? raw.matchedMessages / raw.totalUserMessages : 0
+  const topShare = scoreSum > 0 ? top.score / scoreSum : 0
+  const gapRatio = second ? (top.score - second.score) / Math.max(top.score, 1) : 1
+  const supportMessages = raw.matchedByCategory[top.id] ?? 0
+
+  const index =
+    sigmoid(matchedCoverage, CONF_COVERAGE.midpoint, CONF_COVERAGE.slope) * CONF_COVERAGE.weight +
+    sigmoid(topShare, CONF_TOP_SHARE.midpoint, CONF_TOP_SHARE.slope) * CONF_TOP_SHARE.weight +
+    sigmoid(gapRatio, CONF_GAP_RATIO.midpoint, CONF_GAP_RATIO.slope) * CONF_GAP_RATIO.weight +
+    sigmoid(supportMessages, CONF_SUPPORT.midpoint, CONF_SUPPORT.slope) * CONF_SUPPORT.weight
+
+  if (index < CONFIDENCE_LOW_BAR) return 'low'
+  if (index < CONFIDENCE_MEDIUM_BAR) return 'medium'
+  return 'high'
+}
+
+/**
+ * Phase 3 통합 분석. 상위 카테고리 외에 혼합형 여부, confidence label, undecided 상태,
+ * 카운터를 함께 반환한다. UI 연결 전 단계라 기존 `analyzeUsageTopCategories` 와 병행 존재.
+ */
+export function analyzeUsageRoles(sessions: Session[], limit = 3): UsageRoleAnalysis {
+  const raw = computeRawAnalysis(sessions)
+  const undecided = isUndecided(raw)
+  const categories = undecided ? [] : buildRankedScores(raw, limit)
+  return {
+    categories,
+    undecided,
+    mixedRole: computeMixedRole(categories),
+    confidence: computeConfidence(raw, categories),
+    totalMessages: raw.totalUserMessages,
+    matchedMessages: raw.matchedMessages,
+  }
 }
