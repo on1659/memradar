@@ -18,6 +18,8 @@ interface CategorySignals {
   tokenStrong: string[]
   tokenWeak: string[]
   negative: string[]
+  /** Tool alias keys (§4-1). 매칭은 TOOL_ALIAS 통해 정규화된 이름으로만. */
+  toolHints: string[]
 }
 
 interface CategoryData extends UsageCategory {
@@ -38,6 +40,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['구현', '추가', 'feature', 'component', 'endpoint', 'route'],
       tokenWeak: ['페이지', '기능', 'create'],
       negative: ['원인', '왜', '에러', '오류', '리뷰'],
+      toolHints: ['edit', 'write'],
     },
   },
   {
@@ -51,6 +54,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['버그', 'error', '오류', 'fix', 'debug', 'broken', 'undefined', 'null'],
       tokenWeak: ['warning', 'fail', 'crash', '안됨'],
       negative: ['새 기능', '리팩터링', '문서'],
+      toolHints: ['shell', 'read', 'search', 'edit'],
     },
   },
   {
@@ -64,6 +68,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['refactor', 'cleanup', 'simplify', 'extract', 'rename', 'restructure'],
       tokenWeak: ['정리', '개선', 'split'],
       negative: ['버그', '에러 원인', '새 기능'],
+      toolHints: ['edit'],
     },
   },
   {
@@ -77,6 +82,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['review', '분석', '설명', '이해', '확인'],
       tokenWeak: ['analyze'],
       negative: ['구현', '추가', '고쳐', '배포'],
+      toolHints: ['read', 'search'],
     },
   },
   {
@@ -90,6 +96,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['문서', 'readme', 'translate', 'summary', 'markdown', 'report'],
       tokenWeak: ['작성', 'blog'],
       negative: ['에러', '디버그', '테스트 실패'],
+      toolHints: ['write', 'edit'],
     },
   },
   {
@@ -113,6 +120,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['디자인', 'ui', 'ux', 'css', 'layout', 'responsive', 'theme', '브랜딩', '로고', '무드', 'palette'],
       tokenWeak: ['color', 'font', 'spacing', 'style', '이미지', '그래픽', '일러스트'],
       negative: ['빌드', '배포', '테스트 실패'],
+      toolHints: ['edit', 'write', 'image_gen'],
     },
   },
   {
@@ -126,6 +134,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['deploy', '배포', 'docker', 'vercel', 'env', 'pipeline', 'workflow'],
       tokenWeak: ['build', 'aws', 'npm'],
       negative: ['설명만', '리뷰', '문서'],
+      toolHints: ['shell', 'edit', 'write'],
     },
   },
   {
@@ -139,6 +148,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['data', 'database', 'sql', 'query', 'json', 'csv', 'schema'],
       tokenWeak: ['db', 'parse', 'migration'],
       negative: ['디자인', '폰트', '레이아웃'],
+      toolHints: ['read', 'edit', 'shell'],
     },
   },
   {
@@ -152,6 +162,7 @@ const CATEGORY_DATA: CategoryData[] = [
       tokenStrong: ['test', 'spec', 'jest', 'playwright', 'e2e', 'unit', 'coverage'],
       tokenWeak: ['mock', 'assert', 'expect'],
       negative: ['배포', '디자인만', '문서'],
+      toolHints: ['shell', 'edit', 'write'],
     },
   },
 ]
@@ -200,8 +211,8 @@ function sumHits(text: string, keywords: string[]): number {
   return total
 }
 
-// 메시지 1건의 카테고리 점수. 3단 가중치 + 그룹 cap (§6-1, §8-3).
-function scoreMessage(text: string, signals: CategorySignals): number {
+// 메시지 1건의 카테고리 점수 (텍스트만). 3단 가중치 + 그룹 cap (§6-1, §8-3).
+function scoreMessageText(text: string, signals: CategorySignals): number {
   const phrase = Math.min(sumHits(text, signals.phraseStrong), 2)
   const strong = Math.min(sumHits(text, signals.tokenStrong), 4)
   const weak = Math.min(sumHits(text, signals.tokenWeak), 5)
@@ -210,7 +221,43 @@ function scoreMessage(text: string, signals: CategorySignals): number {
   return score > 0 ? score : 0
 }
 
+// --- Tool alias / 보조 가산 (Phase 2, §4-1, §6-2) ----------------------
+
+// provider 별 tool 이름 편차 흡수. 카테고리 toolHints 는 alias 키만 참조.
+const TOOL_ALIAS: Record<string, string[]> = {
+  edit: ['edit', 'multiedit', 'apply_patch', 'str_replace', 'str_replace_editor'],
+  write: ['write', 'create_file'],
+  read: ['read', 'view_file', 'view_image'],
+  search: ['grep', 'glob', 'ripgrep'],
+  shell: ['bash', 'exec_command', 'shell'],
+  image_gen: ['image_gen', 'generate_image'],
+}
+
+function normalizeToolName(rawName: string): string | null {
+  const lower = rawName.toLowerCase()
+  for (const alias in TOOL_ALIAS) {
+    if (TOOL_ALIAS[alias].includes(lower)) return alias
+  }
+  return null
+}
+
+// 메시지 그룹 toolUse 점수. 하나의 그룹 내 매칭 수에 cap 3. 가중치 1.5.
+function scoreGroupTools(toolUses: string[], hints: string[]): number {
+  if (hints.length === 0 || toolUses.length === 0) return 0
+  let hits = 0
+  for (const tool of toolUses) {
+    const alias = normalizeToolName(tool)
+    if (alias && hints.includes(alias)) hits++
+  }
+  const capped = Math.min(hits, 3)
+  return capped * 1.5
+}
+
 // --- Public API --------------------------------------------------------
+
+// §11 undecided 임계. 초기값, 실측 후 조정.
+const UNDECIDED_MIN_MESSAGES = 4
+const UNDECIDED_MIN_MATCHED = 2
 
 export function analyzeUsageTopCategories(sessions: Session[], limit = 3): UsageCategoryScore[] {
   const scores: Record<string, number> = {}
@@ -220,19 +267,44 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
     sessionsHit[cat.id] = new Set()
   }
 
+  let totalUserMessages = 0
+  let matchedMessages = 0
+
   for (const session of sessions) {
-    for (const message of session.messages) {
+    const msgs = session.messages
+    for (let i = 0; i < msgs.length; i++) {
+      const message = msgs[i]
       if (message.role !== 'user') continue
+      totalUserMessages++
+
+      // §5 메시지 그룹: user message 이후 첫 assistant message 의 toolUses.
+      let groupTools: string[] = []
+      for (let j = i + 1; j < msgs.length; j++) {
+        if (msgs[j].role === 'assistant') {
+          groupTools = msgs[j].toolUses
+          break
+        }
+      }
+
       const text = message.text.toLowerCase()
+      let matchedAny = false
       for (const cat of CATEGORY_DATA) {
-        const s = scoreMessage(text, cat.signals)
+        const textScore = scoreMessageText(text, cat.signals)
+        const toolBonus = scoreGroupTools(groupTools, cat.signals.toolHints)
+        const s = textScore + toolBonus
         if (s > 0) {
           scores[cat.id] += s
           sessionsHit[cat.id].add(session.id)
+          matchedAny = true
         }
       }
+      if (matchedAny) matchedMessages++
     }
   }
+
+  // §11 undecided: 데이터가 얇으면 대표 직업을 억지로 주지 않는다.
+  if (totalUserMessages < UNDECIDED_MIN_MESSAGES) return []
+  if (matchedMessages < UNDECIDED_MIN_MATCHED) return []
 
   return CATEGORY_DATA
     .map((cat) => {
