@@ -1,175 +1,85 @@
 ---
 name: memtest
 classification: workflow
-classification-reason: "AI 역할 평가 샘플 테스트 및 결과 분석은 여러 단계의 워크플로우 (수집→검증→평가→리포팅)"
+classification-reason: "AI 역할 평가 샘플 테스트 및 결과 분석은 여러 단계의 워크플로우"
 deprecation-risk: none
 description: |
-  AI 역할 평가 샘플 테스트 및 HTML 리포트 생성 워크플로우.
+  AI 역할 평가 샘플 테스트 및 HTML 리포트 생성.
   
-  역할 분류 정확도를 검증하고 시각화된 평가 결과를 생성합니다.
+  /memtest 실행 시: scripts/test-eval-and-report.mts를 npx tsx로 실행하고, 
+  생성된 docs/eval-report.html을 브라우저에서 엽니다.
   
-  Triggers: /memtest, /test-eval-samples, /eval-report
-  
+  Triggers: /memtest, 평가 테스트, AI 역할 테스트, eval test
   Keywords: 평가, 테스트, 역할 분류, 리포트, AI 성향, eval, role, personality
-  
-argument-hint: "선택 사항: [--html] [--json] [--sample <id>]"
+argument-hint: "(인수 없음)"
 user-invocable: true
 allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Glob
   - Bash
+  - Read
 ---
 
-# memtest — AI 역할 평가 테스트 스킬
+# memtest — AI 역할 평가 실행 스킬
 
-## 목적
+## 즉시 실행 (Claude에게 지시)
 
-`tests/fixtures/role-eval-samples/` 디렉토리의 AI 역할 평가 샘플을 자동으로 테스트하고, 정확도/혼동/신뢰도를 분석하여 **HTML 리포트**로 생성합니다.
+이 스킬이 호출되면 **반드시 아래 단계를 순서대로 실행**해라:
 
-## 사용 시기
+### Step 1: 테스트 스크립트 실행
 
-- 새로운 평가 샘플을 추가했을 때 정확도 검증
-- 역할 분류 알고리즘 개선 후 회귀 테스트
-- 역할별/난이도별 성능 분석 필요
-- 경영진/팀에 평가 결과 공유
+Bash 도구로 다음 명령을 실행:
 
-## 워크플로우
-
-### Step 1: 샘플 검증
-- 모든 JSON 샘플 파일 로드 (`tests/fixtures/role-eval-samples/`)
-- 스키마 검증: `intendedRole`, `acceptableRoles`, `messages` 존재 확인
-- 메시지 형식 검증: user/assistant 역할 교대 확인
-
-### Step 2: 각 샘플 평가
-- `src/lib/usageProfile.ts`의 `analyzeUsageTopCategories()` 호출
-- 예측 역할 + 신뢰도 계산
-- 정답 여부 판단: `predictedRole ∈ acceptableRoles`
-
-### Step 3: 집계 통계 계산
-- **전체 정확도**: (정답 수) / (전체 샘플 수)
-- **카테고리별**: pure / mixed / ambiguous / consistency
-- **난이도별**: easy / normal / hard
-- **혼동 행렬**: 역할 간 오분류 패턴
-- **신뢰도 분포**: 예측 신뢰도별 정확도
-
-### Step 4: HTML 리포트 생성
-- 인터랙티브 대시보드 형식
-- 차트: 정확도, 혼동 행렬, 신뢰도 분포
-- 샘플 상세표: 각 샘플의 예측 결과
-- 내보내기: CSV, JSON
-
-## 실행 방법
-
-### 전체 테스트 및 리포트 생성
 ```bash
-/memtest
+cd /Users/radar/Work/memradar && npx tsx scripts/test-eval-and-report.mts
 ```
 
-리포트가 자동으로 브라우저에서 열립니다.
+### Step 2: 결과 확인
 
-## 출력
+스크립트 출력에서 정확도 수치를 확인하고 사용자에게 요약 보고:
+- 전체 정확도
+- 카테고리별 정확도 (pure/mixed/ambiguous/consistency)
+- 난이도별 정확도 (easy/normal/hard)
 
-### 생성 파일
+### Step 3: HTML 리포트 열기
 
-| 파일 | 위치 | 용도 |
-|------|------|------|
-| **HTML 리포트** | `docs/eval-report.html` | 브라우저에서 보기 |
-| **결과 요약** | `docs/AI-ROLE-EVAL-RESULTS.md` | 마크다운 문서 |
-| **상세 데이터** | `docs/eval-results.json` | 프로그래밍 접근용 |
+Bash 도구로 리포트 파일을 브라우저에서 열기:
 
-### HTML 리포트 구성
-
-1. **Summary Card**
-   - 전체 정확도 (%)
-   - 테스트한 샘플 수
-   - 생성 시각
-
-2. **Performance Breakdown**
-   - 카테고리별 정확도 (pure/mixed/ambiguous)
-   - 난이도별 정확도 (easy/normal/hard)
-   - Bar 차트
-
-3. **Confusion Matrix**
-   - 히트맵 형식 (9×9 역할 행렬)
-   - 대각선: 정답, 옆: 오분류
-   - 셀 클릭으로 상세 보기
-
-4. **Confidence Distribution**
-   - 신뢰도 구간별 정확도
-   - 신뢰도 높을수록 정확도도 높은지 검증
-
-5. **Sample Details Table**
-   - 모든 샘플의 개별 결과
-   - 검색, 정렬, 필터링
-   - CSV 내보내기
-
-## 예시 결과
-
-```
-✓ 샘플 로드: 218개
-✓ 평가 완료
-─────────────────────────
-📊 정확도: 71.1% (155/218)
-  • pure:      68.8% (99/144)
-  • mixed:     70.0% (28/40)
-  • ambiguous: 87.5% (14/16)
-  • consistency: 77.8% (14/18)
-
-  • 쉬움:       69.4% (34/49)
-  • 보통:       67.3% (74/110)
-  • 어려움:      79.7% (47/59)
-
-📄 리포트 생성: docs/eval-report.html
-```
-
-## 토픽별 가이드
-
-### 정확도가 낮으면 (< 70%)
-
-1. **혼동 행렬 확인**: 어떤 역할과 자주 헷갈리나?
-   - feature ↔ review 높음 → 키워드 구분 필요
-   - debug ↔ refactor 높음 → 신호 가중치 조정
-
-2. **난이도별 성능 확인**: hard 샘플에서만 떨어지나?
-   - 네 → 신호 강도 기준 상향 필요
-   - 아니오 → 알고리즘 전반 재검토
-
-3. **신뢰도 분포 확인**: 높은 신뢰도에서도 틀리나?
-   - 네 → 키워드 오버피팅 가능성
-   - 아니오 → 신뢰도 임계값 낮춰야 함
-
-### 특정 역할 성능 확인
-
-샘플 상세표에서 역할별 필터링 후:
-- 정답 샘플의 공통점 분석
-- 오답 샘플의 패턴 찾기
-
-## 내부 구현
-
-### Bash 실행
 ```bash
-npx tsx scripts/test-eval-and-report.mts
-open docs/eval-report.html
+open /Users/radar/Work/memradar/docs/eval-report.html
 ```
 
-이 스킬이 자동으로:
-1. 모든 평가 샘플 로드
-2. `analyzeUsageTopCategories()` 호출
-3. 정확도 계산
-4. HTML 리포트 생성
-5. 브라우저에서 열기
+### Step 4: 사용자에게 최종 보고
+
+다음 형식으로 짧게 보고:
+
+```
+✅ 테스트 완료
+
+📊 정확도: X.X% (N/총합)
+📄 리포트: docs/eval-report.html (브라우저에서 열림)
+
+주요 발견:
+- [카테고리/난이도별 간단 요약]
+- [개선 포인트 1-2개]
+```
 
 ## 관련 파일
 
-- `src/lib/usageProfile.ts` — `analyzeUsageTopCategories()` 함수
-- `tests/fixtures/role-eval-samples/` — 평가 샘플 모음
-- `docs/AI-ROLE-EVAL-SAMPLES-SPEC.md` — 샘플 생성 명세
-- `docs/AI-ROLE-SCORING-REDESIGN.md` — 역할 분류 로직
+- **실행 스크립트**: `scripts/test-eval-and-report.mts`
+- **분류 로직**: `src/lib/usageProfile.ts`
+- **샘플 디렉토리**: `tests/fixtures/role-eval-samples/` (218개)
+- **출력 HTML**: `docs/eval-report.html`
+- **출력 JSON**: `docs/eval-results.json`
+- **출력 마크다운**: `docs/AI-ROLE-EVAL-RESULTS.md`
 
-## 다음 단계
+## 에러 처리
 
-1. **샘플 추가**: 부족한 역할/카테고리에 샘플 추가
-2. **튜닝**: 낮은 정확도 역할의 키워드 가중치 조정
-3. **재평가**: `/memtest` 다시 실행하여 개선 확인
+- **샘플 파일 없음**: `tests/fixtures/role-eval-samples/` 디렉토리 확인 지시
+- **tsx 에러**: `scripts/test-eval-and-report.mts` 파일 존재 확인
+- **HTML 생성 실패**: 에러 메시지 그대로 보고
+
+## 중요 제약
+
+- 이 스킬은 **스크립트를 실행하는 역할만** 한다
+- 코드를 수정하지 마라 (읽기 전용)
+- `analyzeUsageTopCategories()` 로직을 변경하지 마라
+- 샘플 JSON 파일을 수정하지 마라
