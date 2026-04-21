@@ -32,9 +32,12 @@
     "test:cli": "node tests/harness-cli.mjs",
     "test:e2e": "playwright test",
     "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:e2e",
-    "test": "npm run test:harness"
+    "test": "npm run test:harness",
+    "test:eval": "npx tsx scripts/test-eval-and-report.mts",
+    "report:eval": "open docs/eval-report.html"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
     "html-to-image": "^1.11.13",

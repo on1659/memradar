@@ -31,3 +31,10 @@ tests/screenshot-full.png
 # Local runtime artifacts
 output/
 .playwright-cli/
+
+# Secrets
+.env
+.env.local
+
+# Eval samples (regenerable)
+tests/fixtures/role-eval-samples/

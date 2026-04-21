@@ -53,7 +53,7 @@
 | 1 | 현재 버전 미표기 | "현재 버전: v0.2.12" | 기준선 명시 |
 | 2 | 2.1 슬라이드 "8장 (...Tools/Share)" | "7장 (Intro/Prompts/Model/Hours/Personality/Usage/Share) — `ToolsSlide.tsx`는 향후 확장 슬롯" | `WrappedView.tsx`는 Tools를 import 하지 않음 (orphan) |
 | 3 | 2.1b "읽기/실행" 축 레이블 | "탐험가/설계자" | `personality.ts` 실제 라벨 정합 |
-| 4 | 2.1c 사용 카테고리 "8종" | "9종 (🧪 품질 감독관 포함) + 통합 AI Jobs 차트" | `usageProfile.ts`에 `test` 포함 |
+| 4 | 2.1c 사용 카테고리 "8종" | "9종 (🧪 QA 엔지니어 포함) + 통합 AI Jobs 차트" | `usageProfile.ts`에 `test` 포함 |
 | 5 | 2.1d Language Profile 행 없음 | "28개 언어, `src/lib/languageProfile.ts`" ✅ 추가 | 출시 완료 |
 | 6 | 2.2 검색 🚧 | 2.2 ✅ + 2.2a 고급 필터/URL 쿼리 ⬜ 분리 | 기본 검색 출시, 고급 필터만 잔여 |
 | 7 | 1.8 CLI 간략 | port 3939, `--static`, `--version` 명시 | 커밋 ed14f59 반영 |
@@ -133,7 +133,7 @@
 |---|---|---|---|
 | 1 | 슬라이드 8장 (ToolsSlide 포함) | 7장(Intro/Prompts/Model/Hours/Personality/Usage/Share); Tools는 "향후 확장" | `WrappedView.tsx`는 7개만 import |
 | 2 | Style 축 "Read/Grep vs Write/Bash 도구 비율" | "탐험가(R) ↔ 설계자(E) — avg msg len × turns × token ratio" | `personality.ts` styleValue는 대화 패턴 기반 |
-| 3 | Usage "8 카테고리" | "9 카테고리" (🧪 품질 감독관 포함) + title/subtitle 분리 | `usageProfile.ts`에 `test` 포함 |
+| 3 | Usage "8 카테고리" | "9 카테고리" (🧪 QA 엔지니어 포함) + title/subtitle 분리 | `usageProfile.ts`에 `test` 포함 |
 | 4 | 슬라이드 타이틀 초안 한국어 | 실제 eyebrow/카피("Your Prompts", "내 AI는 무슨 일을 할까?", "Your Memradar Ending") | 컴포넌트 문자열 단일 소스 |
 | 5 | `src/components/WrappedView.tsx` | `src/components/wrapped/WrappedView.tsx` | Glob 확인 |
 | 6 | 버전/날짜 없음 | "memradar v0.2.12 / 2026-04-19" | 지시 |
@@ -417,7 +417,7 @@
 6. **CLI dual deployment**
    - DEPLOYMENT, ARCHITECTURE, COMPETITIVE-ANALYSIS, UI-UX-PRINCIPLES에서 primary = `npx memradar` / secondary = Vercel 정책 일관.
 7. **Usage 카테고리 수 8 → 9**
-   - ROADMAP §2.1c, WRAPPED-SPEC, DESIGN-GUIDE 모두 9종(🧪 품질 감독관 포함).
+   - ROADMAP §2.1c, WRAPPED-SPEC, DESIGN-GUIDE 모두 9종(🧪 QA 엔지니어 포함).
 
 ## 4. 남은 제안 (TODO / 감사 범위 밖)
 

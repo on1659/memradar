@@ -1,0 +1,3778 @@
+{
+  "stats": {
+    "total": 218,
+    "correct": 155,
+    "accuracy": 0.7110091743119266,
+    "byCategory": {
+      "pure": {
+        "total": 144,
+        "correct": 99,
+        "accuracy": 0.6875
+      },
+      "mixed": {
+        "total": 40,
+        "correct": 28,
+        "accuracy": 0.7
+      },
+      "ambiguous": {
+        "total": 16,
+        "correct": 14,
+        "accuracy": 0.875
+      },
+      "consistency": {
+        "total": 18,
+        "correct": 14,
+        "accuracy": 0.7777777777777778
+      }
+    },
+    "byDifficulty": {
+      "easy": {
+        "total": 49,
+        "correct": 34,
+        "accuracy": 0.6938775510204082
+      },
+      "normal": {
+        "total": 110,
+        "correct": 74,
+        "accuracy": 0.6727272727272727
+      },
+      "hard": {
+        "total": 59,
+        "correct": 47,
+        "accuracy": 0.7966101694915254
+      }
+    },
+    "confusionMatrix": [
+      {
+        "actual": "feature",
+        "predicted": "feature",
+        "count": 17
+      },
+      {
+        "actual": "feature",
+        "predicted": "debug",
+        "count": 5
+      },
+      {
+        "actual": "feature",
+        "predicted": "review",
+        "count": 16
+      },
+      {
+        "actual": "debug",
+        "predicted": "debug",
+        "count": 17
+      },
+      {
+        "actual": "debug",
+        "predicted": "review",
+        "count": 8
+      },
+      {
+        "actual": "debug",
+        "predicted": "test",
+        "count": 3
+      },
+      {
+        "actual": "refactor",
+        "predicted": "debug",
+        "count": 3
+      },
+      {
+        "actual": "refactor",
+        "predicted": "refactor",
+        "count": 9
+      },
+      {
+        "actual": "refactor",
+        "predicted": "review",
+        "count": 10
+      },
+      {
+        "actual": "review",
+        "predicted": "feature",
+        "count": 3
+      },
+      {
+        "actual": "review",
+        "predicted": "debug",
+        "count": 3
+      },
+      {
+        "actual": "review",
+        "predicted": "refactor",
+        "count": 1
+      },
+      {
+        "actual": "review",
+        "predicted": "review",
+        "count": 21
+      },
+      {
+        "actual": "writing",
+        "predicted": "feature",
+        "count": 2
+      },
+      {
+        "actual": "writing",
+        "predicted": "review",
+        "count": 6
+      },
+      {
+        "actual": "writing",
+        "predicted": "writing",
+        "count": 16
+      },
+      {
+        "actual": "design",
+        "predicted": "review",
+        "count": 2
+      },
+      {
+        "actual": "design",
+        "predicted": "design",
+        "count": 14
+      },
+      {
+        "actual": "devops",
+        "predicted": "debug",
+        "count": 3
+      },
+      {
+        "actual": "devops",
+        "predicted": "review",
+        "count": 6
+      },
+      {
+        "actual": "devops",
+        "predicted": "devops",
+        "count": 13
+      },
+      {
+        "actual": "data",
+        "predicted": "feature",
+        "count": 2
+      },
+      {
+        "actual": "data",
+        "predicted": "debug",
+        "count": 1
+      },
+      {
+        "actual": "data",
+        "predicted": "refactor",
+        "count": 2
+      },
+      {
+        "actual": "data",
+        "predicted": "review",
+        "count": 11
+      },
+      {
+        "actual": "data",
+        "predicted": "data",
+        "count": 8
+      },
+      {
+        "actual": "test",
+        "predicted": "review",
+        "count": 6
+      },
+      {
+        "actual": "test",
+        "predicted": "test",
+        "count": 10
+      }
+    ],
+    "confidenceDistribution": [
+      {
+        "min": 0.3,
+        "max": 0.5,
+        "correct": 35,
+        "total": 78,
+        "accuracy": 0.44871794871794873
+      },
+      {
+        "min": 0.5,
+        "max": 0.7,
+        "correct": 49,
+        "total": 68,
+        "accuracy": 0.7205882352941176
+      },
+      {
+        "min": 0.7,
+        "max": 0.85,
+        "correct": 30,
+        "total": 30,
+        "accuracy": 1
+      },
+      {
+        "min": 0.85,
+        "max": 1,
+        "correct": 41,
+        "total": 42,
+        "accuracy": 0.9761904761904762
+      }
+    ]
+  },
+  "results": [
+    {
+      "sampleId": "001",
+      "metadata": {
+        "id": "001",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "feature 순수 작업 시나리오 1"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.7945205479452054,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "002",
+      "metadata": {
+        "id": "002",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "feature 순수 작업 시나리오 2"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.7898832684824902,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "003",
+      "metadata": {
+        "id": "003",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "feature 순수 작업 시나리오 3"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8314606741573034,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "004",
+      "metadata": {
+        "id": "004",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "feature 순수 작업 시나리오 4"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8344827586206897,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "005",
+      "metadata": {
+        "id": "005",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "feature 순수 작업 시나리오 5"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8612099644128114,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "006",
+      "metadata": {
+        "id": "006",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "feature 순수 작업 시나리오 6"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8350515463917526,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "007",
+      "metadata": {
+        "id": "007",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "feature 순수 작업 시나리오 7"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8735632183908046,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "008",
+      "metadata": {
+        "id": "008",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "feature 순수 작업 시나리오 8"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.8741258741258742,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "009",
+      "metadata": {
+        "id": "009",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "debug 순수 작업 시나리오 1"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8505338078291815,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "010",
+      "metadata": {
+        "id": "010",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "debug 순수 작업 시나리오 2"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8505338078291815,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "011",
+      "metadata": {
+        "id": "011",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "debug 순수 작업 시나리오 3"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8421052631578947,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "012",
+      "metadata": {
+        "id": "012",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "debug 순수 작업 시나리오 4"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8812949640287769,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "013",
+      "metadata": {
+        "id": "013",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "debug 순수 작업 시나리오 5"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8741258741258742,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "014",
+      "metadata": {
+        "id": "014",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "debug 순수 작업 시나리오 6"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.8823529411764706,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "015",
+      "metadata": {
+        "id": "015",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "debug 순수 작업 시나리오 7"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.9127272727272727,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "016",
+      "metadata": {
+        "id": "016",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "debug 순수 작업 시나리오 8"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.909433962264151,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "017",
+      "metadata": {
+        "id": "017",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "refactor 순수 작업 시나리오 1"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8153846153846154,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "018",
+      "metadata": {
+        "id": "018",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "refactor 순수 작업 시나리오 2"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8191780821917808,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "019",
+      "metadata": {
+        "id": "019",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "refactor 순수 작업 시나리오 3"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8541033434650456,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "020",
+      "metadata": {
+        "id": "020",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "refactor 순수 작업 시나리오 4"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8670360110803325,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "021",
+      "metadata": {
+        "id": "021",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "refactor 순수 작업 시나리오 5"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8681318681318682,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "022",
+      "metadata": {
+        "id": "022",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "refactor 순수 작업 시나리오 6"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8666666666666667,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "023",
+      "metadata": {
+        "id": "023",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "refactor 순수 작업 시나리오 7"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.8971428571428571,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "024",
+      "metadata": {
+        "id": "024",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "refactor 순수 작업 시나리오 8"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.9021739130434783,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "025",
+      "metadata": {
+        "id": "025",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "review 순수 작업 시나리오 1"
+      },
+      "predictedRole": "review",
+      "confidence": 0.9212598425196851,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "026",
+      "metadata": {
+        "id": "026",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "review 순수 작업 시나리오 2"
+      },
+      "predictedRole": "review",
+      "confidence": 0.835990888382688,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "027",
+      "metadata": {
+        "id": "027",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "review 순수 작업 시나리오 3"
+      },
+      "predictedRole": "review",
+      "confidence": 0.8646080760095012,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "028",
+      "metadata": {
+        "id": "028",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "review 순수 작업 시나리오 4"
+      },
+      "predictedRole": "review",
+      "confidence": 0.884090909090909,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "029",
+      "metadata": {
+        "id": "029",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "review 순수 작업 시나리오 5"
+      },
+      "predictedRole": "review",
+      "confidence": 0.8779443254817987,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "030",
+      "metadata": {
+        "id": "030",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "review 순수 작업 시나리오 6"
+      },
+      "predictedRole": "review",
+      "confidence": 0.8926174496644296,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "031",
+      "metadata": {
+        "id": "031",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "review 순수 작업 시나리오 7"
+      },
+      "predictedRole": "review",
+      "confidence": 0.9034334763948498,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "032",
+      "metadata": {
+        "id": "032",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "review 순수 작업 시나리오 8"
+      },
+      "predictedRole": "review",
+      "confidence": 0.888402625820569,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "033",
+      "metadata": {
+        "id": "033",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "writing 순수 작업 시나리오 1"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5733333333333334,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "034",
+      "metadata": {
+        "id": "034",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "writing 순수 작업 시나리오 2"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5041322314049587,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "035",
+      "metadata": {
+        "id": "035",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "writing 순수 작업 시나리오 3"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5566502463054187,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "036",
+      "metadata": {
+        "id": "036",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "writing 순수 작업 시나리오 4"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.475,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "037",
+      "metadata": {
+        "id": "037",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "writing 순수 작업 시나리오 5"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5767634854771784,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "038",
+      "metadata": {
+        "id": "038",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "writing 순수 작업 시나리오 6"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5961538461538461,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "039",
+      "metadata": {
+        "id": "039",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "writing 순수 작업 시나리오 7"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.5909090909090909,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "040",
+      "metadata": {
+        "id": "040",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "writing 순수 작업 시나리오 8"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.6720430107526881,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "041",
+      "metadata": {
+        "id": "041",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "design 순수 작업 시나리오 1"
+      },
+      "predictedRole": "design",
+      "confidence": 0.6915887850467289,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "042",
+      "metadata": {
+        "id": "042",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "design 순수 작업 시나리오 2"
+      },
+      "predictedRole": "design",
+      "confidence": 0.7453580901856764,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "043",
+      "metadata": {
+        "id": "043",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "design 순수 작업 시나리오 3"
+      },
+      "predictedRole": "design",
+      "confidence": 0.7383177570093458,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "044",
+      "metadata": {
+        "id": "044",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "design 순수 작업 시나리오 4"
+      },
+      "predictedRole": "design",
+      "confidence": 0.770764119601329,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "045",
+      "metadata": {
+        "id": "045",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "design 순수 작업 시나리오 5"
+      },
+      "predictedRole": "design",
+      "confidence": 0.7423312883435583,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "046",
+      "metadata": {
+        "id": "046",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "design 순수 작업 시나리오 6"
+      },
+      "predictedRole": "design",
+      "confidence": 0.7406340057636888,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "047",
+      "metadata": {
+        "id": "047",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "design 순수 작업 시나리오 7"
+      },
+      "predictedRole": "design",
+      "confidence": 0.7841726618705036,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "048",
+      "metadata": {
+        "id": "048",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "design 순수 작업 시나리오 8"
+      },
+      "predictedRole": "design",
+      "confidence": 0.8380952380952381,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "049",
+      "metadata": {
+        "id": "049",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "devops 순수 작업 시나리오 1"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.703125,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "050",
+      "metadata": {
+        "id": "050",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "devops 순수 작업 시나리오 2"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.6974789915966386,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "051",
+      "metadata": {
+        "id": "051",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "devops 순수 작업 시나리오 3"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.7627118644067796,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "052",
+      "metadata": {
+        "id": "052",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "devops 순수 작업 시나리오 4"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.7896341463414634,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "053",
+      "metadata": {
+        "id": "053",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "devops 순수 작업 시나리오 5"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.7936962750716332,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "054",
+      "metadata": {
+        "id": "054",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "devops 순수 작업 시나리오 6"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.7585139318885449,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "055",
+      "metadata": {
+        "id": "055",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "devops 순수 작업 시나리오 7"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.8005540166204986,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "056",
+      "metadata": {
+        "id": "056",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "devops 순수 작업 시나리오 8"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.8275862068965517,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "057",
+      "metadata": {
+        "id": "057",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "data 순수 작업 시나리오 1"
+      },
+      "predictedRole": "data",
+      "confidence": 0.8687089715536105,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "058",
+      "metadata": {
+        "id": "058",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "data 순수 작업 시나리오 2"
+      },
+      "predictedRole": "data",
+      "confidence": 0.8811563169164882,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "059",
+      "metadata": {
+        "id": "059",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "data 순수 작업 시나리오 3"
+      },
+      "predictedRole": "data",
+      "confidence": 0.9057239057239057,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "060",
+      "metadata": {
+        "id": "060",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "data 순수 작업 시나리오 4"
+      },
+      "predictedRole": "data",
+      "confidence": 0.906832298136646,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "061",
+      "metadata": {
+        "id": "061",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "data 순수 작업 시나리오 5"
+      },
+      "predictedRole": "data",
+      "confidence": 0.9147208121827411,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "062",
+      "metadata": {
+        "id": "062",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "data 순수 작업 시나리오 6"
+      },
+      "predictedRole": "data",
+      "confidence": 0.9148264984227129,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "063",
+      "metadata": {
+        "id": "063",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "data 순수 작업 시나리오 7"
+      },
+      "predictedRole": "data",
+      "confidence": 0.9328585961342828,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "064",
+      "metadata": {
+        "id": "064",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "data 순수 작업 시나리오 8"
+      },
+      "predictedRole": "data",
+      "confidence": 0.9204081632653062,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "065",
+      "metadata": {
+        "id": "065",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "test 순수 작업 시나리오 1"
+      },
+      "predictedRole": "test",
+      "confidence": 0.8909257561869844,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "066",
+      "metadata": {
+        "id": "066",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "test 순수 작업 시나리오 2"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9053201082055906,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "067",
+      "metadata": {
+        "id": "067",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "test 순수 작업 시나리오 3"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9255014326647565,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "068",
+      "metadata": {
+        "id": "068",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "test 순수 작업 시나리오 4"
+      },
+      "predictedRole": "test",
+      "confidence": 0.923217550274223,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "069",
+      "metadata": {
+        "id": "069",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "test 순수 작업 시나리오 5"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9147571035747021,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "070",
+      "metadata": {
+        "id": "070",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "test 순수 작업 시나리오 6"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9268978444236177,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "071",
+      "metadata": {
+        "id": "071",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "test 순수 작업 시나리오 7"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9507246376811594,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "072",
+      "metadata": {
+        "id": "072",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "test 순수 작업 시나리오 8"
+      },
+      "predictedRole": "test",
+      "confidence": 0.9382273948075202,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "073",
+      "metadata": {
+        "id": "073",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "feature + debug 혼합 시나리오 1"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5554984583761562,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "074",
+      "metadata": {
+        "id": "074",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "feature + debug 혼합 시나리오 2"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.539331619537275,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "075",
+      "metadata": {
+        "id": "075",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "feature + debug 혼합 시나리오 3"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5518121490556407,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "076",
+      "metadata": {
+        "id": "076",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "feature + debug 혼합 시나리오 4"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5503325942350332,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "077",
+      "metadata": {
+        "id": "077",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "feature + debug 혼합 시나리오 5"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5413763066202091,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "078",
+      "metadata": {
+        "id": "078",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "refactor + debug 혼합 시나리오 1"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5454933788979068,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "079",
+      "metadata": {
+        "id": "079",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "refactor + debug 혼합 시나리오 2"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5613665120202446,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "080",
+      "metadata": {
+        "id": "080",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "refactor + debug 혼합 시나리오 3"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5501444490301279,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "081",
+      "metadata": {
+        "id": "081",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "debug + test 혼합 시나리오 1"
+      },
+      "predictedRole": "test",
+      "confidence": 0.5541284403669725,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "082",
+      "metadata": {
+        "id": "082",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "debug + test 혼합 시나리오 2"
+      },
+      "predictedRole": "test",
+      "confidence": 0.5679238374221897,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "083",
+      "metadata": {
+        "id": "083",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "debug + test 혼합 시나리오 3"
+      },
+      "predictedRole": "test",
+      "confidence": 0.543675751222921,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "084",
+      "metadata": {
+        "id": "084",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "design"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "feature + design 혼합 시나리오 1"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5703200775945684,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "085",
+      "metadata": {
+        "id": "085",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "design"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "feature + design 혼합 시나리오 2"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.6002914035939777,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "086",
+      "metadata": {
+        "id": "086",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "feature"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "data + feature 혼합 시나리오 1"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5230562100302928,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "087",
+      "metadata": {
+        "id": "087",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "feature"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "data + feature 혼합 시나리오 2"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5272727272727272,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "088",
+      "metadata": {
+        "id": "088",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "review"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "writing + review 혼합 시나리오 1"
+      },
+      "predictedRole": "review",
+      "confidence": 0.8596395412342982,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "089",
+      "metadata": {
+        "id": "089",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "review"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "writing + review 혼합 시나리오 2"
+      },
+      "predictedRole": "review",
+      "confidence": 0.8624657534246576,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "090",
+      "metadata": {
+        "id": "090",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "devops + debug 혼합 시나리오 1"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.7731854838709677,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "091",
+      "metadata": {
+        "id": "091",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "devops + debug 혼합 시나리오 2"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.7745436605821411,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "092",
+      "metadata": {
+        "id": "092",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "refactor"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "review + refactor 혼합 시나리오 1"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.5325402379286214,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "093",
+      "metadata": {
+        "id": "093",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "easy",
+        "scenario": "모호성 경계 review+feature #1"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5456529647144416,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "094",
+      "metadata": {
+        "id": "094",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "easy",
+        "scenario": "모호성 경계 review+feature #2"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5470737913486005,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "095",
+      "metadata": {
+        "id": "095",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "easy",
+        "scenario": "모호성 경계 review+feature #3"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5395833333333333,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "096",
+      "metadata": {
+        "id": "096",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "refactor"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "모호성 경계 data+refactor #1"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.4653701808256568,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "097",
+      "metadata": {
+        "id": "097",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "refactor"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "모호성 경계 data+refactor #2"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.4826995546420007,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "098",
+      "metadata": {
+        "id": "098",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "모호성 경계 writing+feature #1"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.7871524448705657,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "099",
+      "metadata": {
+        "id": "099",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "모호성 경계 writing+feature #2"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.7816573556797021,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "100",
+      "metadata": {
+        "id": "100",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug",
+          "review"
+        ],
+        "category": "ambiguous",
+        "difficulty": "hard",
+        "scenario": "모호성 경계 devops+debug+review #1"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.4904201680672269,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-101",
+      "metadata": {
+        "id": "sample-101",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "새로운 로그인 기능 추가하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3770491803278688,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-102",
+      "metadata": {
+        "id": "sample-102",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "다크모드 토글 기능 구현"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4583333333333333,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-103",
+      "metadata": {
+        "id": "sample-103",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "검색 필터 추가하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3781094527363184,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-104",
+      "metadata": {
+        "id": "sample-104",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "사용자 프로필 페이지 만들기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4626865671641791,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-105",
+      "metadata": {
+        "id": "sample-105",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "알림 기능 구현하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.38823529411764707,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-106",
+      "metadata": {
+        "id": "sample-106",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "파일 업로드 기능 추가"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3971631205673759,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-107",
+      "metadata": {
+        "id": "sample-107",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "대시보드 위젯 추가"
+      },
+      "predictedRole": "review",
+      "confidence": 0.45893719806763283,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-108",
+      "metadata": {
+        "id": "sample-108",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "API 엔드포인트 새로 만들기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.376271186440678,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-109",
+      "metadata": {
+        "id": "sample-109",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "React 컴포넌트 무한 렌더링 원인 찾기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6666666666666666,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-110",
+      "metadata": {
+        "id": "sample-110",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "메모리 누수 버그 디버깅"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4380952380952381,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-111",
+      "metadata": {
+        "id": "sample-111",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "API 타임아웃 오류 원인 파악"
+      },
+      "predictedRole": "review",
+      "confidence": 0.450199203187251,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-112",
+      "metadata": {
+        "id": "sample-112",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "CSS 스타일 먹지 않는 문제 해결"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.45588235294117646,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-113",
+      "metadata": {
+        "id": "sample-113",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "state 업데이트 안 되는 버그 찾기"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.48484848484848486,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-114",
+      "metadata": {
+        "id": "sample-114",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "이벤트 핸들러가 작동 안 하는 이유"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5771144278606966,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-115",
+      "metadata": {
+        "id": "sample-115",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "데이터베이스 연결 오류 해결"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.4146341463414634,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-116",
+      "metadata": {
+        "id": "sample-116",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "네트워크 요청 실패 원인 추적"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4475806451612903,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-117",
+      "metadata": {
+        "id": "sample-117",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "코드 중복 제거하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-118",
+      "metadata": {
+        "id": "sample-118",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "매개변수 이름 정리"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5063291139240507,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-119",
+      "metadata": {
+        "id": "sample-119",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "큰 함수 작은 함수로 분리"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4815950920245399,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-120",
+      "metadata": {
+        "id": "sample-120",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "컴포넌트 구조 개선"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4507042253521127,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-121",
+      "metadata": {
+        "id": "sample-121",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "타입스크립트 타입 추가"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4803921568627451,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-122",
+      "metadata": {
+        "id": "sample-122",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "테스트 코드 리팩터링"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5966101694915255,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-123",
+      "metadata": {
+        "id": "sample-123",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "모듈 구조 재정리"
+      },
+      "predictedRole": "refactor",
+      "confidence": 0.3783783783783784,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-124",
+      "metadata": {
+        "id": "sample-124",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "설정 파일 정리"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4939759036144578,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-125",
+      "metadata": {
+        "id": "sample-125",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "PR 코드 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5480769230769231,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-126",
+      "metadata": {
+        "id": "sample-126",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "팀 표준 준수 확인"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6373626373626373,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-127",
+      "metadata": {
+        "id": "sample-127",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "성능 개선안 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5483870967741935,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-128",
+      "metadata": {
+        "id": "sample-128",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "보안 취약점 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5522388059701493,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-129",
+      "metadata": {
+        "id": "sample-129",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "테스트 커버리지 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6025641025641025,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-130",
+      "metadata": {
+        "id": "sample-130",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "문서 정확성 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6666666666666666,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-131",
+      "metadata": {
+        "id": "sample-131",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "API 설계 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.45454545454545453,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-132",
+      "metadata": {
+        "id": "sample-132",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "데이터베이스 스키마 검토"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5698529411764706,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-133",
+      "metadata": {
+        "id": "sample-133",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "API 문서 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4189189189189189,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-134",
+      "metadata": {
+        "id": "sample-134",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "사용자 가이드 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4609375,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-135",
+      "metadata": {
+        "id": "sample-135",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "설치 설명서 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.61,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-136",
+      "metadata": {
+        "id": "sample-136",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "변경사항 요약 문서"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4444444444444444,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-137",
+      "metadata": {
+        "id": "sample-137",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "기술 블로그 포스트 작성"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.40672782874617736,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-138",
+      "metadata": {
+        "id": "sample-138",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "요구사항 문서 작성"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.45217391304347826,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-139",
+      "metadata": {
+        "id": "sample-139",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "테스트 케이스 문서화"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.4,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-140",
+      "metadata": {
+        "id": "sample-140",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "아키텍처 설계 문서"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.4316109422492401,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-141",
+      "metadata": {
+        "id": "sample-141",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "UI/UX 디자인 시스템 구축"
+      },
+      "predictedRole": "design",
+      "confidence": 0.48632218844984804,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-142",
+      "metadata": {
+        "id": "sample-142",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "버튼 컴포넌트 디자인"
+      },
+      "predictedRole": "design",
+      "confidence": 0.5446428571428571,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-143",
+      "metadata": {
+        "id": "sample-143",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "폼 입력 요소 디자인"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5119047619047619,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-144",
+      "metadata": {
+        "id": "sample-144",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "모바일 레이아웃 설계"
+      },
+      "predictedRole": "review",
+      "confidence": 0.496551724137931,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-145",
+      "metadata": {
+        "id": "sample-145",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "다크모드 색상 팔레트 설계"
+      },
+      "predictedRole": "design",
+      "confidence": 0.47333333333333333,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-146",
+      "metadata": {
+        "id": "sample-146",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "아이콘 세트 만들기"
+      },
+      "predictedRole": "design",
+      "confidence": 0.48333333333333334,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-147",
+      "metadata": {
+        "id": "sample-147",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "애니메이션 효과 설계"
+      },
+      "predictedRole": "design",
+      "confidence": 0.45132743362831856,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-148",
+      "metadata": {
+        "id": "sample-148",
+        "intendedRole": "design",
+        "acceptableRoles": [
+          "design"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "반응형 디자인 계획"
+      },
+      "predictedRole": "design",
+      "confidence": 0.44776119402985076,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-149",
+      "metadata": {
+        "id": "sample-149",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "Docker 이미지 빌드 및 배포"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.5188284518828452,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-150",
+      "metadata": {
+        "id": "sample-150",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "CI/CD 파이프라인 구성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.43157894736842106,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-151",
+      "metadata": {
+        "id": "sample-151",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "데이터베이스 마이그레이션"
+      },
+      "predictedRole": "review",
+      "confidence": 0.39285714285714285,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-152",
+      "metadata": {
+        "id": "sample-152",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "서버 설정 자동화"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.4533898305084746,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-153",
+      "metadata": {
+        "id": "sample-153",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "로그 모니터링 시스템 구축"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.4135593220338983,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-154",
+      "metadata": {
+        "id": "sample-154",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "백업 및 복구 전략"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3464052287581699,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-155",
+      "metadata": {
+        "id": "sample-155",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "환경 변수 관리"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4426229508196721,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-156",
+      "metadata": {
+        "id": "sample-156",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "성능 최적화 튜닝"
+      },
+      "predictedRole": "review",
+      "confidence": 0.392226148409894,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-157",
+      "metadata": {
+        "id": "sample-157",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "데이터베이스 스키마 설계"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5238095238095238,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-158",
+      "metadata": {
+        "id": "sample-158",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "쿼리 최적화"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5153846153846153,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-159",
+      "metadata": {
+        "id": "sample-159",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "데이터 마이그레이션 계획"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5212765957446809,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-160",
+      "metadata": {
+        "id": "sample-160",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "인덱스 추가"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5135135135135135,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-161",
+      "metadata": {
+        "id": "sample-161",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "데이터 정규화"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5714285714285714,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-162",
+      "metadata": {
+        "id": "sample-162",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "ETL 파이프라인 구축"
+      },
+      "predictedRole": "review",
+      "confidence": 0.875,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-163",
+      "metadata": {
+        "id": "sample-163",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "캐싱 전략 설계"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.42857142857142855,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-164",
+      "metadata": {
+        "id": "sample-164",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "데이터 관계 모델링"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6883116883116883,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-165",
+      "metadata": {
+        "id": "sample-165",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "단위 테스트 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.375,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-166",
+      "metadata": {
+        "id": "sample-166",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "통합 테스트 구성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.59375,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-167",
+      "metadata": {
+        "id": "sample-167",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "easy",
+        "scenario": "E2E 테스트 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.41304347826086957,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-168",
+      "metadata": {
+        "id": "sample-168",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "테스트 커버리지 향상"
+      },
+      "predictedRole": "test",
+      "confidence": 0.5,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-169",
+      "metadata": {
+        "id": "sample-169",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "목(mock) 객체 설정"
+      },
+      "predictedRole": "review",
+      "confidence": 0.48120300751879697,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-170",
+      "metadata": {
+        "id": "sample-170",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "성능 테스트 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.38636363636363635,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-171",
+      "metadata": {
+        "id": "sample-171",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "normal",
+        "scenario": "보안 테스트 작성"
+      },
+      "predictedRole": "review",
+      "confidence": 0.44680851063829785,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-172",
+      "metadata": {
+        "id": "sample-172",
+        "intendedRole": "test",
+        "acceptableRoles": [
+          "test"
+        ],
+        "category": "pure",
+        "difficulty": "hard",
+        "scenario": "회귀 테스트 추가"
+      },
+      "predictedRole": "test",
+      "confidence": 0.37433155080213903,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-173",
+      "metadata": {
+        "id": "sample-173",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "검색 필터 추가하기 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4120603015075377,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-174",
+      "metadata": {
+        "id": "sample-174",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "검색 필터 추가하기 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4742268041237113,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-175",
+      "metadata": {
+        "id": "sample-175",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "사용자 프로필 페이지 만들기 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.46195652173913043,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-176",
+      "metadata": {
+        "id": "sample-176",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "대시보드 위젯 추가 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3959731543624161,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-177",
+      "metadata": {
+        "id": "sample-177",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "알림 기능 구현하기 + debug 포함"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.4107744107744108,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-178",
+      "metadata": {
+        "id": "sample-178",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "타입스크립트 타입 추가 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4186046511627907,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-179",
+      "metadata": {
+        "id": "sample-179",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "설정 파일 정리 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.46511627906976744,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-180",
+      "metadata": {
+        "id": "sample-180",
+        "intendedRole": "refactor",
+        "acceptableRoles": [
+          "refactor",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "테스트 코드 리팩터링 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4177215189873418,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-181",
+      "metadata": {
+        "id": "sample-181",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "이벤트 핸들러가 작동 안 하는 이유 + test 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5241379310344828,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-182",
+      "metadata": {
+        "id": "sample-182",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "데이터베이스 연결 오류 해결 + test 포함"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.44594594594594594,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-183",
+      "metadata": {
+        "id": "sample-183",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "test"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "React 컴포넌트 무한 렌더링 원인 찾기 + test 포함"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.43333333333333335,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-184",
+      "metadata": {
+        "id": "sample-184",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "design"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "새로운 로그인 기능 추가하기 + design 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.38009049773755654,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-185",
+      "metadata": {
+        "id": "sample-185",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "design"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "파일 업로드 기능 추가 + design 포함"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.4421768707482993,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-186",
+      "metadata": {
+        "id": "sample-186",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "feature"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "쿼리 최적화 + feature 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.59375,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-187",
+      "metadata": {
+        "id": "sample-187",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "feature"
+        ],
+        "category": "mixed",
+        "difficulty": "normal",
+        "scenario": "데이터 마이그레이션 계획 + feature 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.4409937888198758,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-188",
+      "metadata": {
+        "id": "sample-188",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "review"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "요구사항 문서 작성 + review 포함"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.4375,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-189",
+      "metadata": {
+        "id": "sample-189",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "review"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "설치 설명서 작성 + review 포함"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.41456582633053224,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-190",
+      "metadata": {
+        "id": "sample-190",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "easy",
+        "scenario": "성능 최적화 튜닝 + debug 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.3763440860215054,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-191",
+      "metadata": {
+        "id": "sample-191",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "환경 변수 관리 + debug 포함"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.4020979020979021,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-192",
+      "metadata": {
+        "id": "sample-192",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "refactor"
+        ],
+        "category": "mixed",
+        "difficulty": "hard",
+        "scenario": "보안 취약점 검토 + refactor 포함"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5277777777777778,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-193",
+      "metadata": {
+        "id": "sample-193",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "review"
+        ],
+        "category": "ambiguous",
+        "difficulty": "hard",
+        "scenario": "기능 설명해줄래? (feature vs review 경계)"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.3870967741935484,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-194",
+      "metadata": {
+        "id": "sample-194",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature",
+          "review"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "이거 어떻게 작동하는지 설명해줘 (feature vs review)"
+      },
+      "predictedRole": "review",
+      "confidence": 0.47435897435897434,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-195",
+      "metadata": {
+        "id": "sample-195",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "hard",
+        "scenario": "API 문서 읽어보니 이건 기능이 맞나? (review vs feature)"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6086956521739131,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-196",
+      "metadata": {
+        "id": "sample-196",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "refactor"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "json 구조를 다시 설계해야할 것 같은데 (data vs refactor)"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6086956521739131,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-197",
+      "metadata": {
+        "id": "sample-197",
+        "intendedRole": "data",
+        "acceptableRoles": [
+          "data",
+          "refactor"
+        ],
+        "category": "ambiguous",
+        "difficulty": "easy",
+        "scenario": "데이터 모델을 리팩터링하자 (data vs refactor)"
+      },
+      "predictedRole": "review",
+      "confidence": 0.6310160427807486,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-198",
+      "metadata": {
+        "id": "sample-198",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "normal",
+        "scenario": "README에 이 새 기능 설명 추가해줄래 (writing vs feature)"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.4642857142857143,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-199",
+      "metadata": {
+        "id": "sample-199",
+        "intendedRole": "writing",
+        "acceptableRoles": [
+          "writing",
+          "feature"
+        ],
+        "category": "ambiguous",
+        "difficulty": "hard",
+        "scenario": "docs에 설명 추가하고 기능도 다시 봐야할 것 같은데 (writing vs feature)"
+      },
+      "predictedRole": "writing",
+      "confidence": 0.4695121951219512,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-200",
+      "metadata": {
+        "id": "sample-200",
+        "intendedRole": "devops",
+        "acceptableRoles": [
+          "devops",
+          "debug",
+          "review"
+        ],
+        "category": "ambiguous",
+        "difficulty": "hard",
+        "scenario": "빌드 깨졌는데 분석 중이고 리뷰도 필요 (devops vs debug vs review)"
+      },
+      "predictedRole": "devops",
+      "confidence": 0.4221105527638191,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-ambiguous-boundary-run1",
+      "metadata": {
+        "id": "sample-consistency-ambiguous-boundary-run1",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "devops",
+          "debug",
+          "review"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 devops/debug/review 경계 시나리오 반복 (run 1)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.7467625899280576,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-ambiguous-boundary-run2",
+      "metadata": {
+        "id": "sample-consistency-ambiguous-boundary-run2",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "devops",
+          "debug",
+          "review"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 devops/debug/review 경계 시나리오 반복 (run 2)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.7532281205164992,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-ambiguous-boundary-run3",
+      "metadata": {
+        "id": "sample-consistency-ambiguous-boundary-run3",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "devops",
+          "debug",
+          "review"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 devops/debug/review 경계 시나리오 반복 (run 3)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.7696793002915452,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-mixed-debug-feature-run1",
+      "metadata": {
+        "id": "sample-consistency-mixed-debug-feature-run1",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 mixed 디버그+기능 경계 시나리오 반복 (run 1)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5856079404466501,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-mixed-debug-feature-run2",
+      "metadata": {
+        "id": "sample-consistency-mixed-debug-feature-run2",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 mixed 디버그+기능 경계 시나리오 반복 (run 2)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5725190839694656,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-mixed-debug-feature-run3",
+      "metadata": {
+        "id": "sample-consistency-mixed-debug-feature-run3",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "hard",
+        "scenario": "동일 mixed 디버그+기능 경계 시나리오 반복 (run 3)"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5919811320754716,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-pure-feature-run1",
+      "metadata": {
+        "id": "sample-consistency-pure-feature-run1",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "동일 feature 순수 구현 시나리오 반복 (run 1)"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5717981888745148,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-pure-feature-run2",
+      "metadata": {
+        "id": "sample-consistency-pure-feature-run2",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "동일 feature 순수 구현 시나리오 반복 (run 2)"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.5506883604505632,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-pure-feature-run3",
+      "metadata": {
+        "id": "sample-consistency-pure-feature-run3",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "동일 feature 순수 구현 시나리오 반복 (run 3)"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.533083645443196,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-무한 루프 버그 찾기 + 리-run1",
+      "metadata": {
+        "id": "sample-consistency-무한 루프 버그 찾기 + 리-run1",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "무한 루프 버그 찾기 + 리팩터링"
+      },
+      "predictedRole": "debug",
+      "confidence": 0.5163934426229508,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-로그인 기능 구현하기-run1",
+      "metadata": {
+        "id": "sample-consistency-로그인 기능 구현하기-run1",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "로그인 기능 구현하기"
+      },
+      "predictedRole": "feature",
+      "confidence": 0.39473684210526316,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-이 코드 어떻게 작동하나?-run1",
+      "metadata": {
+        "id": "sample-consistency-이 코드 어떻게 작동하나?-run1",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "이 코드 어떻게 작동하나?"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5147058823529411,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-무한 루프 버그 찾기 + 리-run2",
+      "metadata": {
+        "id": "sample-consistency-무한 루프 버그 찾기 + 리-run2",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "무한 루프 버그 찾기 + 리팩터링"
+      },
+      "predictedRole": "review",
+      "confidence": 0.44,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-consistency-로그인 기능 구현하기-run2",
+      "metadata": {
+        "id": "sample-consistency-로그인 기능 구현하기-run2",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "로그인 기능 구현하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5344827586206896,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-consistency-이 코드 어떻게 작동하나?-run2",
+      "metadata": {
+        "id": "sample-consistency-이 코드 어떻게 작동하나?-run2",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "이 코드 어떻게 작동하나?"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5446428571428571,
+      "isCorrect": true
+    },
+    {
+      "sampleId": "sample-consistency-무한 루프 버그 찾기 + 리-run3",
+      "metadata": {
+        "id": "sample-consistency-무한 루프 버그 찾기 + 리-run3",
+        "intendedRole": "debug",
+        "acceptableRoles": [
+          "debug"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "무한 루프 버그 찾기 + 리팩터링"
+      },
+      "predictedRole": "review",
+      "confidence": 0.5192307692307693,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-consistency-로그인 기능 구현하기-run3",
+      "metadata": {
+        "id": "sample-consistency-로그인 기능 구현하기-run3",
+        "intendedRole": "feature",
+        "acceptableRoles": [
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "로그인 기능 구현하기"
+      },
+      "predictedRole": "review",
+      "confidence": 0.39805825242718446,
+      "isCorrect": false
+    },
+    {
+      "sampleId": "sample-consistency-이 코드 어떻게 작동하나?-run3",
+      "metadata": {
+        "id": "sample-consistency-이 코드 어떻게 작동하나?-run3",
+        "intendedRole": "review",
+        "acceptableRoles": [
+          "review",
+          "feature"
+        ],
+        "category": "consistency",
+        "difficulty": "normal",
+        "scenario": "이 코드 어떻게 작동하나?"
+      },
+      "predictedRole": "review",
+      "confidence": 0.48,
+      "isCorrect": true
+    }
+  ]
+}

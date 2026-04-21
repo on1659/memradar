@@ -1,0 +1,541 @@
+{
+  "version": "3.0",
+  "lastUpdated": "2026-04-20T16:39:21.675Z",
+  "activeFeatures": [
+    "memradar",
+    "replay",
+    "tests"
+  ],
+  "primaryFeature": "memradar",
+  "features": {
+    "memradar": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-20T14:42:36.809Z",
+        "lastUpdated": "2026-04-20T16:39:21.674Z"
+      },
+      "lastFile": "/Users/radar/Work/memradar/src/lib/usageProfile.ts"
+    },
+    "replay": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-20T14:43:13.983Z",
+        "lastUpdated": "2026-04-20T15:41:31.170Z"
+      },
+      "lastFile": "/Users/radar/Work/memradar/src/components/replay/ReplayView.tsx"
+    },
+    "tests": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-20T15:25:40.652Z",
+        "lastUpdated": "2026-04-20T15:25:40.652Z"
+      },
+      "lastFile": "/Users/radar/Work/memradar/tests/memradar.spec.ts"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-04-20T14:18:58.052Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-04-20T16:39:21.675Z"
+  },
+  "history": [
+    {
+      "timestamp": "2026-04-20T14:42:36.809Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:13.984Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:23.535Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:26.377Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:29.331Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:33.470Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:36.132Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:40.162Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:50.036Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:51.624Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:53.090Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T14:43:57.930Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:04.793Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:05.877Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:10.281Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:20.346Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:21.926Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:23.462Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:41.331Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:43.745Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:18:46.080Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:23:29.988Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:23:33.192Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:23:45.596Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:23:50.986Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:23:53.315Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:24:04.803Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:25:09.174Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:25:21.221Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:25:23.502Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:25:27.084Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:25:40.652Z",
+      "feature": "tests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:31:07.904Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:24.160Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:26.899Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:28.975Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:36.153Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:53.181Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:34:54.241Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:38:34.999Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:40:22.710Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:41:28.442Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:41:31.170Z",
+      "feature": "replay",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:56:25.640Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T15:56:26.796Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:03:28.906Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:03:38.724Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:03:40.422Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:03:57.490Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:04:10.751Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:04:21.150Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:04:27.514Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:04:42.470Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:04:58.806Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:16:30.221Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:17:52.056Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:18:06.045Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:18:21.309Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:18:33.947Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:18:53.491Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:19:00.016Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:19:49.747Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:19:58.211Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:25:27.673Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:25:35.165Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:25:42.776Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:25:51.603Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:25:59.334Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:26:08.784Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:26:16.729Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:26:24.490Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:26:32.628Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:26:39.834Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:27:03.516Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:27:28.522Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:38:48.549Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T16:39:21.675Z",
+      "feature": "memradar",
+      "phase": "do",
+      "action": "updated"
+    }
+  ],
+  "stateMachine": {
+    "defaultWorkflow": "default",
+    "activeWorkflows": {},
+    "totalTransitions": 0
+  },
+  "automation": {
+    "globalLevel": 2,
+    "trustScore": 40,
+    "pendingApprovals": 0,
+    "lastGateResult": null
+  },
+  "team": {
+    "enabled": true,
+    "stateFile": ".bkit/runtime/agent-state.json",
+    "eventsFile": ".bkit/runtime/agent-events.jsonl"
+  }
+}
