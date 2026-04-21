@@ -64,18 +64,10 @@ allowed-tools:
 
 ### 전체 테스트 및 리포트 생성
 ```bash
-npm run test:eval
+/memtest
 ```
 
-### HTML 리포트 보기
-```bash
-npm run report:eval
-```
-
-### 명령행 직접 실행
-```bash
-npx tsx scripts/test-eval-and-report.mts
-```
+리포트가 자동으로 브라우저에서 열립니다.
 
 ## 출력
 
@@ -154,6 +146,21 @@ npx tsx scripts/test-eval-and-report.mts
 - 정답 샘플의 공통점 분석
 - 오답 샘플의 패턴 찾기
 
+## 내부 구현
+
+### Bash 실행
+```bash
+npx tsx scripts/test-eval-and-report.mts
+open docs/eval-report.html
+```
+
+이 스킬이 자동으로:
+1. 모든 평가 샘플 로드
+2. `analyzeUsageTopCategories()` 호출
+3. 정확도 계산
+4. HTML 리포트 생성
+5. 브라우저에서 열기
+
 ## 관련 파일
 
 - `src/lib/usageProfile.ts` — `analyzeUsageTopCategories()` 함수
@@ -165,4 +172,4 @@ npx tsx scripts/test-eval-and-report.mts
 
 1. **샘플 추가**: 부족한 역할/카테고리에 샘플 추가
 2. **튜닝**: 낮은 정확도 역할의 키워드 가중치 조정
-3. **재평가**: `npm run test:eval` 다시 실행하여 개선 확인
+3. **재평가**: `/memtest` 다시 실행하여 개선 확인
