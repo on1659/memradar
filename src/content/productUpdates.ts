@@ -10,6 +10,24 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-22-role-scoring-v3',
+    version: 'v3.2.0',
+    date: '2026-04-22',
+    title: 'AI 역할 정확도 재설계 & 토큰 배지 정리',
+    summary: 'AI가 수행한 역할을 더 정확하게 판별하도록 스코어링 로직을 재설계했어요. 히스토리·세션 뷰의 토큰 배지도 한 가지 스타일로 통일됐어요.',
+    highlights: ['AI 역할 스코어링 Phase 1~3 재설계 (구조적 시그널·혼합 역할·신뢰도 지표)', '역할 시그널 어휘를 실전 사용 패턴 기반으로 재조정', '토큰 배지 UI 통일 (히스토리 / 세션 헤더 / 메시지)', '유저 메시지에도 토큰 수 표시 (초록 배지)', '메시지에 섞이던 <image> 태그 자동 정리', 'memtest 스킬 + AI 역할 평가 자동화 도입'],
+    category: 'insight',
+  },
+  {
+    id: '2026-04-20-session-replay',
+    version: 'v3.1.4',
+    date: '2026-04-20',
+    title: '세션 리플레이 & AI 직업 라벨 리브랜딩',
+    summary: '세션을 타임라인 스크러버로 되감기·재생할 수 있어요. AI 직업 카테고리 라벨도 더 친근한 표현으로 정돈됐어요.',
+    highlights: ['세션 리플레이 프로토타입 (타임라인 스크러버)', 'AI 직업 카테고리 라벨 재정돈', '새소식 v3.0.1~v3.1.1 누락 내역 보강'],
+    category: 'workflow',
+  },
+  {
     id: '2026-04-20-session-view-ux',
     version: 'v3.1.2',
     date: '2026-04-20',

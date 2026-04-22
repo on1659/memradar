@@ -38,3 +38,9 @@ output/
 
 # Eval samples (regenerable)
 tests/fixtures/role-eval-samples/
+
+# Claude Code local settings
+.claude/settings*.json
+
+# Temp
+tmp/
