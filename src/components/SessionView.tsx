@@ -135,7 +135,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const sessionDisplayName = getSessionDisplayName(session)
-  const resumeCommand = session.source === 'claude' ? `claude -resume ${session.id}` : null
+  const resumeCommand = session.source === 'claude' ? `claude --resume ${session.id}` : null
 
   useEffect(() => {
     onMount?.()
