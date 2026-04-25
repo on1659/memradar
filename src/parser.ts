@@ -52,7 +52,8 @@ export function parseJsonl(text: string, fileName: string): Session | null {
           ? {
               input: usage.input_tokens || 0,
               output: usage.output_tokens || 0,
-              cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+              cachedInput: usage.cache_read_input_tokens || 0,
+              cacheWriteInput: usage.cache_creation_input_tokens || 0,
             }
           : undefined,
         toolUses,
@@ -75,6 +76,7 @@ export function parseJsonl(text: string, fileName: string): Session | null {
           prev.tokens.input += msg.tokens.input
           prev.tokens.output += msg.tokens.output
           prev.tokens.cachedInput = (prev.tokens.cachedInput || 0) + (msg.tokens.cachedInput || 0)
+          prev.tokens.cacheWriteInput = (prev.tokens.cacheWriteInput || 0) + (msg.tokens.cacheWriteInput || 0)
         } else {
           prev.tokens = { ...msg.tokens }
         }
@@ -91,8 +93,9 @@ export function parseJsonl(text: string, fileName: string): Session | null {
       input: acc.input + (m.tokens?.input || 0),
       output: acc.output + (m.tokens?.output || 0),
       cachedInput: (acc.cachedInput || 0) + (m.tokens?.cachedInput || 0),
+      cacheWriteInput: (acc.cacheWriteInput || 0) + (m.tokens?.cacheWriteInput || 0),
     }),
-    { input: 0, output: 0, cachedInput: 0 } satisfies TokenUsage
+    { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 } satisfies TokenUsage
   )
 
   return {
@@ -237,8 +240,9 @@ export function computeStats(sessions: Session[]): Stats {
       input: acc.input + s.totalTokens.input,
       output: acc.output + s.totalTokens.output,
       cachedInput: (acc.cachedInput || 0) + (s.totalTokens.cachedInput || 0),
+      cacheWriteInput: (acc.cacheWriteInput || 0) + (s.totalTokens.cacheWriteInput || 0),
     }),
-    { input: 0, output: 0, cachedInput: 0 } satisfies TokenUsage
+    { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 } satisfies TokenUsage
   )
 
   const busiestDay = Object.entries(dailyActivity).sort((a, b) => b[1] - a[1])[0]?.[0] || ''

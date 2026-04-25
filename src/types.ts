@@ -3,7 +3,8 @@ export type SessionSource = 'claude' | 'codex'
 export interface TokenUsage {
   input: number
   output: number
-  cachedInput?: number
+  cachedInput?: number      // cache_read_input_tokens
+  cacheWriteInput?: number  // cache_creation_input_tokens (billed at 1.25× input rate)
 }
 
 export interface RawMessage {

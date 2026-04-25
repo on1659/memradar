@@ -57,9 +57,9 @@ interface DashboardProps {
 }
 
 const sectionTransition = {
-  initial: { opacity: 0.35, y: -16, clipPath: 'inset(0 0 100% 0)', filter: 'blur(8px)' },
-  animate: { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', filter: 'blur(0px)' },
-  exit: { opacity: 0.2, y: 10, clipPath: 'inset(0 0 100% 0)', filter: 'blur(4px)' },
+  initial: { opacity: 0.35, y: -16, filter: 'blur(8px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0.2, y: 10, filter: 'blur(4px)' },
 } as const
 
 function formatTokens(n: number): string {
@@ -916,7 +916,7 @@ export function Dashboard({
   const sourceColor = (source: SessionSource) => getSourceColor(source, themeProps.theme)
   const tokenSourceColor = sourceColor(tokenSource)
   const tokenSourceLabel = tokenSource === 'claude' ? 'Claude' : 'Codex'
-  const displayInputTokens = activeTokenTotals.input + (activeTokenTotals.cachedInput || 0)
+  const displayInputTokens = activeTokenTotals.input + (activeTokenTotals.cachedInput || 0) + (activeTokenTotals.cacheWriteInput || 0)
   const isKorean = locale === 'ko'
   const isPersonalityMode = sectionMode === 'personality'
   const handleSectionSwitch = isPersonalityMode ? onOpenDashboard : onOpenPersonality
@@ -1428,8 +1428,8 @@ export function Dashboard({
             <div className="dashboard-token-breakdown text-xs text-text/60">
               {isKorean ? '입력' : 'Input'} {formatTokens(displayInputTokens)} / {isKorean ? '출력' : 'Output'}{' '}
               {formatTokens(activeTokenTotals.output)}
-              {(activeTokenTotals.cachedInput || 0) > 0 && (
-                <span className="ml-1 text-text/35">cache {formatTokens(activeTokenTotals.cachedInput || 0)}</span>
+              {((activeTokenTotals.cachedInput || 0) + (activeTokenTotals.cacheWriteInput || 0)) > 0 && (
+                <span className="ml-1 text-text/35">cache {formatTokens((activeTokenTotals.cachedInput || 0) + (activeTokenTotals.cacheWriteInput || 0))}</span>
               )}
             </div>
           </div>

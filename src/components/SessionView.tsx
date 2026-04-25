@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import type { Session } from '../types'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
-import { getSourceColor } from '../lib/tokenPricing'
+import { getSourceColor, calculateSessionCost } from '../lib/tokenPricing'
 import { mdComponents } from './markdown'
 import { useI18n } from '../i18n'
 
@@ -27,7 +27,18 @@ function formatTime(ts: string): string {
 }
 
 function getSessionTotalTokens(session: Session): number {
-  return session.totalTokens.input + session.totalTokens.output + (session.totalTokens.cachedInput || 0)
+  return (
+    session.totalTokens.input +
+    session.totalTokens.output +
+    (session.totalTokens.cachedInput || 0) +
+    (session.totalTokens.cacheWriteInput || 0)
+  )
+}
+
+function fmtTokenShort(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
 }
 
 function getSessionDisplayName(session: Session): string {
@@ -195,13 +206,28 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                   {shortModelName(session.model)}
                 </span>
               )}
-              <span className="rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
-                {totalSessionTokens >= 1_000_000
-                  ? `${(totalSessionTokens / 1_000_000).toFixed(1)}M`
-                  : totalSessionTokens >= 1_000
-                    ? `${(totalSessionTokens / 1_000).toFixed(0)}K`
-                    : totalSessionTokens.toLocaleString()} 토큰
-              </span>
+              {(() => {
+                const sessionCost = calculateSessionCost(session)
+                const t = session.totalTokens
+                const lines = [
+                  `입력 ${t.input.toLocaleString()} 토큰`,
+                  `출력 ${t.output.toLocaleString()} 토큰`,
+                  ...(( t.cachedInput || 0) > 0 ? [`캐시 읽기 ${(t.cachedInput || 0).toLocaleString()} 토큰`] : []),
+                  ...((t.cacheWriteInput || 0) > 0 ? [`캐시 쓰기 ${(t.cacheWriteInput || 0).toLocaleString()} 토큰`] : []),
+                  `합계 ${totalSessionTokens.toLocaleString()} 토큰`,
+                  `≈ $${sessionCost.toFixed(4)}`,
+                ]
+                return (
+                  <span className="group relative cursor-default rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
+                    {fmtTokenShort(totalSessionTokens)} 토큰
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                      {lines.map((line, idx) => (
+                        <span key={idx} className={`block ${idx === lines.length - 1 ? 'mt-1 border-t border-border pt-1 text-text-bright' : idx === lines.length - 2 ? 'mt-1 border-t border-border pt-1' : ''}`}>{line}</span>
+                      ))}
+                    </span>
+                  </span>
+                )
+              })()}
               {(() => {
                 const total = session.messageCount.user + session.messageCount.assistant
                 const label = total >= 1000 ? '1000+' : total >= 100 ? '100+' : total >= 10 ? '10+' : `${total}`
@@ -283,16 +309,40 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                   </span>
                   <span className="text-[10px] text-text/40">{formatTime(msg.timestamp)}</span>
                   {msg.tokens && (() => {
-                    const count = isUser ? msg.tokens.input : msg.tokens.output
-                    if (!count) return null
-                    const fmt = count >= 1000 ? `${(count / 1000).toFixed(1)}K` : count
-                    return isUser ? (
-                      <span className="ml-auto rounded-full border border-green/20 bg-green/8 px-2 py-0.5 text-[10px] font-medium text-green/80">
-                        {fmt} 토큰
-                      </span>
-                    ) : (
-                      <span className="ml-auto rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
-                        {fmt} 토큰
+                    const inp = msg.tokens.input || 0
+                    const out = msg.tokens.output || 0
+                    const cacheRead = msg.tokens.cachedInput || 0
+                    const cacheWrite = msg.tokens.cacheWriteInput || 0
+                    const total = isUser ? inp : inp + out + cacheRead + cacheWrite
+                    if (!total) return null
+
+                    const msgTokens = { input: inp, output: out, cachedInput: cacheRead, cacheWriteInput: cacheWrite }
+                    const msgCost = !isUser ? calculateSessionCost({ ...session, totalTokens: msgTokens, messages: [] }) : 0
+                    const tooltipLines = isUser
+                      ? [`입력 ${inp.toLocaleString()} 토큰`]
+                      : [
+                          `입력 ${inp.toLocaleString()} 토큰`,
+                          `출력 ${out.toLocaleString()} 토큰`,
+                          ...(cacheRead > 0 ? [`캐시 읽기 ${cacheRead.toLocaleString()} 토큰`] : []),
+                          ...(cacheWrite > 0 ? [`캐시 쓰기 ${cacheWrite.toLocaleString()} 토큰`] : []),
+                          ...(msgCost > 0 ? [`≈ $${msgCost.toFixed(4)}`] : []),
+                        ]
+
+                    return (
+                      <span className={`group relative ml-auto cursor-default rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                        isUser
+                          ? 'border-green/20 bg-green/8 text-green/80'
+                          : 'border-text/12 bg-bg-hover text-text-bright'
+                      }`}>
+                        {fmtTokenShort(total)} 토큰
+                        <span className="pointer-events-none absolute bottom-full right-0 z-50 mb-2 w-max rounded-lg border border-border bg-bg-card px-2.5 py-1.5 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                          {tooltipLines.map((line, idx) => {
+                            const isCost = line.startsWith('≈')
+                            return (
+                              <span key={idx} className={`block ${isCost ? 'mt-1 border-t border-border pt-1 text-text-bright' : ''}`}>{line}</span>
+                            )
+                          })}
+                        </span>
                       </span>
                     )
                   })()}
