@@ -10,6 +10,21 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-26-token-cost-tooltip',
+    version: 'v3.3.0',
+    date: '2026-04-26',
+    title: '토큰 비용 툴팁 + 캐시 요금 계산 수정',
+    summary: '세션·메시지 토큰 뱃지에 마우스를 올리면 정확한 수치와 API 예상 비용이 표시돼요. 캐시 쓰기 요금 계산 오류도 수정됐어요.',
+    highlights: [
+      '세션 헤더 토큰 뱃지: hover 시 입력/출력/캐시 breakdown + 예상 비용',
+      '메시지 토큰 뱃지: hover 시 정확한 수치(쉼표 형식) + 예상 비용',
+      'cache_creation 토큰 요금 수정 ($0.30 → $3.75/M for Sonnet)',
+      'claude-haiku-3.5/4+ 별도 요금 적용 ($0.80 input / $4 output)',
+      '토큰 비용 툴팁 레이어 클리핑 버그 수정',
+    ],
+    category: 'dashboard',
+  },
+  {
     id: '2026-04-22-role-scoring-v3',
     version: 'v3.2.0',
     date: '2026-04-22',
