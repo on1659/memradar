@@ -59,6 +59,7 @@ function parseTotalTokenUsage(payload: Record<string, unknown> | undefined): Tok
     input: Number(total.input_tokens || 0),
     output: Number(total.output_tokens || 0),
     cachedInput: Number(total.cached_input_tokens || 0),
+    cacheWriteInput: Number(total.cached_write_tokens || 0),
   }
 }
 
@@ -92,7 +93,8 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
   let cwd = ''
   let version = ''
   let model = ''
-  let totalTokens: TokenUsage = { input: 0, output: 0, cachedInput: 0 }
+  let totalTokens: TokenUsage = { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 }
+  let prevTotalTokens: TokenUsage = { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 }
   let pendingToolUses: string[] = []
 
   for (const line of lines) {
@@ -117,7 +119,18 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
       if (record.type === 'event_msg') {
         const tokenUsage = parseTotalTokenUsage(record.payload)
         if (tokenUsage) {
+          const delta: TokenUsage = {
+            input: Math.max(0, tokenUsage.input - prevTotalTokens.input),
+            output: Math.max(0, tokenUsage.output - prevTotalTokens.output),
+            cachedInput: Math.max(0, (tokenUsage.cachedInput || 0) - (prevTotalTokens.cachedInput || 0)),
+            cacheWriteInput: Math.max(0, (tokenUsage.cacheWriteInput || 0) - (prevTotalTokens.cacheWriteInput || 0)),
+          }
+          if (delta.input > 0 || delta.output > 0) {
+            const lastAssistant = [...rawMessages].reverse().find(m => m.role === 'assistant' && !m.tokens)
+            if (lastAssistant) lastAssistant.tokens = delta
+          }
           totalTokens = tokenUsage
+          prevTotalTokens = tokenUsage
         }
         continue
       }

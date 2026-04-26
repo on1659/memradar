@@ -88,6 +88,22 @@ export function parseJsonl(text: string, fileName: string): Session | null {
     }
   }
 
+  // Estimate user message tokens from adjacent assistant input deltas
+  // assistant.tokens.input = entire context up to that point (input + cacheRead + cacheWrite)
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    if (msg.role !== 'user' || msg.tokens) continue
+    const nextAst = messages.slice(i + 1).find(m => m.role === 'assistant' && m.tokens)
+    const prevAst = messages.slice(0, i).reverse().find(m => m.role === 'assistant' && m.tokens)
+    if (!nextAst?.tokens) continue
+    const nextTotal = nextAst.tokens.input + (nextAst.tokens.cachedInput || 0) + (nextAst.tokens.cacheWriteInput || 0)
+    const prevTotal = prevAst
+      ? prevAst.tokens!.input + (prevAst.tokens!.cachedInput || 0) + (prevAst.tokens!.cacheWriteInput || 0) + prevAst.tokens!.output
+      : 0
+    const estimated = nextTotal - prevTotal
+    if (estimated > 0) msg.tokens = { input: estimated, output: 0, cachedInput: 0, cacheWriteInput: 0 }
+  }
+
   const totalTokens = messages.reduce(
     (acc, m) => ({
       input: acc.input + (m.tokens?.input || 0),
