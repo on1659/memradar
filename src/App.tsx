@@ -69,6 +69,8 @@ function App() {
     dateTo: '',
   })
 
+  const isServerMode = !window.__MEMRADAR_SESSIONS__
+
   const loadSessions = useCallback(async () => {
     try {
       const embedded = window.__MEMRADAR_SESSIONS__
@@ -117,6 +119,13 @@ function App() {
       setView({ type: 'drop' })
     }
   }, [])
+
+  const handleReload = useCallback(async () => {
+    setSessions([])
+    setLoadProgress({ loaded: 0, total: 0 })
+    setView({ type: 'loading' })
+    await loadSessions()
+  }, [loadSessions])
 
   useEffect(() => {
     loadSessions()
@@ -315,6 +324,7 @@ function App() {
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
       onOpenPersonality={() => navigate({ type: 'personality' })}
       onOpenDashboard={() => navigate({ type: 'dashboard' })}
+      onReload={isServerMode ? handleReload : undefined}
       themeProps={themeProps}
       restoreScrollY={savedScrollY.current}
       filters={dashboardFilters}

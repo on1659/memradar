@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, RefreshCw } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
@@ -20,6 +20,7 @@ interface MemradarTopBarProps {
   themeProps: ThemeProps
   onOpenWrapped?: () => void
   onOpenDashboard?: () => void
+  onReload?: () => void
 }
 
 function DashboardBrand() {
@@ -47,9 +48,11 @@ export function MemradarTopBar({
   themeProps,
   onOpenWrapped,
   onOpenDashboard,
+  onReload,
 }: MemradarTopBarProps) {
   const { t } = useI18n()
   const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [reloading, setReloading] = useState(false)
 
   const brandNode = onOpenDashboard ? (
     <button
@@ -106,6 +109,21 @@ export function MemradarTopBar({
               </button>
             )}
           </div>
+
+          {onReload && (
+            <button
+              onClick={async () => {
+                setReloading(true)
+                await onReload()
+                setReloading(false)
+              }}
+              disabled={reloading}
+              title="세션 데이터 새로 고침"
+              className="order-1 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-card/70 text-text transition-colors hover:bg-bg-hover hover:text-text-bright disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${reloading ? 'animate-spin' : ''}`} />
+            </button>
+          )}
 
           <button
             onClick={() => setUpdatesOpen(true)}

@@ -44,6 +44,7 @@ interface DashboardProps {
   onOpenWrapped?: () => void
   onOpenPersonality?: () => void
   onOpenDashboard?: () => void
+  onReload?: () => void
   sectionMode?: 'dashboard' | 'personality'
   restoreScrollY?: number
   filters?: DashboardFilters
@@ -787,6 +788,7 @@ export function Dashboard({
   onOpenWrapped,
   onOpenPersonality,
   onOpenDashboard,
+  onReload,
   sectionMode = 'dashboard',
   restoreScrollY,
   filters,
@@ -1193,6 +1195,7 @@ export function Dashboard({
         sessionCount={stats.totalSessions}
         themeProps={themeProps}
         onOpenWrapped={onOpenWrapped}
+        onReload={onReload}
       />
 
       <div className="dashboard-overview-grid animate-in mb-5">
