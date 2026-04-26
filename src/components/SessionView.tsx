@@ -220,7 +220,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 return (
                   <span className="group relative cursor-default rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
                     {fmtTokenShort(totalSessionTokens)} 토큰
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                    <span className="pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
                       {lines.map((line, idx) => (
                         <span key={idx} className={`block ${idx === lines.length - 1 ? 'mt-1 border-t border-border pt-1 text-text-bright' : idx === lines.length - 2 ? 'mt-1 border-t border-border pt-1' : ''}`}>{line}</span>
                       ))}
