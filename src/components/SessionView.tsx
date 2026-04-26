@@ -146,7 +146,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const sessionDisplayName = getSessionDisplayName(session)
-  const resumeCommand = session.source === 'claude' ? `claude --resume ${session.id}` : null
+  const resumeCommand = session.source === 'claude' ? `claude --resume ${session.id}` : `codex resume ${session.id}`
 
   useEffect(() => {
     onMount?.()
@@ -269,7 +269,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
           {resumeCommand && (
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/6 px-3 py-3 text-xs leading-relaxed text-text/70">
               <span className="min-w-0 flex-1">
-                Claude에서는 <span className="font-mono text-text-bright">{resumeCommand}</span> 로 대화를 이어갈 수 있습니다.
+                {assistantLabel}에서는 <span className="font-mono text-text-bright">{resumeCommand}</span> 로 대화를 이어갈 수 있습니다.
               </span>
               <CopyButton text={resumeCommand} />
             </div>

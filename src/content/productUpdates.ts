@@ -10,6 +10,18 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-26-codex-resume-copy',
+    version: 'v3.4.0',
+    date: '2026-04-26',
+    title: 'Codex 세션 resume 명령어 복붙 지원',
+    summary: 'Codex 세션 뷰에서도 `codex resume <id>` 명령어를 바로 복사할 수 있어요. Claude 세션과 동일하게 한 번 클릭으로 터미널에 붙여넣을 수 있습니다.',
+    highlights: [
+      'Codex 세션 뷰에 resume 명령어 복붙 버튼 추가',
+      '"Claude에서는" 문구 → 세션 출처에 따라 자동 변경 (Claude / Codex)',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-04-26-token-cost-tooltip',
     version: 'v3.3.0',
     date: '2026-04-26',
