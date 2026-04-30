@@ -278,7 +278,6 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/6 px-3 py-3 text-xs leading-relaxed text-text/70">
               <span className="min-w-0 flex-1">
                 {assistantLabel}에서는 <span className="font-mono text-text-bright">{baseResumeCommand}</span> 로 대화를 이어갈 수 있습니다.
-                {cdCommand && <span className="ml-1 text-text/45">(복사 시 프로젝트 경로 이동 명령도 함께)</span>}
               </span>
               <CopyButton text={resumeCommand} />
             </div>

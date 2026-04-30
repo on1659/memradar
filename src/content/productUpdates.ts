@@ -10,6 +10,18 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-30-resume-hint-cleanup',
+    version: 'v3.4.6',
+    date: '2026-04-30',
+    title: 'resume 안내 보조 문구 제거',
+    summary: 'resume 명령 박스에서 줄바꿈으로 어색해 보이던 보조 문구를 정리했어요. 안내 문장이 한 줄로 깔끔하게 표시돼요.',
+    highlights: [
+      '"(복사 시 프로젝트 경로 이동 명령도 함께)" 보조 문구 삭제',
+      'resume 박스 안내 한 줄 유지',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-04-30-cd-resume-combined-copy',
     version: 'v3.4.5',
     date: '2026-04-30',
