@@ -241,12 +241,19 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 )
               })()}
             </div>
-            {session.cwd && (
-              <div className="flex items-center gap-1.5 text-[11px] text-text/40">
-                <span className="text-text/30">프로젝트</span>
-                <span className="truncate font-mono">{session.cwd}</span>
-              </div>
-            )}
+            {session.cwd && (() => {
+              const driveMatch = session.cwd.match(/^([A-Za-z]):/)
+              const cdCommand = driveMatch
+                ? `${driveMatch[1]}:\r\ncd "${session.cwd}"`
+                : `cd "${session.cwd}"`
+              return (
+                <div className="flex items-center gap-1.5 text-[11px] text-text/40">
+                  <span className="text-text/30">프로젝트</span>
+                  <span className="truncate font-mono">{session.cwd}</span>
+                  <CopyButton text={cdCommand} />
+                </div>
+              )
+            })()}
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
