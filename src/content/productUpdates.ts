@@ -10,6 +10,80 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-04-30-cd-resume-combined-copy',
+    version: 'v3.4.5',
+    date: '2026-04-30',
+    title: 'cd + resume 한 번에 복사',
+    summary: '세션 뷰의 resume 명령 복사 버튼이 프로젝트 경로 이동(cd) 명령까지 함께 복사해요. 한 번 붙여넣기로 디렉토리 이동 + 세션 재개가 끝나요.',
+    highlights: [
+      'resume 복사 버튼: cd 명령 + claude/codex resume 합본 복사',
+      'Windows 드라이브 전환(`D:`)도 cd 앞에 자동 포함',
+      'cd 단독 복사 버튼은 그대로 유지',
+    ],
+    category: 'workflow',
+  },
+  {
+    id: '2026-04-30-project-cd-copy',
+    version: 'v3.4.4',
+    date: '2026-04-30',
+    title: '프로젝트 경로 cd 명령어 복사',
+    summary: '세션 뷰 상단 프로젝트 경로 옆에 복사 버튼이 생겼어요. 드라이브 전환까지 포함된 cd 명령을 그대로 터미널에 붙여넣을 수 있어요.',
+    highlights: [
+      '세션 cwd 옆 cd 명령 복사 버튼 추가',
+      'Windows: 드라이브 전환(`D:`) + `cd "..."` 두 줄 자동 구성',
+      '그 외 OS: 단일 `cd "..."` 명령',
+    ],
+    category: 'workflow',
+  },
+  {
+    id: '2026-04-26-server-reload-button',
+    version: 'v3.4.3',
+    date: '2026-04-26',
+    title: '서버 모드 세션 새로 고침 버튼',
+    summary: '서버 모드에서 새 세션 로그가 추가됐을 때 페이지 전체를 새로고치지 않고도 세션 데이터를 다시 불러올 수 있어요.',
+    highlights: [
+      '서버 모드 전용 세션 새로 고침 버튼 추가',
+      '새 세션이 추가되거나 메시지가 늘어나면 한 번 클릭으로 반영',
+    ],
+    category: 'dashboard',
+  },
+  {
+    id: '2026-04-26-codex-token-per-message',
+    version: 'v3.4.2',
+    date: '2026-04-26',
+    title: 'Codex 메시지별 토큰 + Claude 유저 메시지 토큰 추정',
+    summary: 'Codex 세션도 메시지별 토큰 델타가 표시되고, Claude 유저 메시지에도 토큰 수가 추정 표시돼요.',
+    highlights: [
+      'Codex 메시지별 토큰 델타 표시',
+      'Claude 유저 메시지 토큰 추정 (출력 추정값 기반)',
+    ],
+    category: 'insight',
+  },
+  {
+    id: '2026-04-26-token-tooltip-position',
+    version: 'v3.4.1',
+    date: '2026-04-26',
+    title: '세션 헤더 토큰 툴팁 위치 수정',
+    summary: '세션 헤더 토큰 배지 툴팁이 잘리던 문제를 수정했어요. 이제 배지 아래쪽에 정상 표시돼요.',
+    highlights: [
+      '토큰 배지 툴팁 위치를 위 → 아래(`top-full`)로 변경',
+      '상단 클리핑 이슈 해소',
+    ],
+    category: 'dashboard',
+  },
+  {
+    id: '2026-04-24-claude-resume-flag-fix',
+    version: 'v3.2.1',
+    date: '2026-04-24',
+    title: 'claude --resume 플래그 하이픈 오타 수정',
+    summary: '세션 뷰에서 안내하던 resume 명령어가 `claude -resume`(하이픈 1개)으로 잘못 표시되던 오타를 수정했어요. 이제 `claude --resume` 정상 표기.',
+    highlights: [
+      'SessionView resume 안내 문구 `-resume` → `--resume` 수정',
+      '복사 후 그대로 붙여넣어도 정상 동작',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-04-26-codex-resume-copy',
     version: 'v3.4.0',
     date: '2026-04-26',

@@ -146,7 +146,14 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const sessionDisplayName = getSessionDisplayName(session)
-  const resumeCommand = session.source === 'claude' ? `claude --resume ${session.id}` : `codex resume ${session.id}`
+  const cdCommand = session.cwd ? (() => {
+    const driveMatch = session.cwd.match(/^([A-Za-z]):/)
+    return driveMatch
+      ? `${driveMatch[1]}:\r\ncd "${session.cwd}"`
+      : `cd "${session.cwd}"`
+  })() : null
+  const baseResumeCommand = session.source === 'claude' ? `claude --resume ${session.id}` : `codex resume ${session.id}`
+  const resumeCommand = cdCommand ? `${cdCommand}\r\n${baseResumeCommand}` : baseResumeCommand
 
   useEffect(() => {
     onMount?.()
@@ -241,19 +248,13 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 )
               })()}
             </div>
-            {session.cwd && (() => {
-              const driveMatch = session.cwd.match(/^([A-Za-z]):/)
-              const cdCommand = driveMatch
-                ? `${driveMatch[1]}:\r\ncd "${session.cwd}"`
-                : `cd "${session.cwd}"`
-              return (
-                <div className="flex items-center gap-1.5 text-[11px] text-text/40">
-                  <span className="text-text/30">프로젝트</span>
-                  <span className="truncate font-mono">{session.cwd}</span>
-                  <CopyButton text={cdCommand} />
-                </div>
-              )
-            })()}
+            {session.cwd && cdCommand && (
+              <div className="flex items-center gap-1.5 text-[11px] text-text/40">
+                <span className="text-text/30">프로젝트</span>
+                <span className="truncate font-mono">{session.cwd}</span>
+                <CopyButton text={cdCommand} />
+              </div>
+            )}
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -273,10 +274,11 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
             </div>
           </div>
 
-          {resumeCommand && (
+          {baseResumeCommand && (
             <div className="mt-3 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/6 px-3 py-3 text-xs leading-relaxed text-text/70">
               <span className="min-w-0 flex-1">
-                {assistantLabel}에서는 <span className="font-mono text-text-bright">{resumeCommand}</span> 로 대화를 이어갈 수 있습니다.
+                {assistantLabel}에서는 <span className="font-mono text-text-bright">{baseResumeCommand}</span> 로 대화를 이어갈 수 있습니다.
+                {cdCommand && <span className="ml-1 text-text/45">(복사 시 프로젝트 경로 이동 명령도 함께)</span>}
               </span>
               <CopyButton text={resumeCommand} />
             </div>
