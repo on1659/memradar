@@ -64,6 +64,9 @@ src/
 │   │   ├── SearchView.tsx
 │   │   ├── SearchBar.tsx
 │   │   └── SearchResults.tsx
+│   ├── tools/              # Tool 호출 상세 렌더러 (서버 모드)
+│   │   ├── Truncate.tsx    # 긴 콘텐츠 펼치기/접기 토글
+│   │   └── ToolCallView.tsx # Edit/Write/Bash + Generic fallback 렌더러
 │   ├── updates/
 │   │   └── ProductUpdates.tsx
 │   └── wrapped/            # Memradar Code Report
@@ -129,6 +132,22 @@ interface Provider {
 1. `src/providers/<id>.ts` 작성
 2. `src/providers/index.ts` 의 레지스트리 배열에 등록
 3. `detect()` 가 해당 로그 시그니처를 명확히 식별하는지 테스트 픽스처로 검증
+
+## Tool 호출 상세 표시
+
+세션 뷰에서 `Edit` / `Write` / `Bash` 등 tool 호출 본문(diff·명령어·결과)을 보여주는 기능은 **2-tier 파싱** 으로 구현됐다.
+
+- **Light parse (기본)**: `parseJsonl(text, fileName)` — 텍스트·토큰·`toolUses: string[]`(이름만) 까지만 추출. 대시보드/분석 경로에서 모든 세션을 부담 없이 읽기 위해 사용. 정적 HTML 모드도 동일.
+- **Heavy parse (server 모드 전용·lazy)**: `parseJsonl(text, fileName, { includeToolDetails: true })` — `tool_use` 의 `id`/`name`/`input` 과 `tool_result` 의 `content`/`is_error` 까지 보존하고, `tool_use_id` 로 결과를 호출과 페어링해 `ParsedMessage.toolCalls?: ToolCall[]` 를 채운다.
+
+흐름:
+
+1. 대시보드 진입 시점엔 모든 세션을 light parse 한 결과(`Session.messages`)만 메모리에 둔다. `Session` 에는 서버에서 받은 원본 경로(`Session.filePath`)도 함께 주입한다.
+2. 사용자가 세션을 클릭하면 `SessionView` 가 `window.__MEMRADAR_SESSIONS__` 부재(서버 모드)를 감지하고, 같은 세션을 `/api/session-content?path=…` 로 다시 받아 heavy parse 후 로컬 상태로 교체한다.
+3. 메시지 렌더 시 `toolCalls` 가 있으면 `components/tools/ToolCallView` 카드로 본문을 펼치고, 없으면 기존의 tool 이름 칩(pill) 표시로 폴백한다.
+4. 정적 HTML 모드(`window.__MEMRADAR_SESSIONS__` 존재)에서는 heavy parse 를 시도하지 않고 칩 표시만 사용한다 — HTML 단일 파일 크기를 부풀리지 않기 위함.
+
+긴 본문(`old_string`/`new_string`/`Bash` 출력 등)은 `components/tools/Truncate` 가 일정 글자 수 이상이면 잘라 보여주고 "더 보기" 토글로 펼치도록 한다. 메모리·스크롤 부담 모두 줄이는 게 목적이다.
 
 ## CLI 아키텍처
 

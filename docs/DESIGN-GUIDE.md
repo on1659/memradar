@@ -363,6 +363,36 @@ select:focus {
 
 포커스 링은 2px, accent 15%. 어떤 테마에서도 자연스럽게 떠오른다.
 
+### 5.7 Tool 호출 카드
+
+`src/components/tools/ToolCallView.tsx`. 세션 뷰 메시지 안에서 `Edit`/`Write`/`Bash` 등 tool 호출의 입력·결과를 펼쳐 보여주는 카드. 메시지 본문(말풍선) 아래에 인라인으로 1개 이상 쌓인다.
+
+구조 — 헤더 / 본문 / 결과 3단 분리.
+
+```text
+┌─────────────────────────────────────────┐
+│ 🔧 Edit  src/foo.ts                     │  ← Header (border-b, bg-bg-hover/40)
+├─────────────────────────────────────────┤
+│ +27  -3   (old 1.4KB → new 2.0KB)       │  ← stats
+│ ┌── -- old ──┐  ┌── ++ new ──┐          │  ← 좌(red)/우(green) 2-col
+│ │  ...       │  │  ...        │          │
+│ └────────────┘  └─────────────┘          │
+├─────────────────────────────────────────┤
+│ result                                   │  ← border-t, isError 시 bg-red-500/5
+│ ...                                      │
+└─────────────────────────────────────────┘
+```
+
+- 컨테이너: `rounded-lg border border-border/60 bg-bg-card/40 overflow-hidden`
+- 헤더: `Wrench` 아이콘(`text-text/50`) + `font-mono text-[11px] font-semibold` 도구명 + `text-text/60` 한 줄 요약(파일 basename·command 80자·`pattern` 등). `is_error` 면 우측에 `AlertTriangle` + `red-400`.
+- Edit/Write 본문 색: 빨강 `border-red-500/20 bg-red-500/5`, 초록 `border-emerald-500/20 bg-emerald-500/5`. 라벨은 `red-300/70` / `emerald-300/70` 톤다운.
+- Stats 라벨: `+추가` 는 `text-emerald-400`, `-삭제` 는 `text-red-400`. 본문이 비면 `(empty)` 자리표시.
+- 결과 헤더: `text-[10px] uppercase tracking-wider text-text/35`("result").
+- 본문/결과 모두 `Truncate` 컴포넌트(`maxChars` 600~1500) 로 감싸 긴 콘텐츠는 "더 보기 (N.NKB)" 토글. 펼침 상태는 `useState` 로컬 보관.
+- Read/Grep/Glob 처럼 입력이 짧은 도구는 본문 생략하고 헤더 + 결과만 둔다. 알 수 없는 도구는 generic JSON pretty-print(`<pre font-mono whitespace-pre-wrap break-words text-[11px] leading-5`).
+
+주의 — 이 카드는 **서버 모드 + heavy parse 결과**(`ParsedMessage.toolCalls`) 가 있을 때만 노출된다. 정적 HTML 모드에선 도구 이름 pill(5.4 배지·라벨) 로 폴백하고 본문은 표시하지 않는다 — 단일 HTML 파일 용량이 커지지 않도록.
+
 ---
 
 ## 6. 모션·인터랙션

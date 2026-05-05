@@ -10,6 +10,22 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-05-06-tool-call-bodies',
+    version: 'v3.5.0',
+    date: '2026-05-06',
+    title: '서버 모드에서 도구 호출 본문 표시',
+    summary: '`memradar --server`로 띄운 세션 뷰에서 Edit·Bash·Write 같은 도구 호출의 본문이 카드로 펼쳐져요. Claude Code 터미널에서 보던 것과 비슷하게 diff·명령어·결과까지 한자리에서 확인할 수 있어요.',
+    highlights: [
+      'Edit / Write — 빨강(old) / 초록(new) 2단 diff + 라인 증감 통계',
+      'Bash — 명령어 + 결과(stdout/stderr), 에러는 빨간 톤으로 강조',
+      'Read / Grep / Glob — 결과 본문 표시',
+      '카드 헤더 클릭으로 개별 접기/펼치기, 위쪽 "모두 접기/펼치기" 버튼으로 일괄 토글 (기본은 모두 접힘)',
+      '긴 본문(KB 단위)은 "더 보기" 토글로 잘라 표시 — 메모리·스크롤 부담 최소화',
+      '정적 HTML 모드는 기존 도구 이름 칩 그대로 — 단일 HTML 파일 용량 보호',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-05-05-large-sessions-streaming-write',
     version: 'v3.4.7',
     date: '2026-05-05',

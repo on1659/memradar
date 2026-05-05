@@ -101,7 +101,9 @@ function App() {
               const r = await fetch(`/api/session-content?path=${encodeURIComponent(f.path)}`)
               if (!r.ok) return null
               const content = await r.text()
-              return detectAndParse(content, f.name)
+              const session = detectAndParse(content, f.name)
+              if (session) session.filePath = f.path
+              return session
             } catch {
               return null
             }

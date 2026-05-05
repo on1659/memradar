@@ -35,7 +35,23 @@ export interface ContentBlock {
   type: string
   text?: string
   name?: string
+  id?: string
   input?: Record<string, unknown>
+  tool_use_id?: string
+  content?: string | Array<{ type: string; text?: string }>
+  is_error?: boolean
+}
+
+export interface ToolResult {
+  content: string
+  isError: boolean
+}
+
+export interface ToolCall {
+  id: string
+  name: string
+  input: Record<string, unknown>
+  result?: ToolResult
 }
 
 export interface ParsedMessage {
@@ -45,11 +61,13 @@ export interface ParsedMessage {
   model?: string
   tokens?: TokenUsage
   toolUses: string[]
+  toolCalls?: ToolCall[]
 }
 
 export interface Session {
   id: string
   fileName: string
+  filePath?: string
   source: SessionSource
   messages: ParsedMessage[]
   startTime: string

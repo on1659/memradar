@@ -1,4 +1,8 @@
-import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage } from './types'
+import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage, ToolCall, ToolResult } from './types'
+
+export interface ParseOptions {
+  includeToolDetails?: boolean
+}
 
 function extractText(content: string | ContentBlock[]): string {
   if (typeof content === 'string') return content
@@ -16,13 +20,47 @@ function extractToolUses(content: string | ContentBlock[]): string[] {
     .map((b) => b.name!)
 }
 
-export function parseJsonl(text: string, fileName: string): Session | null {
+function extractToolCalls(content: string | ContentBlock[]): ToolCall[] {
+  if (typeof content === 'string' || !Array.isArray(content)) return []
+  return content
+    .filter((b) => b.type === 'tool_use' && b.id && b.name)
+    .map((b) => ({
+      id: b.id!,
+      name: b.name!,
+      input: (b.input || {}) as Record<string, unknown>,
+    }))
+}
+
+function extractToolResults(content: string | ContentBlock[]): Array<{ id: string; result: ToolResult }> {
+  if (typeof content === 'string' || !Array.isArray(content)) return []
+  return content
+    .filter((b) => b.type === 'tool_result' && b.tool_use_id)
+    .map((b) => {
+      let resultContent = ''
+      if (typeof b.content === 'string') {
+        resultContent = b.content
+      } else if (Array.isArray(b.content)) {
+        resultContent = b.content
+          .filter((c) => c.type === 'text' && c.text)
+          .map((c) => c.text!)
+          .join('\n')
+      }
+      return {
+        id: b.tool_use_id!,
+        result: { content: resultContent, isError: !!b.is_error },
+      }
+    })
+}
+
+export function parseJsonl(text: string, fileName: string, options: ParseOptions = {}): Session | null {
   const lines = text.trim().split('\n')
   const rawMessages: ParsedMessage[] = []
   let sessionId = ''
   let cwd = ''
   let version = ''
   let model = ''
+  const includeToolDetails = !!options.includeToolDetails
+  const toolCallById = new Map<string, ToolCall>()
 
   for (const line of lines) {
     try {
@@ -35,7 +73,16 @@ export function parseJsonl(text: string, fileName: string): Session | null {
 
       const text = extractText(raw.message.content)
       const toolUses = extractToolUses(raw.message.content)
-      if (!text.trim() && toolUses.length === 0) continue
+      let toolCalls: ToolCall[] | undefined
+      if (includeToolDetails) {
+        toolCalls = extractToolCalls(raw.message.content)
+        for (const tc of toolCalls) toolCallById.set(tc.id, tc)
+        for (const r of extractToolResults(raw.message.content)) {
+          const tc = toolCallById.get(r.id)
+          if (tc) tc.result = r.result
+        }
+      }
+      if (!text.trim() && toolUses.length === 0 && (!toolCalls || toolCalls.length === 0)) continue
 
       if (!sessionId && raw.sessionId) sessionId = raw.sessionId
       if (!cwd && raw.cwd) cwd = raw.cwd
@@ -57,6 +104,7 @@ export function parseJsonl(text: string, fileName: string): Session | null {
             }
           : undefined,
         toolUses,
+        toolCalls: includeToolDetails && toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
       })
     } catch {
       // skip malformed lines
@@ -82,9 +130,17 @@ export function parseJsonl(text: string, fileName: string): Session | null {
         }
       }
       prev.toolUses = [...prev.toolUses, ...msg.toolUses]
+      if (msg.toolCalls && msg.toolCalls.length > 0) {
+        prev.toolCalls = [...(prev.toolCalls || []), ...msg.toolCalls]
+      }
       if (!prev.model && msg.model) prev.model = msg.model
     } else {
-      messages.push({ ...msg, tokens: msg.tokens ? { ...msg.tokens } : undefined, toolUses: [...msg.toolUses] })
+      messages.push({
+        ...msg,
+        tokens: msg.tokens ? { ...msg.tokens } : undefined,
+        toolUses: [...msg.toolUses],
+        toolCalls: msg.toolCalls ? [...msg.toolCalls] : undefined,
+      })
     }
   }
 

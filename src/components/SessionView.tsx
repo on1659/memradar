@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, Play, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { Session } from '../types'
+import type { Session, ParsedMessage } from '../types'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { getSourceColor, calculateSessionCost } from '../lib/tokenPricing'
 import { mdComponents } from './markdown'
 import { useI18n } from '../i18n'
+import { parseJsonl } from '../parser'
+import { ToolCallView, type ExpandSignal } from './tools/ToolCallView'
 
 interface SessionViewProps {
   session: Session
@@ -146,6 +148,39 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const sessionDisplayName = getSessionDisplayName(session)
+  const [enrichedMessages, setEnrichedMessages] = useState<ParsedMessage[] | null>(null)
+  const [enrichLoading, setEnrichLoading] = useState(false)
+  const messages = enrichedMessages ?? session.messages
+  const totalToolCalls = messages.reduce((acc, m) => acc + (m.toolCalls?.length ?? 0), 0)
+  const [allToolsExpanded, setAllToolsExpanded] = useState(false)
+  const [expandSignalKey, setExpandSignalKey] = useState(0)
+  const expandSignal: ExpandSignal = { expanded: allToolsExpanded, key: expandSignalKey }
+  const toggleAllTools = () => {
+    setAllToolsExpanded((v) => !v)
+    setExpandSignalKey((k) => k + 1)
+  }
+
+  useEffect(() => {
+    setEnrichedMessages(null)
+    const isServerMode = !window.__MEMRADAR_SESSIONS__
+    if (!isServerMode || !session.filePath || session.source !== 'claude') return
+    let cancelled = false
+    setEnrichLoading(true)
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/session-content?path=${encodeURIComponent(session.filePath!)}`)
+        if (!r.ok) return
+        const text = await r.text()
+        const parsed = parseJsonl(text, session.fileName, { includeToolDetails: true })
+        if (parsed && !cancelled) setEnrichedMessages(parsed.messages)
+      } catch {
+        // ignore — fallback to light data
+      } finally {
+        if (!cancelled) setEnrichLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [session.filePath, session.fileName, session.source])
   const cdCommand = session.cwd ? (() => {
     const driveMatch = session.cwd.match(/^([A-Za-z]):/)
     return driveMatch
@@ -285,8 +320,25 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
         </div>
       </div>
 
+      {enrichLoading && (
+        <div className="mb-2 text-[11px] text-text/40">도구 호출 상세 로딩 중…</div>
+      )}
+      {totalToolCalls > 0 && (
+        <div className="mb-2 flex items-center justify-between text-[11px] text-text/55">
+          <span className="flex items-center gap-1.5">
+            <span className="text-text/40">🔧</span>
+            도구 호출 {totalToolCalls}개
+          </span>
+          <button
+            onClick={toggleAllTools}
+            className="rounded-md border border-border/60 bg-bg-hover/40 px-2 py-1 text-[10px] text-text/70 hover:bg-bg-hover hover:text-text-bright transition-colors"
+          >
+            {allToolsExpanded ? '모두 접기' : '모두 펼치기'}
+          </button>
+        </div>
+      )}
       <div className="space-y-3">
-        {session.messages.map((msg, i) => {
+        {messages.map((msg, i) => {
           const isUser = msg.role === 'user'
           const isHighlighted = highlightMessageIndex === i
           return (
@@ -356,7 +408,13 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                   })()}
                 </div>
                 <MessageContent text={msg.text} isUser={isUser} />
-                {msg.toolUses.length > 0 && (
+                {msg.toolCalls && msg.toolCalls.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {msg.toolCalls.map((call, j) => (
+                      <ToolCallView key={call.id || j} call={call} expandSignal={expandSignal} />
+                    ))}
+                  </div>
+                ) : msg.toolUses.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-1">
                     {[...new Set(msg.toolUses)].map((tool, j) => (
                       <span
@@ -367,7 +425,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                       </span>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           )
