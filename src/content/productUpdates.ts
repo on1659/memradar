@@ -10,6 +10,18 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-05-05-large-sessions-streaming-write',
+    version: 'v3.4.7',
+    date: '2026-05-05',
+    title: '대규모 세션 환경 실행 실패 수정',
+    summary: '세션 수가 많은 환경에서 정적 HTML 빌드 중 RangeError로 실행이 멈추던 문제를 고쳤어요. 이제 수천 개 세션 환경에서도 정상적으로 출력돼요.',
+    highlights: [
+      '세션 직렬화를 스트리밍 방식으로 전환 — V8 문자열 길이 한계(~512MB) 회피',
+      '거대 세션 환경에서 발생하던 "RangeError: Invalid string length" 차단',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-04-30-resume-hint-cleanup',
     version: 'v3.4.6',
     date: '2026-04-30',

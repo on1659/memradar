@@ -45,3 +45,5 @@ tests/fixtures/role-eval-samples/
 # Temp
 tmp/
 .gstack/
+.tmp-dummy-sessions/
+.tmp-memradar-test.html

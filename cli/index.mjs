@@ -710,11 +710,17 @@ if (!isStaticMode) {
   const cssContent = fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8')
 
   const skills = scanSkills()
-  const safeJson = JSON.stringify(sessions).replace(/<\/script/gi, '<\\/script')
-  const safeSkills = JSON.stringify(skills).replace(/<\/script/gi, '<\\/script')
-  const safeJs = jsContent.replace(/<\/script/gi, '<\\/script')
+  const escapeScript = (str) => str.replace(/<\/script/gi, '<\\/script')
+  const safeSkills = escapeScript(JSON.stringify(skills))
+  const safeJs = escapeScript(jsContent)
 
-  const html = `<!doctype html>
+  // Stream-write the HTML so we never hold the full sessions array as a single
+  // string. JSON.stringify on the whole array fails with "Invalid string length"
+  // once the serialized payload approaches V8's max string length (~512MB).
+  let skipped = 0
+  const fd = fs.openSync(outPath, 'w')
+  try {
+    fs.writeSync(fd, `<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
@@ -723,19 +729,47 @@ if (!isStaticMode) {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
-    <style>${cssContent}</style>
+    <style>`)
+    fs.writeSync(fd, cssContent)
+    fs.writeSync(fd, `</style>
   </head>
   <body>
     <div id="root"></div>
-    <script>window.__MEMRADAR_SESSIONS__=${safeJson};window.__MEMRADAR_SKILLS__=${safeSkills};</script>
-    <script type="module">${safeJs}</script>
+    <script>window.__MEMRADAR_SESSIONS__=[`)
+
+    for (let i = 0; i < sessions.length; i++) {
+      let serialized
+      try {
+        serialized = escapeScript(JSON.stringify(sessions[i]))
+      } catch {
+        skipped++
+        serialized = escapeScript(JSON.stringify({
+          id: sessions[i]?.id || sessions[i]?.fileName || `session-${i}`,
+          fileName: sessions[i]?.fileName || '',
+          source: sessions[i]?.source || 'unknown',
+          messages: [],
+          _truncated: true,
+        }))
+      }
+      if (i > 0) fs.writeSync(fd, ',')
+      fs.writeSync(fd, serialized)
+    }
+
+    fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};</script>
+    <script type="module">`)
+    fs.writeSync(fd, safeJs)
+    fs.writeSync(fd, `</script>
   </body>
-</html>`
+</html>`)
+  } finally {
+    fs.closeSync(fd)
+  }
 
-  fs.writeFileSync(outPath, html, 'utf-8')
-
-  const sizeMB = (Buffer.byteLength(html, 'utf-8') / 1024 / 1024).toFixed(1)
+  const sizeMB = (fs.statSync(outPath).size / 1024 / 1024).toFixed(1)
   console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
+  if (skipped > 0) {
+    console.log(`  Note:      ${skipped} session(s) too large to serialize — body omitted`)
+  }
   console.log('  ------------------------------')
   console.log()
 
