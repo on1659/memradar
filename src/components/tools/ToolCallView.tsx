@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronRight, Wrench, AlertTriangle } from 'lucide-react'
 import type { ToolCall } from '../../types'
 import { Truncate } from './Truncate'
@@ -185,9 +185,13 @@ function bodyFor(call: ToolCall) {
 
 export function ToolCallView({ call, expandSignal }: ToolCallViewProps) {
   const [expanded, setExpanded] = useState(expandSignal?.expanded ?? true)
-  useEffect(() => {
-    if (expandSignal) setExpanded(expandSignal.expanded)
-  }, [expandSignal?.key, expandSignal?.expanded])
+  const [lastSignalKey, setLastSignalKey] = useState(expandSignal?.key ?? -1)
+  // Sync with parent signal when its key changes (global expand/collapse).
+  // React-recommended derived-state pattern — see https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  if (expandSignal && expandSignal.key !== lastSignalKey) {
+    setLastSignalKey(expandSignal.key)
+    setExpanded(expandSignal.expanded)
+  }
 
   const summary = summaryFor(call)
   const isError = !!call.result?.isError
