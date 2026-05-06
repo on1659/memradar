@@ -158,9 +158,9 @@ interface Provider {
    - `GET /api/sessions` — 감지된 세션 목록
    - `GET /api/session-content` — 개별 세션 원본 콘텐츠
    - `GET /api/skills` — 스킬 인벤토리
-3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 — 새 버전이 있으면 TTY 환경에서 Y/n 프롬프트를 표시하고, Y 입력 시 `npm install -g memradar@latest` 를 자동 실행 후 종료. 비TTY 환경에서는 안내 메시지만 출력한다
+3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 — 새 버전이 감지되면 `npx --yes memradar@<latest>` 로 child 를 띄워 자동 재실행한 뒤 본 프로세스를 종료한다. child 에는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 을 주입해 자기 자신을 또 업데이트하려 시도하지 않게 한다 — npx 캐시가 옛 버전이면 재귀 spawn 으로 무한 재시도가 되던 문제를 회피한다
 4. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
-5. `--static` 모드에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `/tmp/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다
+5. `--static` 모드(기본값) 에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `os.tmpdir()/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다. 직렬화는 세션을 하나씩 스트리밍 방식으로 디스크에 기록해 V8 max string length(~512MB) 한계를 회피한다. 출력 HTML 이 200MB 를 넘으면 브라우저 부담 안내 + 서버 모드 권장 메시지를 출력하고 자동 열기는 생략한다
 6. `--version` 플래그 지원
 
 출력된 HTML 은 파일 시스템(`file://`) 또는 배포된 URL 양쪽에서 동일하게 동작하도록 해시 라우팅을 쓴다.

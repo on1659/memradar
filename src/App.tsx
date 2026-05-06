@@ -71,7 +71,7 @@ function App() {
 
   const isServerMode = !window.__MEMRADAR_SESSIONS__
 
-  const loadSessions = useCallback(async () => {
+  const loadSessions = useCallback(async (fresh = false) => {
     try {
       const embedded = window.__MEMRADAR_SESSIONS__
       if (embedded && embedded.length > 0) {
@@ -80,41 +80,20 @@ function App() {
         return
       }
 
-      const res = await fetch('/api/sessions')
+      // 서버 모드 — 한 방에 light parsed 결과를 받는다. 서버는 모든 jsonl 을
+      // 한 번 파싱해 messageTextCap=4000 적용한 결과를 메모리에 캐시하므로,
+      // 클라이언트는 1500번 fetch 대신 1번으로 끝낸다.
+      const url = fresh ? '/api/light-sessions?fresh=1' : '/api/light-sessions'
+      const res = await fetch(url)
       if (!res.ok) throw new Error('API not available')
-      const fileList: { path: string; name: string; project: string }[] = await res.json()
+      const parsed: Session[] = await res.json()
 
-      if (fileList.length === 0) {
+      if (parsed.length === 0) {
         setView({ type: 'drop' })
         return
       }
 
-      setLoadProgress({ loaded: 0, total: fileList.length })
-      const parsed: Session[] = []
-
-      // Load in batches of 10
-      for (let i = 0; i < fileList.length; i += 10) {
-        const batch = fileList.slice(i, i + 10)
-        const results = await Promise.all(
-          batch.map(async (f) => {
-            try {
-              const r = await fetch(`/api/session-content?path=${encodeURIComponent(f.path)}`)
-              if (!r.ok) return null
-              const content = await r.text()
-              const session = detectAndParse(content, f.name)
-              if (session) session.filePath = f.path
-              return session
-            } catch {
-              return null
-            }
-          })
-        )
-        for (const s of results) {
-          if (s) parsed.push(s)
-        }
-        setLoadProgress({ loaded: Math.min(i + 10, fileList.length), total: fileList.length })
-      }
-
+      setLoadProgress({ loaded: parsed.length, total: parsed.length })
       setSessions(parsed)
       setView(getInitialDataView(parsed))
     } catch {
@@ -126,7 +105,7 @@ function App() {
     setSessions([])
     setLoadProgress({ loaded: 0, total: 0 })
     setView({ type: 'loading' })
-    await loadSessions()
+    await loadSessions(true)
   }, [loadSessions])
 
   useEffect(() => {

@@ -36,7 +36,13 @@ async function handleUpdate(latest) {
 
   await new Promise((resolve) => {
     const args = [`memradar@${latest}`, ...process.argv.slice(2)]
-    const child = spawn('npx', ['--yes', ...args], { stdio: 'inherit', shell: true })
+    // Child가 또 자기 자신을 자동 업데이트하려 시도하면 npx 캐시 갱신 전까지
+    // 무한 재시도가 발생할 수 있어 child에서는 update check를 끈다.
+    const child = spawn('npx', ['--yes', ...args], {
+      stdio: 'inherit',
+      shell: true,
+      env: { ...process.env, MEMRADAR_SKIP_UPDATE_CHECK: '1' },
+    })
     child.on('close', resolve)
     child.on('error', () => {
       console.log(`  자동 업데이트 실패. npx memradar@latest 로 직접 실행해주세요.`)
@@ -47,7 +53,9 @@ async function handleUpdate(latest) {
   process.exit(0)
 }
 
-const updateCheckPromise = checkForUpdate()
+const updateCheckPromise = process.env.MEMRADAR_SKIP_UPDATE_CHECK === '1'
+  ? Promise.resolve(null)
+  : checkForUpdate()
 
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
@@ -268,6 +276,270 @@ if (!fs.existsSync(distDir)) {
 
 const logRoots = getLogRoots()
 
+// ─── Parser functions (shared by server and static modes) ────────────
+
+function extractText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.filter((block) => block.type === 'text' && block.text).map((block) => block.text).join('\n')
+}
+
+function extractToolUses(content) {
+  if (typeof content === 'string' || !Array.isArray(content)) return []
+  return content.filter((block) => block.type === 'tool_use' && block.name).map((block) => block.name)
+}
+
+function applyTextCap(messages, cap) {
+  if (!cap) return
+  for (const m of messages) {
+    if (typeof m.text === 'string' && m.text.length > cap) {
+      m.text = m.text.slice(0, cap) + '\n\n…[잘림 — 세션 클릭 시 전체 보기]'
+    }
+  }
+}
+
+function parseClaudeJsonl(text, fileName, options = {}) {
+  const lines = text.trim().split('\n')
+  const rawMessages = []
+  let sessionId = ''
+  let cwd = ''
+  let version = ''
+  let model = ''
+
+  for (const line of lines) {
+    try {
+      const raw = JSON.parse(line)
+      if (raw.type === 'file-history-snapshot') continue
+      if (raw.isMeta || raw.isSidechain) continue
+      if (!raw.message?.role) continue
+
+      const textContent = extractText(raw.message.content)
+      const toolUses = extractToolUses(raw.message.content)
+      if (!textContent.trim() && toolUses.length === 0) continue
+
+      if (!sessionId && raw.sessionId) sessionId = raw.sessionId
+      if (!cwd && raw.cwd) cwd = raw.cwd
+      if (!version && raw.version) version = raw.version
+      if (!model && raw.message.model) model = raw.message.model
+
+      const usage = raw.message.usage
+      rawMessages.push({
+        role: raw.message.role,
+        text: textContent,
+        timestamp: raw.timestamp || '',
+        model: raw.message.model,
+        tokens: usage
+          ? {
+              input: usage.input_tokens || 0,
+              output: usage.output_tokens || 0,
+              cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+            }
+          : undefined,
+        toolUses,
+      })
+    } catch { }
+  }
+
+  if (rawMessages.length === 0) return null
+
+  const merged = []
+  for (const message of rawMessages) {
+    const previous = merged[merged.length - 1]
+    if (previous && previous.role === message.role) {
+      previous.text += '\n\n' + message.text
+      previous.timestamp = previous.timestamp || message.timestamp
+      if (message.tokens) {
+        if (previous.tokens) {
+          previous.tokens.input += message.tokens.input
+          previous.tokens.output += message.tokens.output
+          previous.tokens.cachedInput = (previous.tokens.cachedInput || 0) + (message.tokens.cachedInput || 0)
+        } else {
+          previous.tokens = { ...message.tokens }
+        }
+      }
+      previous.toolUses = [...previous.toolUses, ...message.toolUses]
+      if (!previous.model && message.model) previous.model = message.model
+    } else {
+      merged.push({
+        ...message,
+        tokens: message.tokens ? { ...message.tokens } : undefined,
+        toolUses: [...message.toolUses],
+      })
+    }
+  }
+
+  applyTextCap(merged, options.messageTextCap)
+
+  const totalTokens = merged.reduce((accumulator, message) => ({
+    input: accumulator.input + (message.tokens?.input || 0),
+    output: accumulator.output + (message.tokens?.output || 0),
+    cachedInput: (accumulator.cachedInput || 0) + (message.tokens?.cachedInput || 0),
+  }), { input: 0, output: 0, cachedInput: 0 })
+
+  return {
+    id: sessionId || fileName,
+    fileName,
+    source: 'claude',
+    messages: merged,
+    startTime: merged[0]?.timestamp || '',
+    endTime: merged[merged.length - 1]?.timestamp || '',
+    cwd,
+    version,
+    model,
+    totalTokens,
+    messageCount: {
+      user: merged.filter((message) => message.role === 'user').length,
+      assistant: merged.filter((message) => message.role === 'assistant').length,
+    },
+  }
+}
+
+const CODEX_SETUP_PREFIXES = [
+  '# AGENTS.md instructions',
+  '<environment_context>',
+  '<collaboration_mode>',
+  '<permissions instructions>',
+]
+
+function extractCodexText(content) {
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((block) => {
+      const type = typeof block.type === 'string' ? block.type : ''
+      if (!['input_text', 'output_text', 'summary_text', 'text'].includes(type)) return ''
+      return typeof block.text === 'string' ? block.text : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+function normalizeCodexUserText(text) {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  if (CODEX_SETUP_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) return ''
+  const marker = '## My request for Codex:'
+  if (trimmed.includes(marker)) {
+    return trimmed.split(marker).pop()?.trim() || ''
+  }
+  return trimmed
+}
+
+function parseCodexJsonl(text, fileName, options = {}) {
+  const lines = text.trim().split('\n')
+  const rawMessages = []
+  let sessionId = ''
+  let cwd = ''
+  let version = ''
+  let model = ''
+  let totalTokens = { input: 0, output: 0, cachedInput: 0 }
+  let pendingToolUses = []
+
+  for (const line of lines) {
+    try {
+      const record = JSON.parse(line)
+      if (record.type === 'session_meta') {
+        sessionId = typeof record.payload?.id === 'string' ? record.payload.id : sessionId
+        cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
+        version = typeof record.payload?.cli_version === 'string' ? record.payload.cli_version : version
+        continue
+      }
+      if (record.type === 'turn_context') {
+        cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
+        model = typeof record.payload?.model === 'string' ? record.payload.model : model
+        continue
+      }
+      if (record.type === 'event_msg') {
+        const total = record.payload?.info?.total_token_usage
+        if (total) {
+          totalTokens = {
+            input: Number(total.input_tokens || 0),
+            output: Number(total.output_tokens || 0),
+            cachedInput: Number(total.cached_input_tokens || 0),
+          }
+        }
+        continue
+      }
+      if (record.type !== 'response_item' || !record.payload) continue
+      if (record.payload.type === 'function_call' && record.payload.name) {
+        const previous = rawMessages[rawMessages.length - 1]
+        if (previous?.role === 'assistant') {
+          previous.toolUses.push(record.payload.name)
+        } else {
+          pendingToolUses.push(record.payload.name)
+        }
+        continue
+      }
+      if (record.payload.type !== 'message') continue
+      if (record.payload.role !== 'user' && record.payload.role !== 'assistant') continue
+
+      const textContent = extractCodexText(record.payload.content)
+      const normalizedText = record.payload.role === 'user'
+        ? normalizeCodexUserText(textContent)
+        : textContent.trim()
+
+      if (!normalizedText && pendingToolUses.length === 0) continue
+
+      rawMessages.push({
+        role: record.payload.role,
+        text: normalizedText,
+        timestamp: record.timestamp || '',
+        model: record.payload.role === 'assistant' ? model : undefined,
+        toolUses: pendingToolUses,
+      })
+      pendingToolUses = []
+    } catch { }
+  }
+
+  if (rawMessages.length === 0) return null
+
+  const merged = []
+  for (const message of rawMessages) {
+    const previous = merged[merged.length - 1]
+    if (previous && previous.role === message.role) {
+      previous.text = previous.text && message.text ? `${previous.text}\n\n${message.text}` : previous.text || message.text
+      previous.timestamp = previous.timestamp || message.timestamp
+      previous.toolUses = [...previous.toolUses, ...message.toolUses]
+      if (!previous.model && message.model) previous.model = message.model
+    } else {
+      merged.push({
+        ...message,
+        toolUses: [...message.toolUses],
+      })
+    }
+  }
+
+  // codex 메시지는 보통 짧아 cap 없이도 부담이 작고, SessionView 의 lazy
+  // fetch 패턴이 아직 claude 만 지원해서 codex 본문은 풀로 들고 있는다.
+
+  return {
+    id: sessionId || fileName,
+    fileName,
+    source: 'codex',
+    messages: merged,
+    startTime: merged[0]?.timestamp || '',
+    endTime: merged[merged.length - 1]?.timestamp || '',
+    cwd,
+    version,
+    model,
+    totalTokens,
+    messageCount: {
+      user: merged.filter((message) => message.role === 'user').length,
+      assistant: merged.filter((message) => message.role === 'assistant').length,
+    },
+  }
+}
+
+function detectAndParse(content, fileName, options) {
+  const first = content.slice(0, 1200)
+  if (first.includes('"type":"session_meta"') || first.includes('"originator":"codex_') || first.includes('"type":"turn_context"')) {
+    return parseCodexJsonl(content, fileName, options)
+  }
+  if (first.includes('"sessionId"') || first.includes('"file-history-snapshot"')) {
+    return parseClaudeJsonl(content, fileName, options)
+  }
+  return null
+}
+
 // ─── Server mode (default) ───────────────────────────────────────────
 
 if (!isStaticMode) {
@@ -341,11 +613,69 @@ if (!isStaticMode) {
     }
   }
 
+  // Light-parsed session cache. Server reads + parses every jsonl once with a
+  // message-text cap and keeps both the result array AND the serialized JSON
+  // in memory. The pre-serialized string skips the per-request stringify cost
+  // (≈1.7s for 1500 sessions / 24MB) so cache hits respond in tens of ms.
+  let lightCachePromise = null
+
+  async function buildLightCache(textCap) {
+    const filesByRoot = logRoots.flatMap((root) =>
+      findJsonlFiles(root.dir).map((filePath) => ({ ...root, filePath }))
+    )
+    const sessions = []
+    const concurrency = 32
+    for (let i = 0; i < filesByRoot.length; i += concurrency) {
+      const batch = filesByRoot.slice(i, i + concurrency)
+      const results = await Promise.all(batch.map(async (f) => {
+        try {
+          const content = await fs.promises.readFile(f.filePath, 'utf-8')
+          const session = detectAndParse(content, path.basename(f.filePath), { messageTextCap: textCap })
+          if (session) {
+            session.filePath = f.filePath
+            return session
+          }
+          return null
+        } catch {
+          return null
+        }
+      }))
+      for (const s of results) if (s) sessions.push(s)
+    }
+    const json = JSON.stringify(sessions)
+    return { sessions, json }
+  }
+
+  function getLightCache(fresh = false) {
+    if (fresh || !lightCachePromise) {
+      lightCachePromise = buildLightCache(4000).catch((err) => {
+        // 다음 요청에서 재시도 가능하게 promise 초기화
+        lightCachePromise = null
+        throw err
+      })
+    }
+    return lightCachePromise
+  }
+
+  async function handleLightSessions(req, res) {
+    try {
+      const url = new URL(req.url, 'http://localhost')
+      const fresh = url.searchParams.get('fresh') === '1'
+      const cache = await getLightCache(fresh)
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(cache.json)
+    } catch (err) {
+      res.statusCode = 500
+      res.end('Failed: ' + (err?.message || 'unknown'))
+    }
+  }
+
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname
 
     if (pathname === '/api/sessions') return handleSessions(req, res)
     if (pathname === '/api/session-content') return handleSessionContent(req, res)
+    if (pathname === '/api/light-sessions') return handleLightSessions(req, res)
     if (pathname === '/api/skills') {
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(JSON.stringify(scanSkills()))
@@ -376,6 +706,10 @@ if (!isStaticMode) {
 
   const actualPort = await tryListen(DEFAULT_PORT)
   const url = `http://localhost:${actualPort}`
+
+  // Pre-warm light parse cache in the background — 첫 클라이언트 요청이 오기 전에
+  // 미리 파싱을 시작해 응답 지연을 줄인다. 실패해도 첫 요청 시 재시도된다.
+  getLightCache().catch(() => {})
 
   // Count sessions for display
   const fileCount = logRoots.reduce((sum, root) => sum + findJsonlFiles(root.dir).length, 0)
@@ -410,254 +744,6 @@ if (!isStaticMode) {
   await handleUpdate(await updateCheckPromise)
 
   const outPath = process.env.MEMRADAR_OUTPUT_HTML || path.join(os.tmpdir(), 'memradar.html')
-
-  function extractText(content) {
-    if (typeof content === 'string') return content
-    if (!Array.isArray(content)) return ''
-    return content.filter((block) => block.type === 'text' && block.text).map((block) => block.text).join('\n')
-  }
-
-  function extractToolUses(content) {
-    if (typeof content === 'string' || !Array.isArray(content)) return []
-    return content.filter((block) => block.type === 'tool_use' && block.name).map((block) => block.name)
-  }
-
-  function parseClaudeJsonl(text, fileName) {
-    const lines = text.trim().split('\n')
-    const rawMessages = []
-    let sessionId = ''
-    let cwd = ''
-    let version = ''
-    let model = ''
-
-    for (const line of lines) {
-      try {
-        const raw = JSON.parse(line)
-        if (raw.type === 'file-history-snapshot') continue
-        if (raw.isMeta || raw.isSidechain) continue
-        if (!raw.message?.role) continue
-
-        const textContent = extractText(raw.message.content)
-        const toolUses = extractToolUses(raw.message.content)
-        if (!textContent.trim() && toolUses.length === 0) continue
-
-        if (!sessionId && raw.sessionId) sessionId = raw.sessionId
-        if (!cwd && raw.cwd) cwd = raw.cwd
-        if (!version && raw.version) version = raw.version
-        if (!model && raw.message.model) model = raw.message.model
-
-        const usage = raw.message.usage
-        rawMessages.push({
-          role: raw.message.role,
-          text: textContent,
-          timestamp: raw.timestamp || '',
-          model: raw.message.model,
-          tokens: usage
-            ? {
-                input: usage.input_tokens || 0,
-                output: usage.output_tokens || 0,
-                cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
-              }
-            : undefined,
-          toolUses,
-        })
-      } catch { }
-    }
-
-    if (rawMessages.length === 0) return null
-
-    const merged = []
-    for (const message of rawMessages) {
-      const previous = merged[merged.length - 1]
-      if (previous && previous.role === message.role) {
-        previous.text += '\n\n' + message.text
-        previous.timestamp = previous.timestamp || message.timestamp
-        if (message.tokens) {
-          if (previous.tokens) {
-            previous.tokens.input += message.tokens.input
-            previous.tokens.output += message.tokens.output
-            previous.tokens.cachedInput = (previous.tokens.cachedInput || 0) + (message.tokens.cachedInput || 0)
-          } else {
-            previous.tokens = { ...message.tokens }
-          }
-        }
-        previous.toolUses = [...previous.toolUses, ...message.toolUses]
-        if (!previous.model && message.model) previous.model = message.model
-      } else {
-        merged.push({
-          ...message,
-          tokens: message.tokens ? { ...message.tokens } : undefined,
-          toolUses: [...message.toolUses],
-        })
-      }
-    }
-
-    const totalTokens = merged.reduce((accumulator, message) => ({
-      input: accumulator.input + (message.tokens?.input || 0),
-      output: accumulator.output + (message.tokens?.output || 0),
-      cachedInput: (accumulator.cachedInput || 0) + (message.tokens?.cachedInput || 0),
-    }), { input: 0, output: 0, cachedInput: 0 })
-
-    return {
-      id: sessionId || fileName,
-      fileName,
-      source: 'claude',
-      messages: merged,
-      startTime: merged[0]?.timestamp || '',
-      endTime: merged[merged.length - 1]?.timestamp || '',
-      cwd,
-      version,
-      model,
-      totalTokens,
-      messageCount: {
-        user: merged.filter((message) => message.role === 'user').length,
-        assistant: merged.filter((message) => message.role === 'assistant').length,
-      },
-    }
-  }
-
-  const CODEX_SETUP_PREFIXES = [
-    '# AGENTS.md instructions',
-    '<environment_context>',
-    '<collaboration_mode>',
-    '<permissions instructions>',
-  ]
-
-  function extractCodexText(content) {
-    if (!Array.isArray(content)) return ''
-    return content
-      .map((block) => {
-        const type = typeof block.type === 'string' ? block.type : ''
-        if (!['input_text', 'output_text', 'summary_text', 'text'].includes(type)) return ''
-        return typeof block.text === 'string' ? block.text : ''
-      })
-      .filter(Boolean)
-      .join('\n')
-  }
-
-  function normalizeCodexUserText(text) {
-    const trimmed = text.trim()
-    if (!trimmed) return ''
-    if (CODEX_SETUP_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) return ''
-    const marker = '## My request for Codex:'
-    if (trimmed.includes(marker)) {
-      return trimmed.split(marker).pop()?.trim() || ''
-    }
-    return trimmed
-  }
-
-  function parseCodexJsonl(text, fileName) {
-    const lines = text.trim().split('\n')
-    const rawMessages = []
-    let sessionId = ''
-    let cwd = ''
-    let version = ''
-    let model = ''
-    let totalTokens = { input: 0, output: 0, cachedInput: 0 }
-    let pendingToolUses = []
-
-    for (const line of lines) {
-      try {
-        const record = JSON.parse(line)
-        if (record.type === 'session_meta') {
-          sessionId = typeof record.payload?.id === 'string' ? record.payload.id : sessionId
-          cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
-          version = typeof record.payload?.cli_version === 'string' ? record.payload.cli_version : version
-          continue
-        }
-        if (record.type === 'turn_context') {
-          cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
-          model = typeof record.payload?.model === 'string' ? record.payload.model : model
-          continue
-        }
-        if (record.type === 'event_msg') {
-          const total = record.payload?.info?.total_token_usage
-          if (total) {
-            totalTokens = {
-              input: Number(total.input_tokens || 0),
-              output: Number(total.output_tokens || 0),
-              cachedInput: Number(total.cached_input_tokens || 0),
-            }
-          }
-          continue
-        }
-        if (record.type !== 'response_item' || !record.payload) continue
-        if (record.payload.type === 'function_call' && record.payload.name) {
-          const previous = rawMessages[rawMessages.length - 1]
-          if (previous?.role === 'assistant') {
-            previous.toolUses.push(record.payload.name)
-          } else {
-            pendingToolUses.push(record.payload.name)
-          }
-          continue
-        }
-        if (record.payload.type !== 'message') continue
-        if (record.payload.role !== 'user' && record.payload.role !== 'assistant') continue
-
-        const textContent = extractCodexText(record.payload.content)
-        const normalizedText = record.payload.role === 'user'
-          ? normalizeCodexUserText(textContent)
-          : textContent.trim()
-
-        if (!normalizedText && pendingToolUses.length === 0) continue
-
-        rawMessages.push({
-          role: record.payload.role,
-          text: normalizedText,
-          timestamp: record.timestamp || '',
-          model: record.payload.role === 'assistant' ? model : undefined,
-          toolUses: pendingToolUses,
-        })
-        pendingToolUses = []
-      } catch { }
-    }
-
-    if (rawMessages.length === 0) return null
-
-    const merged = []
-    for (const message of rawMessages) {
-      const previous = merged[merged.length - 1]
-      if (previous && previous.role === message.role) {
-        previous.text = previous.text && message.text ? `${previous.text}\n\n${message.text}` : previous.text || message.text
-        previous.timestamp = previous.timestamp || message.timestamp
-        previous.toolUses = [...previous.toolUses, ...message.toolUses]
-        if (!previous.model && message.model) previous.model = message.model
-      } else {
-        merged.push({
-          ...message,
-          toolUses: [...message.toolUses],
-        })
-      }
-    }
-
-    return {
-      id: sessionId || fileName,
-      fileName,
-      source: 'codex',
-      messages: merged,
-      startTime: merged[0]?.timestamp || '',
-      endTime: merged[merged.length - 1]?.timestamp || '',
-      cwd,
-      version,
-      model,
-      totalTokens,
-      messageCount: {
-        user: merged.filter((message) => message.role === 'user').length,
-        assistant: merged.filter((message) => message.role === 'assistant').length,
-      },
-    }
-  }
-
-  function detectAndParse(content, fileName) {
-    const first = content.slice(0, 1200)
-    if (first.includes('"type":"session_meta"') || first.includes('"originator":"codex_') || first.includes('"type":"turn_context"')) {
-      return parseCodexJsonl(content, fileName)
-    }
-    if (first.includes('"sessionId"') || first.includes('"file-history-snapshot"')) {
-      return parseClaudeJsonl(content, fileName)
-    }
-    return null
-  }
 
   const files = logRoots.flatMap((root) =>
     findJsonlFiles(root.dir).map((filePath) => ({ ...root, filePath }))
@@ -765,15 +851,26 @@ if (!isStaticMode) {
     fs.closeSync(fd)
   }
 
-  const sizeMB = (fs.statSync(outPath).size / 1024 / 1024).toFixed(1)
+  const sizeBytes = fs.statSync(outPath).size
+  const sizeMB = (sizeBytes / 1024 / 1024).toFixed(1)
   console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
   if (skipped > 0) {
     console.log(`  Note:      ${skipped} session(s) too large to serialize — body omitted`)
   }
+  const HUGE_OUTPUT_THRESHOLD = 200 * 1024 * 1024
+  const isHuge = sizeBytes > HUGE_OUTPUT_THRESHOLD
+  if (isHuge) {
+    console.log()
+    console.log(`  ⚠ HTML이 ${sizeMB} MB로 매우 커서 브라우저에서 안 열리거나 멈출 수 있어요.`)
+    console.log(`     서버 모드를 권장합니다: npx memradar@latest --server`)
+  }
   console.log('  ------------------------------')
   console.log()
 
-  if (shouldOpenBrowser) {
+  if (shouldOpenBrowser && !isHuge) {
     openBrowser(outPath)
+  } else if (shouldOpenBrowser && isHuge) {
+    console.log(`  (자동 열기 생략 — 위 경로를 직접 열어보거나 서버 모드를 사용하세요)`)
+    console.log()
   }
 }
