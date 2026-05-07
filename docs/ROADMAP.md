@@ -53,6 +53,7 @@
 | 2.5 | 업적·뱃지 | Night Owl / Marathon / Token Whale 등 단계별 뱃지 | ⬜ (기획: [ACHIEVEMENTS.md](./ACHIEVEMENTS.md)) |
 | 2.6 | 향상된 시각화 | 세션 길이 분포·DonutChart "기타" 버킷 ✅, 비용 계산·복잡도 레이더 ⬜ | 🚧 |
 | 2.7 | 테마 시스템 | 배경 4종 × accent 5종 = 20 조합 | ✅ |
+| 2.8 | 세션 export·복사 | 단일 세션을 HTML(채팅 톤·문서 톤)·Markdown으로 내보내기, 전체/메시지 단위 클립보드 복사 (도구 호출 제외) | ✅ |
 
 ---
 

@@ -348,6 +348,9 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 
   표시 포맷: `{K/M 단위} 토큰`. 값이 0이면 히스토리 목록에서 숨김.
 - **세션 헤더 배지 간격:** `gap-x-1.5 gap-y-1` (소스·모델·토큰·메시지수 배지 행).
+- **헤더 export·복사 컨트롤:** "전체 복사" 버튼과 "내보내기" 드롭다운은 중립 톤(`border-border/70 bg-bg-card hover:bg-bg-hover text-text/80`)으로 Replay(accent)와 시각 위계 분리. 드롭다운은 Escape 키 + 외부 `pointerdown`(터치 포함)으로 닫힘. 메뉴 항목 라운드 `rounded-lg`, 트리거 `rounded-full`.
+- **메시지 hover 복사 버튼:** 메시지 카드 div에 `group` 클래스, 내부 버튼은 `opacity-0 group-hover:opacity-100 focus:opacity-100`. 빈 메시지(`cleanClaudeText` 후 trim 결과 빈 문자열)에는 표시하지 않음.
+- **export 정책:** Markdown(`buildMarkdown`) · 자체완결 HTML 채팅 톤(`buildHtmlChat`) · 자체완결 HTML 문서 톤(`buildHtmlMarkdown`) — `src/lib/sessionExport.ts` 한 곳에서 관리. 모든 출력 경로에서 `cleanClaudeText`를 단일 진입점(`toExportMessages`)에서 적용하고 `toolCalls`/`toolUses`는 직렬화하지 않음. "중단됨" 표기는 `⚠️`(emoji + variation selector)로 통일. 자체완결 HTML은 Tailwind 런타임 없이 inline `<style>` 만으로 표시되므로 `mdComponents`(Tailwind className)를 `react-dom/server`로 SSR하지 말 것 — 외부 환경에서 클래스가 죽는다.
 
 ### 5.6 입력 요소
 

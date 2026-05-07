@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, Play, User } from 'lucide-react'
+import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, Download, Play, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage } from '../types'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { getSourceColor, calculateSessionCost } from '../lib/tokenPricing'
+import {
+  buildMarkdown,
+  buildMessageMarkdown,
+  buildHtmlChat,
+  buildHtmlMarkdown,
+  downloadText,
+  sanitizeFileName,
+} from '../lib/sessionExport'
 import { mdComponents } from './markdown'
 import { useI18n } from '../i18n'
 import { parseJsonl } from '../parser'
@@ -108,37 +116,123 @@ function MessageContent({ text, isUser }: { text: string; isUser: boolean }) {
 
 }
 
-function CopyButton({ text }: { text: string }) {
+async function copyToClipboardWithFallback(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
+}
+
+function CopyButton({ text, className, title }: { text: string; className?: string; title?: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // fallback
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
+    await copyToClipboardWithFallback(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }, [text])
 
+  const baseClass =
+    className ??
+    'ml-auto flex-shrink-0 rounded-md p-1 text-text/30 transition-colors hover:bg-bg-hover hover:text-text-bright'
+
   return (
-    <button
-      onClick={handleCopy}
-      className="ml-auto flex-shrink-0 rounded-md p-1 text-text/30 transition-colors hover:bg-bg-hover hover:text-text-bright"
-      title="복사"
-    >
+    <button onClick={handleCopy} className={baseClass} title={title ?? '복사'}>
       {copied ? <Check className="h-3.5 w-3.5 text-green" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
+  )
+}
+
+type ExportFormat = 'html-chat' | 'html-doc' | 'markdown'
+
+function ExportMenu({
+  onExport,
+}: {
+  onExport: (format: ExportFormat) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointer(e: PointerEvent) {
+      if (!containerRef.current) return
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-card px-3 py-1.5 text-xs font-medium text-text/80 transition-colors hover:bg-bg-hover hover:text-text-bright"
+        title="내보내기"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Download className="h-3.5 w-3.5" />
+        내보내기
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1.5 w-60 overflow-hidden rounded-lg border border-border bg-bg-card shadow-xl"
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onExport('html-chat')
+            }}
+            className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text/85 transition-colors hover:bg-bg-hover hover:text-text-bright"
+          >
+            <span className="font-medium">채팅 화면 그대로 (HTML)</span>
+            <span className="text-[10px] text-text/45">현재 다크 톤 그대로 저장</span>
+          </button>
+          <div className="h-px bg-border/60" />
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onExport('html-doc')
+            }}
+            className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text/85 transition-colors hover:bg-bg-hover hover:text-text-bright"
+          >
+            <span className="font-medium">단순 마크다운 HTML</span>
+            <span className="text-[10px] text-text/45">인쇄·공유용 라이트 톤</span>
+          </button>
+          <div className="h-px bg-border/60" />
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onExport('markdown')
+            }}
+            className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs text-text/85 transition-colors hover:bg-bg-hover hover:text-text-bright"
+          >
+            <span className="font-medium">원본 마크다운 (.md)</span>
+            <span className="text-[10px] text-text/45">텍스트 그대로 저장</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -159,6 +253,32 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
     setAllToolsExpanded((v) => !v)
     setExpandSignalKey((k) => k + 1)
   }
+
+  const [allCopied, setAllCopied] = useState(false)
+  const handleCopyAll = useCallback(async () => {
+    const md = buildMarkdown(session, messages)
+    await copyToClipboardWithFallback(md)
+    setAllCopied(true)
+    setTimeout(() => setAllCopied(false), 1500)
+  }, [session, messages])
+
+  const handleExport = useCallback(
+    (format: ExportFormat) => {
+      const baseName = sanitizeFileName(getSessionDisplayName(session))
+      if (format === 'markdown') {
+        const md = buildMarkdown(session, messages)
+        downloadText(md, `${baseName}.md`, 'text/markdown')
+        return
+      }
+      const html =
+        format === 'html-chat'
+          ? buildHtmlChat(session, messages)
+          : buildHtmlMarkdown(session, messages)
+      const suffix = format === 'html-chat' ? '.chat.html' : '.html'
+      downloadText(html, `${baseName}${suffix}`, 'text/html')
+    },
+    [session, messages]
+  )
 
   useEffect(() => {
     setEnrichedMessages(null)
@@ -216,17 +336,39 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
             <ArrowLeft className="h-4 w-4" />
             대시보드로 돌아가기
           </button>
-          {onReplay && session.messages.length > 0 && (
-            <button
-              onClick={onReplay}
-              className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
-              title={t('replay.open')}
-              data-replay-open
-            >
-              <Play className="h-3.5 w-3.5" />
-              {t('replay.open')}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <button
+                onClick={handleCopyAll}
+                className="flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-card px-3 py-1.5 text-xs font-medium text-text/80 transition-colors hover:bg-bg-hover hover:text-text-bright"
+                title="전체 대화를 마크다운으로 복사"
+              >
+                {allCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-green" />
+                    <span>복사됨</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>전체 복사</span>
+                  </>
+                )}
+              </button>
+            )}
+            {messages.length > 0 && <ExportMenu onExport={handleExport} />}
+            {onReplay && session.messages.length > 0 && (
+              <button
+                onClick={onReplay}
+                className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+                title={t('replay.open')}
+                data-replay-open
+              >
+                <Play className="h-3.5 w-3.5" />
+                {t('replay.open')}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="rounded-xl border border-border bg-bg-card p-5">
@@ -341,6 +483,10 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
         {messages.map((msg, i) => {
           const isUser = msg.role === 'user'
           const isHighlighted = highlightMessageIndex === i
+          // 메시지 단위 복사: 본문 + 도구 호출 블록 전체를 buildMessageMarkdown 으로 일관 직렬화.
+          // 본문이 비고 도구 호출도 없으면 빈 문자열 → 복사 버튼 숨김.
+          const copyText = buildMessageMarkdown(msg, session.source)
+          const hasCopyTarget = copyText.length > 0
           return (
             <div
               key={i}
@@ -348,7 +494,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 if (el) messageRefs.current.set(i, el)
                 else messageRefs.current.delete(i)
               }}
-              className={`animate-in ${isUser ? 'ml-10' : ''}`}
+              className={`group animate-in ${isUser ? 'ml-10' : ''}`}
               style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
             >
               <div
@@ -368,6 +514,13 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                     {isUser ? 'You' : assistantLabel}
                   </span>
                   <span className="text-[10px] text-text/40">{formatTime(msg.timestamp)}</span>
+                  {hasCopyTarget && (
+                    <CopyButton
+                      text={copyText}
+                      title="이 메시지 복사"
+                      className="rounded-md p-1 text-text/30 opacity-0 transition-all hover:bg-bg-hover hover:text-text-bright group-hover:opacity-100 focus:opacity-100"
+                    />
+                  )}
                   {msg.tokens && (() => {
                     const inp = msg.tokens.input || 0
                     const out = msg.tokens.output || 0

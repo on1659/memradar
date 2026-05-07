@@ -10,17 +10,34 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-05-08-session-export',
+    version: 'v3.6.0',
+    date: '2026-05-08',
+    title: '세션 대화 HTML / Markdown 내보내기 + 전체·메시지 복사',
+    summary: '세션 상세 화면에서 대화 전체를 HTML이나 마크다운 파일로 내보낼 수 있어요. 도구 호출 본문(Bash, Edit, Read 등)도 접힘 카드로 함께 들어가서 세션의 실제 흐름이 그대로 보존됩니다.',
+    highlights: [
+      '"내보내기" 드롭다운 — 채팅 화면 그대로 (HTML) / 단순 마크다운 HTML / 원본 마크다운 (.md) 3종 형식',
+      '"전체 복사" — 대화 전체를 마크다운으로 클립보드 복사 (ChatGPT·메모장 등에 바로 붙여넣기)',
+      '메시지 hover 시 메시지 단위 복사 버튼 — 한 메시지만 따로 복사',
+      '도구 호출은 `<details>` 카드로 함께 export — 도구명 + 입력 + 결과까지, 기본 닫힘 상태라 길어도 깔끔',
+      '서버 모드는 도구 본문까지 풍부하게, 정적 모드는 도구명만 chip 폴백',
+      '모든 export 경로에서 시스템 태그·도구 메타 자동 정리 — 사람 대화로 깔끔하게',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-05-07-server-light-cache',
     version: 'v3.5.1',
     date: '2026-05-07',
     title: '서버 모드 거대 세션 환경 대응 (수천 세션 OK)',
-    summary: '서버 모드(`--server`)가 수천 개 세션 환경에서도 즉시 응답해요. 기존엔 클라이언트가 세션마다 따로 받아 메모리 폭발이 났는데, 이제 서버가 한 번에 light parse 후 캐시해서 한 방에 보냅니다.',
+    summary: '서버 모드(`--server`)가 수천 개 세션 환경에서도 즉시 응답해요. 기존엔 클라이언트가 세션마다 따로 받아 메모리 폭발이 났는데, 이제 서버가 한 번에 light parse 후 캐시해서 한 방에 보냅니다. GitHub 이슈 #2 제보 덕에 빠르게 확인하고 고쳤어요 — 알려주셔서 고맙습니다.',
     highlights: [
       '서버에서 light parse 결과 + 직렬화 JSON 까지 메모리 캐시 — 1500세션 응답 ~300ms (이전 시나리오는 브라우저가 멈춤)',
       '클라이언트는 `/api/light-sessions` 한 번 호출로 끝 — 메모리 사용 ~10x 감축',
       'Claude 메시지 본문 4000자 cap, 세션 클릭 시 풀 본문 lazy fetch',
       '자동 업데이트 무한 재시도 가드 — npx 캐시가 옛 버전이어도 재귀 spawn 안 됨',
       '정적 HTML 출력이 200MB 넘으면 서버 모드 권장 안내 + 자동 열기 생략',
+      '제보: github.com/on1659/memradar/issues/2 — 알려주셔서 감사해요',
     ],
     category: 'workflow',
   },
