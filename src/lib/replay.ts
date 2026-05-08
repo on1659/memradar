@@ -1,6 +1,6 @@
 import type { ParsedMessage } from '../types'
 
-export type ReplaySpeed = 1 | 2 | 5
+export type ReplaySpeed = 0.25 | 0.5 | 1 | 2 | 5
 
 export type GapMagnitude =
   | { unit: 'none' }
@@ -17,9 +17,9 @@ export interface ReplayTimeline {
   messageCount: number
 }
 
-const MIN_MESSAGE_DURATION_MS = 500
-const MAX_MESSAGE_DURATION_MS = 4_000
-const MS_PER_CHAR = 8
+const MIN_MESSAGE_DURATION_MS = 1_500
+const MAX_MESSAGE_DURATION_MS = 60_000
+const MS_PER_CHAR = 30
 
 function messageDurationFor(text: string): number {
   const len = text?.length ?? 0

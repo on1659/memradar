@@ -24,7 +24,7 @@ interface ReplayViewProps {
   onBack: () => void
 }
 
-const SPEED_OPTIONS: ReplaySpeed[] = [1, 2, 5]
+const SPEED_OPTIONS: ReplaySpeed[] = [0.25, 0.5, 1, 2, 5]
 const DENSITY_BUCKETS = 40
 
 function useGapLabel() {
@@ -226,31 +226,37 @@ export function ReplayView({ session, onBack }: ReplayViewProps) {
     const STICK_THRESHOLD_PX = 120
     const EASE_FACTOR = 0.005      // 프레임당 남은 거리의 0.5% — 매우 완만한 chase
     const MIN_STEP_PX = 6          // 프레임당 최소 이동 — 타이핑 속도 따라잡기용
-    const USER_PAUSE_MS = 600       // 사용자 상호작용 후 자동 스크롤 일시정지
-    let stick = true
-    let pauseUntil = 0
+    let stick = true               // 사용자가 위로 올리면 영구 정지, 다시 바닥에 닿으면 재개
+    let suppressNextScrollEvent = false
     let rafId = 0
     let active = true
 
+    // wheel/touch — 사용자가 의도적으로 스크롤을 가져갔으니 자동 chase 정지
     const onUserScroll = () => {
       stick = false
-      pauseUntil = performance.now() + USER_PAUSE_MS
     }
 
+    // chase 가 만든 scroll 이벤트는 무시. 사용자가 직접 바닥 근처까지 스크롤한 경우에만 재개
     const onScroll = () => {
+      if (suppressNextScrollEvent) {
+        suppressNextScrollEvent = false
+        return
+      }
       const distance = container.scrollHeight - container.scrollTop - container.clientHeight
       if (distance <= STICK_THRESHOLD_PX) stick = true
     }
 
     const loop = () => {
       if (!active) return
-      if (stick && performance.now() >= pauseUntil) {
+      if (stick) {
         const target = container.scrollHeight - container.clientHeight
         const diff = target - container.scrollTop
         if (diff > 1) {
           const step = Math.max(MIN_STEP_PX, diff * EASE_FACTOR)
+          suppressNextScrollEvent = true
           container.scrollTop += Math.min(diff, step)
         } else if (diff > 0) {
+          suppressNextScrollEvent = true
           container.scrollTop = target
         }
       }

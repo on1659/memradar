@@ -97,12 +97,14 @@ https://memradar.vercel.app 접속 후 `.jsonl` 파일을 드래그하면 된다
 ### 실행 모드
 
 ```bash
-npx memradar@latest              # 단일 HTML 파일 생성 후 브라우저 열기 (기본)
-npx memradar@latest --server     # 로컬 서버 모드
+npx memradar@latest                          # 단일 HTML 파일 생성 후 브라우저 열기 (기본)
+npx memradar@latest --server                 # 로컬 서버 모드 (localhost 만)
+npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크 다른 기기에서도 접근
 ```
 
 - **HTML 모드 (기본)**: 모든 세션을 하나의 HTML 파일로 생성 후 브라우저로 열림. 서버 불필요.
-- **서버 모드**: `localhost:3939`에서 앱을 서빙. `Ctrl+C`로 종료.
+- **서버 모드**: `localhost:3939`에서 앱을 서빙. `Ctrl+C`로 종료. `--host 0.0.0.0` 또는 `--host 192.168.x.x`로 LAN 노출 가능 (보안 주의 — 공용 와이파이 등에서는 금지).
+- **웹사이트**: 설치 없이 [memradar.vercel.app](https://memradar.vercel.app)에서 `.jsonl` 파일 드래그&드롭. 모든 분석은 브라우저 안에서만 — 세션 데이터는 외부 서버로 전송되지 않음.
 
 ---
 
@@ -121,9 +123,12 @@ npx memradar@latest --server     # 로컬 서버 모드
 ## CLI
 
 ```bash
-npx memradar@latest              # 단일 HTML 파일 생성 후 브라우저 열기 (기본)
-npx memradar@latest --server     # 로컬 서버 모드
+npx memradar@latest                          # 단일 HTML 파일 생성 후 브라우저 열기 (기본)
+npx memradar@latest --server                 # 로컬 서버 모드 (localhost 만)
+npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크의 다른 기기에서도 접근
 ```
+
+> ⚠️ `--host 0.0.0.0` 또는 LAN IP 지정 시 같은 네트워크의 다른 기기가 세션 로그를 볼 수 있습니다. 공용 와이파이 등 신뢰하지 않는 네트워크에서는 사용을 피하세요. 안전한 우회 경로는 SSH 포트 포워딩(`ssh -L 3939:localhost:3939 ...`) 또는 Tailscale 같은 VPN 권장.
 
 환경 변수:
 
@@ -132,6 +137,7 @@ npx memradar@latest --server     # 로컬 서버 모드
 | `MEMRADAR_PROJECTS_DIR` | `~/.claude/projects` | Claude 세션 루트 경로 |
 | `MEMRADAR_CODEX_DIR` | `~/.codex/sessions` | Codex 세션 루트 경로 |
 | `MEMRADAR_PORT` | `3939` | 서버 모드 포트 번호 |
+| `MEMRADAR_HOST` | `127.0.0.1` | 서버 바인딩 인터페이스 (`--host` 와 동일) |
 | `MEMRADAR_OUTPUT_HTML` | OS 임시 디렉터리 | `--static` 모드 HTML 저장 경로 |
 | `MEMRADAR_NO_OPEN` | `0` | `1`로 설정 시 브라우저 자동 열기 비활성화 |
 

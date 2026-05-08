@@ -62,6 +62,31 @@ const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
 const isStaticMode = !process.argv.includes('--server')
 const DEFAULT_PORT = parseInt(process.env.MEMRADAR_PORT || '3939', 10)
 
+// --host <value> 또는 MEMRADAR_HOST 로 바인딩 인터페이스 변경.
+// 기본은 127.0.0.1(localhost) — 의도적으로 loopback 만 노출.
+// 0.0.0.0 / LAN IP 지정 시 같은 네트워크의 다른 기기에서 접근 가능.
+function parseHostArg(argv) {
+  const i = argv.indexOf('--host')
+  if (i >= 0 && i + 1 < argv.length) return argv[i + 1]
+  return process.env.MEMRADAR_HOST || '127.0.0.1'
+}
+const SERVER_HOST = parseHostArg(process.argv)
+
+function isLoopbackHost(host) {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1'
+}
+
+function getLanIps() {
+  const ifaces = os.networkInterfaces()
+  const ips = []
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) ips.push(iface.address)
+    }
+  }
+  return ips
+}
+
 // ─── Common utilities ────────────────────────────────────────────────
 
 function getLogRoots() {
@@ -688,7 +713,7 @@ if (!isStaticMode) {
     return new Promise((resolve, reject) => {
       let attempts = 0
       function attempt() {
-        server.listen(port + attempts, '127.0.0.1', () => resolve(port + attempts))
+        server.listen(port + attempts, SERVER_HOST, () => resolve(port + attempts))
         server.once('error', (err) => {
           if (err.code === 'EADDRINUSE' && ++attempts < maxAttempts) {
             server.removeAllListeners('error')
@@ -705,7 +730,8 @@ if (!isStaticMode) {
   await handleUpdate(await updateCheckPromise)
 
   const actualPort = await tryListen(DEFAULT_PORT)
-  const url = `http://localhost:${actualPort}`
+  const localUrl = `http://localhost:${actualPort}`
+  const url = isLoopbackHost(SERVER_HOST) ? localUrl : `http://${SERVER_HOST}:${actualPort}`
 
   // Pre-warm light parse cache in the background — 첫 클라이언트 요청이 오기 전에
   // 미리 파싱을 시작해 응답 지연을 줄인다. 실패해도 첫 요청 시 재시도된다.
@@ -723,6 +749,19 @@ if (!isStaticMode) {
   }
   console.log(`  Sessions:  ${fileCount}`)
   console.log(`  Server:    ${url}`)
+  if (!isLoopbackHost(SERVER_HOST)) {
+    const lanIps = SERVER_HOST === '0.0.0.0' ? getLanIps() : []
+    if (lanIps.length > 0) {
+      console.log('  LAN URLs:')
+      for (const ip of lanIps) {
+        console.log(`    - http://${ip}:${actualPort}`)
+      }
+    }
+    console.log()
+    console.log('  ⚠️  네트워크 노출 모드 (--host ' + SERVER_HOST + ')')
+    console.log('     같은 네트워크의 다른 기기에서 세션 로그를 볼 수 있습니다.')
+    console.log('     공용 와이파이 등 신뢰하지 않는 네트워크에서는 사용을 피하세요.')
+  }
   console.log('  ------------------------------')
   console.log('  Press Ctrl+C to stop')
   console.log()

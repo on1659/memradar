@@ -152,7 +152,7 @@ interface Provider {
 
 ## CLI 아키텍처
 
-`cli/index.mjs` 는 Node ESM 스크립트이며 기본 동작은 로컬 HTTP 서버(포트 **3939**)를 띄우는 것이다.
+`cli/index.mjs` 는 Node ESM 스크립트이며 기본 동작은 로컬 HTTP 서버(포트 **3939**, 바인딩 **`127.0.0.1`**)를 띄우는 것이다. 같은 네트워크의 다른 기기에서 접근해야 한다면 `--host 0.0.0.0` 또는 `MEMRADAR_HOST=0.0.0.0` 로 바인딩을 풀 수 있다 — 비-loopback 시 콘솔에 LAN URL 목록 + 보안 경고가 함께 출력된다.
 
 1. `~/.claude/projects/` 및 선택적으로 `~/.codex/sessions/` 를 스캔해 `.jsonl` 세션을 수집
 2. `dist/` 번들을 서빙하며 아래 API 를 노출한다:

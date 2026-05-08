@@ -10,6 +10,23 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-05-08-replay-speed-and-host',
+    version: 'v3.6.1',
+    date: '2026-05-08',
+    title: '리플레이 슬로우 옵션 + 같은 네트워크 다른 기기 접근',
+    summary: '두 가지 사용자 피드백 반영. 리플레이가 너무 빨라 글이 화면 밖으로 흘러 읽기 어렵던 문제와, 휴대폰 같은 다른 기기에서 자기 PC의 memradar에 접근하고 싶다는 요청. 그리고 설치 없이 https://memradar.vercel.app 에서 .jsonl 파일 드래그&드롭으로 바로 사용도 가능합니다 — 모든 분석은 브라우저 안에서만 끝나고 외부로 전송되지 않아요.',
+    highlights: [
+      '리플레이 배속 슬로우 옵션 추가 — 0.25x · 0.5x · 1x · 2x · 5x (이전엔 1x · 2x · 5x)',
+      '글자당 노출 시간 8ms → 30ms로 사람 친화적으로 재정의 — 1x가 사람 읽기 속도에 더 가까움',
+      '긴 메시지 cap 4초 → 60초 — 긴 답변이 강제로 빠르게 압축되던 문제 해소',
+      '자동 스크롤 영구 정지 — 사용자가 위로 올려 글 읽는 동안 화면이 빼앗기지 않음 (다시 바닥에 닿으면 재개)',
+      '`memradar --server --host 0.0.0.0` — 같은 네트워크의 다른 기기(휴대폰·태블릿·다른 PC)에서 접근 가능. `MEMRADAR_HOST` 환경변수도 동일',
+      '비-loopback 바인딩 시 LAN URL 자동 출력 + 보안 경고 — 공용 와이파이 등에서는 사용 금지',
+      '웹사이트 https://memradar.vercel.app — 설치 없이 .jsonl 드래그&드롭, 데이터는 브라우저 안에만',
+    ],
+    category: 'workflow',
+  },
+  {
     id: '2026-05-08-session-export',
     version: 'v3.6.0',
     date: '2026-05-08',
