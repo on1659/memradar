@@ -97,7 +97,7 @@ export function MemradarTopBar({
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap lg:w-auto lg:items-end">
+        <div className="relative z-[85] flex w-full flex-wrap items-center justify-end gap-2 sm:flex-nowrap lg:w-auto lg:items-end">
           <div className="order-2 flex items-center gap-2">
             {onOpenWrapped && (
               <button
