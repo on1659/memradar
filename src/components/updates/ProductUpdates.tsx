@@ -179,7 +179,6 @@ export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
       <div className="dashboard-popover right-6 top-20 w-[min(27rem,calc(100vw-2rem))] rounded-2xl border border-border bg-bg-card p-4 shadow-2xl animate-in max-sm:left-4 max-sm:right-4 max-sm:top-18 max-sm:w-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs text-text/45">대시보드 헤더 후보</div>
             <div className="mt-1 text-sm font-semibold text-text-bright">{t('dashboard.news')}</div>
             <p className="mt-2 text-xs leading-5 text-text/60">
               메인 화면은 가볍게 두고, 궁금한 사람만 눌러서 업데이트를 보는 방식입니다.
