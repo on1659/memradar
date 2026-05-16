@@ -29,7 +29,7 @@ import { analyzeLanguages, type LanguageScore } from '../lib/languageProfile'
 export interface DashboardFilters {
   sessionFilter: string
   sessionSourceFilter: 'all' | 'claude' | 'codex'
-  sessionSort: 'date' | 'tokens'
+  sessionSort: 'date' | 'date-asc' | 'tokens' | 'tokens-asc'
   dateFrom: string
   dateTo: string
 }
@@ -809,7 +809,7 @@ export function Dashboard({
   const [dateFromLocal, setDateFromLocal] = useState(filters?.dateFrom ?? '')
   const [dateToLocal, setDateToLocal] = useState(filters?.dateTo ?? '')
   const [sessionSourceFilterLocal, setSessionSourceFilterLocal] = useState<'all' | 'claude' | 'codex'>(filters?.sessionSourceFilter ?? 'all')
-  const [sessionSortLocal, setSessionSortLocal] = useState<'date' | 'tokens'>(filters?.sessionSort ?? 'date')
+  const [sessionSortLocal, setSessionSortLocal] = useState<'date' | 'date-asc' | 'tokens' | 'tokens-asc'>(filters?.sessionSort ?? 'date')
 
   const sessionFilter = sessionFilterLocal
   const dateFrom = dateFromLocal
@@ -821,7 +821,7 @@ export function Dashboard({
   const setDateFrom = (v: string) => { setDateFromLocal(v); onFiltersChange?.({ sessionFilter, dateFrom: v, dateTo, sessionSourceFilter, sessionSort }) }
   const setDateTo = (v: string) => { setDateToLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo: v, sessionSourceFilter, sessionSort }) }
   const setSessionSourceFilter = (v: 'all' | 'claude' | 'codex') => { setSessionSourceFilterLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter: v, sessionSort }) }
-  const setSessionSort = (v: 'date' | 'tokens') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v }) }
+  const setSessionSort = (v: 'date' | 'date-asc' | 'tokens' | 'tokens-asc') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v }) }
 
   const [showLowestTokenDay, setShowLowestTokenDay] = useState(false)
   const [tokenDayPinned, setTokenDayPinned] = useState(false)
@@ -835,9 +835,11 @@ export function Dashboard({
       [...sessions].sort((a, b) => {
         const dateDiff = new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
         if (sessionSort === 'date') return dateDiff
+        if (sessionSort === 'date-asc') return -dateDiff
 
         const tokenDiff = getSessionTotalTokens(b) - getSessionTotalTokens(a)
-        return tokenDiff !== 0 ? tokenDiff : dateDiff
+        if (sessionSort === 'tokens') return tokenDiff !== 0 ? tokenDiff : dateDiff
+        return tokenDiff !== 0 ? -tokenDiff : dateDiff
       }),
     [sessionSort, sessions]
   )
@@ -1228,10 +1230,11 @@ export function Dashboard({
                 {isKorean ? '내 전체 성향' : 'My Overall Type'}
               </span>
               <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-mono"
+                className="rounded-full px-2.5 py-1 text-[10px] font-mono font-bold tracking-widest"
                 style={{
-                  background: 'color-mix(in srgb, var(--t-text-bright) 8%, transparent)',
-                  color: 'color-mix(in srgb, var(--t-text) 52%, transparent)',
+                  background: 'color-mix(in srgb, var(--t-accent) 15%, var(--t-bg-card))',
+                  color: 'color-mix(in srgb, var(--t-accent) 90%, var(--t-text-bright) 10%)',
+                  border: '1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)',
                 }}
               >
                 {personality.type}
@@ -1656,23 +1659,40 @@ export function Dashboard({
               {([
                 ['date', sortByDateLabel],
                 ['tokens', sortByTokensLabel],
-              ] as const).map(([sortKey, label]) => (
-                <button
-                  key={sortKey}
-                  type="button"
-                  onClick={() => setSessionSort(sortKey)}
-                  className="rounded-full border px-3 py-1 text-[11px] font-medium transition-all"
-                  style={sessionSort === sortKey
-                    ? {
-                        color: 'var(--color-text-bright)',
-                        borderColor: 'var(--color-border)',
-                        background: 'var(--color-bg-hover)',
+              ] as const).map(([sortKey, label]) => {
+                const isActive = sessionSort === sortKey || sessionSort === `${sortKey}-asc`
+                const isAscending = sessionSort === `${sortKey}-asc`
+                const arrow = isActive ? (isAscending ? ' ↑' : ' ↓') : ''
+
+                return (
+                  <button
+                    key={sortKey}
+                    type="button"
+                    onClick={() => {
+                      if (sessionSort === sortKey) {
+                        // 같은 버튼 재클릭 → 반대 방향으로 토글
+                        setSessionSort(`${sortKey}-asc` as 'date-asc' | 'tokens-asc')
+                      } else if (sessionSort === `${sortKey}-asc`) {
+                        // 오름차순 상태에서 다시 클릭 → 내림차순으로
+                        setSessionSort(sortKey as 'date' | 'tokens')
+                      } else {
+                        // 다른 버튼 클릭 → 해당 정렬의 기본값(내림차순)으로 변경
+                        setSessionSort(sortKey as 'date' | 'tokens')
                       }
-                    : undefined}
-                >
-                  {label}
-                </button>
-              ))}
+                    }}
+                    className="rounded-full border px-3 py-1 text-[11px] font-medium transition-all"
+                    style={isActive
+                      ? {
+                          color: 'var(--color-text-bright)',
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-bg-hover)',
+                        }
+                      : undefined}
+                  >
+                    {label}{arrow}
+                  </button>
+                )
+              })}
             </div>
           </div>
           <input
