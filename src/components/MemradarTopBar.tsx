@@ -127,7 +127,7 @@ export function MemradarTopBar({
           )}
 
           <button
-            onClick={() => setUpdatesOpen(true)}
+            onClick={() => setUpdatesOpen(o => !o)}
             className="order-1 flex h-9 items-center gap-2 rounded-xl bg-bg-card/70 px-3 text-sm text-text transition-colors hover:bg-bg-hover hover:text-text-bright whitespace-nowrap"
           >
             <Bell className="h-4 w-4" />
