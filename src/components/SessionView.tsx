@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, Bot, Check, ChevronDown, ChevronUp, Clock, Copy, Download, Play, User } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Clock, Copy, Download, Play } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage } from '../types'
@@ -18,6 +18,7 @@ import { mdComponents } from './markdown'
 import { useI18n } from '../i18n'
 import { parseJsonl } from '../parser'
 import { ToolCallView, type ExpandSignal } from './tools/ToolCallView'
+import { SYSTEM_ICONS } from '../icons'
 
 interface SessionViewProps {
   session: Session
@@ -102,7 +103,7 @@ function MessageContent({ text, isUser }: { text: string; isUser: boolean }) {
   const { text: cleaned, interrupted } = cleanClaudeText(text)
 
   return (
-    <div className={`text-sm leading-7 ${isUser ? 'text-text-bright' : 'text-text'}`}>
+    <div className={`text-sm leading-7 break-words ${isUser ? 'text-text-bright' : 'text-text'}`}>
       {interrupted && (
         <span className="mb-2 inline-block rounded bg-amber/10 px-2 py-0.5 text-[10px] text-amber/70">
           중단됨
@@ -241,6 +242,8 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const totalSessionTokens = getSessionTotalTokens(session)
   const assistantLabel = session.source === 'codex' ? 'Codex' : 'Claude'
+  const youLabel = t('role.you')
+  const aiLabel = t('role.ai')
   const sessionDisplayName = getSessionDisplayName(session)
   const [enrichedMessages, setEnrichedMessages] = useState<ParsedMessage[] | null>(null)
   const [enrichLoading, setEnrichLoading] = useState(false)
@@ -468,7 +471,7 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
       {totalToolCalls > 0 && (
         <div className="mb-2 flex items-center justify-between text-[11px] text-text/55">
           <span className="flex items-center gap-1.5">
-            <span className="text-text/40">🔧</span>
+            <SYSTEM_ICONS.toolGlyph className="h-3.5 w-3.5 text-text/45" aria-hidden="true" />
             도구 호출 {totalToolCalls}개
           </span>
           <button
@@ -503,15 +506,12 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 } ${isUser ? 'border-green/15 bg-green/5' : 'border-border bg-bg-card'}`}
               >
                 <div className="mb-3 flex items-center gap-2">
-                  <div
-                    className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${
-                      isUser ? 'bg-green/15 text-green' : 'bg-accent/15 text-accent'
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      isUser ? 'bg-green/12 text-green' : 'bg-text-bright/8 text-text-bright'
                     }`}
                   >
-                    {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
-                  </div>
-                  <span className="text-xs font-semibold text-text-bright">
-                    {isUser ? 'You' : assistantLabel}
+                    {isUser ? youLabel : aiLabel}
                   </span>
                   <span className="text-[10px] text-text/40">{formatTime(msg.timestamp)}</span>
                   {hasCopyTarget && (

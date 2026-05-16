@@ -28,7 +28,7 @@ export function PromptsSlide({ totalPrompts }: Props) {
       <FadeInText className="text-accent/60 text-sm tracking-widest uppercase mb-8">
         Your Prompts
       </FadeInText>
-      <div className="text-7xl md:text-9xl font-bold text-text-bright mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>
+      <div className="font-display text-7xl md:text-9xl font-bold text-text-bright mb-6">
         <AnimatedNumber value={totalPrompts} />
       </div>
       <FadeInText delay={0.5} className="text-xl text-text/60 mb-4">

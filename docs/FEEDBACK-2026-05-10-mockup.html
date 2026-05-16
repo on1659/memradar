@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memradar 디자인 정리 — 목업 v3 (2026-05-10)</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-deep: #06060e;
+      --bg-purple: #10081e;
+      --bg-card: #11101d;
+      --bg-elev: #15141f;
+      --accent: #7c6ff7;
+      --accent-dim: #5b50c4;
+      --text-bright: #e8e6f0;
+      --text: #b8b6c8;
+      --text-muted: #6b6880;
+      --border: #2a2840;
+      --rose: #f472b6;
+      --cyan: #22d3ee;
+      --amber: #fbbf24;
+      --green: #34d399;
+    }
+
+    body {
+      font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
+      background: #0a0a14;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .font-instrument-serif { font-family: 'Instrument Serif', serif; }
+    .font-pretendard-black { font-family: 'Pretendard Variable', Pretendard, sans-serif; font-weight: 900; letter-spacing: -0.04em; }
+    .font-ibm-plex-kr { font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 700; letter-spacing: -0.03em; }
+    .font-mono { font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; }
+
+    .slide-bg-personality { background: radial-gradient(ellipse at center, var(--bg-purple) 0%, var(--bg-deep) 70%); }
+    .slide-bg-usage { background: radial-gradient(ellipse at center, #120a1e 0%, #0a0612 70%); }
+    .slide-bg-cover { background: radial-gradient(ellipse at center, #0a0a20 0%, #06060e 70%); }
+
+    .demo-bad { border: 1px solid rgba(244, 114, 182, 0.25); background: linear-gradient(135deg, rgba(244, 114, 182, 0.04), rgba(244, 114, 182, 0.01)); }
+    .demo-good { border: 1px solid rgba(52, 211, 153, 0.25); background: linear-gradient(135deg, rgba(52, 211, 153, 0.04), rgba(52, 211, 153, 0.01)); }
+    .demo-neutral { border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); }
+    .demo-codex { border: 1px solid rgba(124, 111, 247, 0.3); background: linear-gradient(135deg, rgba(124, 111, 247, 0.05), rgba(124, 111, 247, 0.01)); }
+
+    .badge { display: inline-block; padding: 2px 8px; font-size: 10px; border-radius: 4px; font-weight: 600; letter-spacing: 0.02em; }
+    .badge-before { background: rgba(244, 114, 182, 0.15); color: #f9a8d4; border: 1px solid rgba(244, 114, 182, 0.3); }
+    .badge-after { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .badge-option { background: rgba(124, 111, 247, 0.15); color: #a5b4fc; border: 1px solid rgba(124, 111, 247, 0.3); }
+    .badge-codex { background: rgba(34, 211, 238, 0.15); color: #67e8f9; border: 1px solid rgba(34, 211, 238, 0.3); }
+    .badge-decided { background: rgba(255, 255, 255, 0.08); color: var(--text-bright); border: 1px solid rgba(255, 255, 255, 0.15); }
+
+    @keyframes springRotate {
+      0%   { transform: rotate(-180deg) scale(0); opacity: 0; }
+      45%  { transform: rotate(20deg) scale(1.15); opacity: 1; }
+      75%  { transform: rotate(-8deg) scale(0.95); }
+      100% { transform: rotate(0deg) scale(1); opacity: 1; }
+    }
+    .anim-spring-rotate { animation: springRotate 1s cubic-bezier(0.5, -0.3, 0.4, 1.3) infinite; }
+
+    @keyframes calmFade {
+      0%   { transform: scale(0.95); opacity: 0; }
+      50%  { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .anim-calm-fade { animation: calmFade 2.4s ease-out infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    .anim-pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .anim-spin { animation: spin 1.2s linear infinite; }
+
+    @keyframes countup {
+      0%   { content: '124'; }
+      18%  { content: '286'; }
+      36%  { content: '512'; }
+      54%  { content: '798'; }
+      72%  { content: '1,134'; }
+      90%, 100%  { content: '1,247'; }
+    }
+    .anim-countup::before { content: '1,247'; animation: countup 4s ease-out infinite; }
+
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: all 0.3s; }
+    .step-dot.active { background: var(--text-bright); box-shadow: 0 0 12px rgba(232, 230, 240, 0.5); }
+    .step-dot.done { background: rgba(232, 230, 240, 0.6); }
+
+    .btn-skip-current { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text); font-size: 12px; padding: 8px 12px; }
+    .btn-skip-solid { background: var(--text-bright); color: var(--bg-deep); font-size: 13px; padding: 8px 14px; font-weight: 600; }
+    .btn-skip-accent { background: var(--accent); color: white; font-size: 13px; padding: 8px 14px; font-weight: 600; box-shadow: 0 4px 14px rgba(124, 111, 247, 0.35); }
+    .btn-skip-bordered { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.45); color: var(--text-bright); font-size: 13px; padding: 8px 14px; font-weight: 600; backdrop-filter: blur(4px); }
+
+    .scroll-mt { scroll-margin-top: 80px; }
+    .toc a { color: var(--text); transition: color 0.15s; }
+    .toc a:hover { color: var(--text-bright); }
+
+    .mini-slide {
+      aspect-ratio: 9/16; max-height: 480px; width: 100%;
+      border-radius: 16px; overflow: hidden; position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .flow-arrow::after {
+      content: ''; position: absolute; right: -22px; top: 50%; transform: translateY(-50%);
+      border-left: 8px solid var(--border); border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+    }
+
+    .icon-placeholder {
+      width: 56px; height: 56px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-bright);
+    }
+
+    .code-box {
+      background: #0e0e16; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+      font-size: 11px; line-height: 1.6; color: var(--text); overflow-x: auto;
+    }
+    .code-box .kw { color: #c084fc; }
+    .code-box .str { color: #a7f3d0; }
+    .code-box .com { color: var(--text-muted); }
+    .code-box .ln { color: var(--text-muted); display: inline-block; width: 22px; }
+
+    .principle-pill {
+      display: inline-block; padding: 3px 10px; font-size: 11px; border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: var(--text-bright);
+      font-weight: 500;
+    }
+
+    .decide-box {
+      margin-top: 20px;
+      border-radius: 14px;
+      padding: 16px 18px;
+      background: linear-gradient(135deg, rgba(124, 111, 247, 0.08), rgba(124, 111, 247, 0.02));
+      border: 1px solid rgba(124, 111, 247, 0.35);
+    }
+    .decide-box .decide-label {
+      display: inline-block; padding: 3px 10px; font-size: 10px; border-radius: 999px;
+      background: rgba(124, 111, 247, 0.2); color: #c4b5fd; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 10px;
+    }
+    .decide-box h4 { color: var(--text-bright); font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    .decide-box .decide-reason { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+    .decide-box .decide-options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .decide-box label {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px; color: var(--text); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .decide-box label:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.15); }
+    .decide-box label:has(input:checked) {
+      background: rgba(124, 111, 247, 0.12); border-color: rgba(124, 111, 247, 0.5);
+      color: var(--text-bright); font-weight: 600;
+    }
+    .decide-box .recommend-tag {
+      display: inline-block; padding: 1px 6px; margin-left: 4px; font-size: 9px;
+      border-radius: 3px; background: rgba(52, 211, 153, 0.18);
+      color: #6ee7b7; font-weight: 600;
+    }
+
+    .progress-dock {
+      position: fixed; right: 16px; bottom: 16px; z-index: 40;
+      width: 260px; max-width: calc(100vw - 32px);
+      background: rgba(15, 15, 24, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+      font-size: 11px; color: var(--text);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+    }
+    .progress-dock h5 { color: var(--text-bright); font-weight: 700; font-size: 12px; margin-bottom: 8px; }
+    .progress-dock ol { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+    .progress-dock li { counter-increment: step; padding: 4px 0; display: flex; gap: 8px; align-items: center; }
+    .progress-dock li::before {
+      content: counter(step); width: 18px; height: 18px; flex-shrink: 0;
+      border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 10px; font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .progress-dock li a { color: var(--text); text-decoration: none; }
+    .progress-dock li a:hover { color: var(--text-bright); }
+
+    @media (max-width: 1024px) {
+      .progress-dock { display: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <header class="sticky top-0 z-50 border-b border-white/5 bg-[#0a0a14]/95 backdrop-blur">
+    <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold text-white">Memradar 디자인 정리 — 목업 v3</h1>
+        <p class="text-xs" style="color: var(--text-muted);">2026-05-10 · 섹션별 즉시 결정 구조</p>
+      </div>
+      <nav class="toc hidden lg:flex gap-5 text-xs">
+        <a href="#flow">흐름</a>
+        <a href="#sec1">스킵</a>
+        <a href="#sec2">폰트</a>
+        <a href="#sec3">아이콘</a>
+        <a href="#sec4">모션</a>
+        <a href="#sec5">대시보드</a>
+        <a href="#sec6">색상</a>
+        <a href="#sec7">로딩</a>
+        <a href="#sec8">정리</a>
+      </nav>
+    </div>
+  </header>
+
+  <aside class="progress-dock">
+    <h5>결정 진행</h5>
+    <ol>
+      <li><a href="#sec1">스킵 톤</a></li>
+      <li><a href="#sec2">폰트</a></li>
+      <li><a href="#sec3">Codex 송부</a></li>
+      <li><a href="#sec4">진입 모션</a></li>
+      <li><a href="#sec6">액센트</a></li>
+      <li><a href="#sec6">카테고리 컬러</a></li>
+      <li><a href="#sec7">로딩 연출</a></li>
+      <li><a href="#sec8">검토 회수</a></li>
+    </ol>
+  </aside>
+
+  <main class="mx-auto max-w-6xl px-6 py-10 space-y-20">
+
+    <section>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-3">
+        <h2 class="text-2xl font-bold text-white">읽는 법 (v3)</h2>
+        <p class="text-sm leading-7" style="color: var(--text);">
+          v2에서는 결정을 마지막에 모았더니 위 내용을 잊어버린다는 피드백 → v3는 <strong>각 섹션 끝에서 그 자리 결정</strong> 구조로 바꿨습니다.
+          섹션의 시각 비교를 본 직후 보라색 결정 박스에서 답하면 됩니다. 우측 하단 진행 dock으로 어디까지 답했는지 추적 가능.
+        </p>
+        <p class="text-sm leading-7" style="color: var(--text);">
+          마지막 §8은 <strong>결정 요약 + 흐름 메타 결정(검토 회수)</strong> 만 남깁니다.
+        </p>
+      </div>
+
+      <div class="mt-4 rounded-2xl p-6" style="background: linear-gradient(135deg, rgba(124, 111, 247, 0.07), rgba(124, 111, 247, 0.01)); border: 1px solid rgba(124, 111, 247, 0.3);">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Working Principle</p>
+        <h3 class="text-2xl font-bold text-white mb-4">작업 방향 원칙 (Quality-first)</h3>
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <span class="principle-pill">결과물 품질</span>
+          <span style="color: var(--text-muted);">&gt;</span>
+          <span class="principle-pill">정확성</span>
+          <span style="color: var(--text-muted);">&gt;</span>
+          <span class="principle-pill">정석</span>
+          <span style="color: var(--text-muted);">&gt;</span>
+          <span class="principle-pill" style="opacity: 0.5;">속도</span>
+        </div>
+        <ul class="text-sm leading-7 space-y-1.5" style="color: var(--text);">
+          <li>• "빠르게 적용 가능", "최소 변경"은 추천 근거에서 제외, 구현 방향 선택에서도 제외.</li>
+          <li>• 트리아지·정찰·검수·리팩터 범위를 줄이는 이유가 "빠름"이라면 그 결정은 무효.</li>
+          <li>• 단, <strong>리스크 분리·검수 가능성·롤백 가능성</strong>을 위한 단계 분할은 유효.</li>
+        </ul>
+        <p class="text-[11px] mt-3" style="color: var(--text-muted);">CLAUDE.md / .claude/rules/harness.md / FEEDBACK-2026-05-10.md 모두 동일 원칙.</p>
+      </div>
+    </section>
+
+    <section id="flow" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Work Flow</p>
+        <h2 class="text-3xl font-bold text-white mb-2">작업 묶음 흐름</h2>
+        <p class="text-sm" style="color: var(--text);">묶음 2가 Codex 결과물 의존이라 묶음 3·4의 시각 시스템도 묶음 2 통과 후 결정됩니다.</p>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 p-6" style="background: var(--bg-elev);">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-8 relative">
+          <div class="relative md:flow-arrow">
+            <div class="rounded-xl p-4 h-full" style="background: var(--bg-card); border: 1px solid var(--border);">
+              <p class="text-[10px] uppercase tracking-widest mb-1" style="color: var(--text-muted);">묶음 1 · STANDARD</p>
+              <h3 class="text-base font-bold text-white mb-2">기초 정리</h3>
+              <ul class="text-[11px] space-y-1" style="color: var(--text);">
+                <li>· 스킵 + 컨트롤 토큰 (§1)</li>
+                <li>· 폰트 시스템 통합 (§2)</li>
+              </ul>
+              <p class="text-[10px] mt-3 pt-3 border-t" style="color: var(--text-muted); border-color: var(--border);">의존성: 없음</p>
+            </div>
+          </div>
+          <div class="relative md:flow-arrow">
+            <div class="rounded-xl p-4 h-full" style="background: var(--bg-card); border: 1px solid rgba(34, 211, 238, 0.3);">
+              <p class="text-[10px] uppercase tracking-widest mb-1" style="color: #67e8f9;">묶음 2 · COMPLEX · Codex</p>
+              <h3 class="text-base font-bold text-white mb-2">아이콘 통합</h3>
+              <ul class="text-[11px] space-y-1" style="color: var(--text);">
+                <li>· 새 SVG 23종 (§3)</li>
+                <li>· lucide 메타포 정리 (§3)</li>
+                <li>· 진입 모션 (§4)</li>
+              </ul>
+              <p class="text-[10px] mt-3 pt-3 border-t" style="color: var(--text-muted); border-color: var(--border);">의존성: Codex 결과물</p>
+            </div>
+          </div>
+          <div class="relative md:flow-arrow">
+            <div class="rounded-xl p-4 h-full" style="background: var(--bg-card); border: 1px solid var(--border);">
+              <p class="text-[10px] uppercase tracking-widest mb-1" style="color: var(--text-muted);">묶음 3 · COMPLEX</p>
+              <h3 class="text-base font-bold text-white mb-2">색상 톤 다운</h3>
+              <ul class="text-[11px] space-y-1" style="color: var(--text);">
+                <li>· 액센트 (§6)</li>
+                <li>· 카테고리 9종 (§6)</li>
+              </ul>
+              <p class="text-[10px] mt-3 pt-3 border-t" style="color: var(--text-muted); border-color: var(--border);">의존성: 묶음 2</p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl p-4 h-full" style="background: var(--bg-card); border: 1px solid var(--border);">
+              <p class="text-[10px] uppercase tracking-widest mb-1" style="color: var(--text-muted);">묶음 4 · COMPLEX</p>
+              <h3 class="text-base font-bold text-white mb-2">로딩 + 모션</h3>
+              <ul class="text-[11px] space-y-1" style="color: var(--text);">
+                <li>· 분석 로딩 연출 (§7)</li>
+                <li>· 모션 토큰 시스템 (§4)</li>
+              </ul>
+              <p class="text-[10px] mt-3 pt-3 border-t" style="color: var(--text-muted); border-color: var(--border);">의존성: 묶음 2 시각 톤</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-[11px] mt-4 text-center" style="color: var(--text-muted);">
+          단계 분할의 근거: <strong>속도가 아닌 검수 회수·롤백 가능성·후수정 리스크 분리</strong>.
+        </p>
+      </div>
+    </section>
+
+    <section id="sec1" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 1 · 묶음 1A</p>
+        <h2 class="text-3xl font-bold text-white mb-2">스킵 버튼 시인성 + 컨트롤 토큰</h2>
+        <p class="text-sm" style="color: var(--text);">단순 색 변경이 아니라, 슬라이드의 보조 액션 컨트롤 토큰을 디자인 시스템으로 정착시키는 작업.</p>
+      </div>
+
+      <div class="rounded-2xl demo-bad p-5 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-before">현재</span>
+          <span class="text-sm text-white">bg-white/5 + border-white/10</span>
+          <span class="text-xs ml-auto font-mono" style="color: var(--text-muted);">WrappedView.tsx:224-234</span>
+        </div>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="slide-bg-personality rounded-xl relative h-40 flex items-center justify-center">
+            <div class="text-white/20 text-xs">Personality 그라디언트</div>
+            <button class="absolute right-14 top-3 btn-skip-current rounded-full inline-flex items-center gap-1.5">스킵 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="slide-bg-usage rounded-xl relative h-40 flex items-center justify-center">
+            <div class="text-white/20 text-xs">Usage 그라디언트</div>
+            <button class="absolute right-14 top-3 btn-skip-current rounded-full inline-flex items-center gap-1.5">스킵 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="slide-bg-cover rounded-xl relative h-40 flex items-center justify-center">
+            <div class="text-white/20 text-xs">Cover 그라디언트</div>
+            <button class="absolute right-14 top-3 btn-skip-current rounded-full inline-flex items-center gap-1.5">스킵 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+        </div>
+        <p class="text-xs mt-3" style="color: var(--text-muted);">→ 3가지 슬라이드 그라디언트 모두에서 X 닫기 버튼과 톤이 같아 시각 우선순위 충돌. 영태 김: "있긴 한데 잘 안 보이나봐요"</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4 mb-5">
+        <div class="rounded-2xl demo-good p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-option">A</span>
+            <span class="text-sm text-white">솔리드 흰색</span>
+          </div>
+          <div class="slide-bg-personality rounded-xl relative h-32 flex items-center justify-center">
+            <button class="absolute right-12 top-3 btn-skip-solid rounded-full inline-flex items-center gap-1">스킵 →</button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 시인성 최대. 단, 흰 솔리드 패치가 시각 무게로 들어와 정보 위계 교란 가능.</p>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-option">B</span>
+            <span class="text-sm text-white">액센트 보라</span>
+          </div>
+          <div class="slide-bg-personality rounded-xl relative h-32 flex items-center justify-center">
+            <button class="absolute right-12 top-3 btn-skip-accent rounded-full inline-flex items-center gap-1">스킵 →</button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 시각 우선순위 명확. 단, 동석 지님의 "보라 빼기" 기조와 충돌.</p>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-option">C</span>
+            <span class="text-sm text-white">흰 윤곽 + 반투명</span>
+            <span class="badge badge-after ml-auto">추천</span>
+          </div>
+          <div class="slide-bg-personality rounded-xl relative h-32 flex items-center justify-center">
+            <button class="absolute right-12 top-3 btn-skip-bordered rounded-full inline-flex items-center gap-1">스킵 →</button>
+            <button class="absolute right-3 top-3 rounded-full p-1.5" style="background: rgba(255,255,255,0.05); color: var(--text);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 시인성 검수 기준 충족 + 톤 다운 기조 정합 + 컨트롤 토큰 시스템화에 적합.</p>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q1</span>
+        <h4>스킵 버튼 톤을 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 슬라이드 그라디언트 위 시인성 + 컨트롤 토큰 일관성 + 톤 다운 기조 정합.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q1" /> A. 솔리드 흰색</label>
+          <label><input type="radio" name="q1" /> B. 액센트 보라</label>
+          <label><input type="radio" name="q1" checked /> C. 흰 윤곽 <span class="recommend-tag">추천</span></label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec2" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 2 · 묶음 1B</p>
+        <h2 class="text-3xl font-bold text-white mb-2">폰트 시스템 통합</h2>
+        <p class="text-sm" style="color: var(--text);">9곳에 흩어진 인라인 <code class="font-mono text-xs px-1 py-0.5 rounded" style="background: var(--bg-elev);">style=&#123;&#123; fontFamily }}</code> 패턴을 디자인 토큰으로 단일화. 한글 fallback 문제 해결은 부산물이 아니라 결과.</p>
+      </div>
+
+      <div class="rounded-2xl demo-bad p-5 mb-5">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="badge badge-before">현재</span>
+          <span class="text-sm text-white">Instrument Serif 인라인 → 한글은 시스템 serif fallback</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="slide-bg-personality rounded-xl p-6 flex flex-col items-center text-center">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(124, 111, 247, 0.6);">Your Coding Personality</p>
+            <h3 class="font-instrument-serif text-4xl md:text-5xl font-bold mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-base mb-2" style="color: var(--accent);">Deep Diver</p>
+            <p class="text-[11px] max-w-xs" style="color: rgba(184, 182, 200, 0.5);">코드의 깊은 곳까지 잠수해서 진짜 원인을 찾아내는 타입.</p>
+          </div>
+          <div class="code-box">
+            <span class="com">// 9곳에 동일 인라인 style 반복</span><br/>
+            <span class="ln">1</span><span class="kw">&lt;FadeInText</span><br/>
+            <span class="ln">2</span>&nbsp;&nbsp;style=&#123;&#123;<br/>
+            <span class="ln">3</span>&nbsp;&nbsp;&nbsp;&nbsp;fontFamily: <span class="str">"'Instrument Serif', serif"</span><br/>
+            <span class="ln">4</span>&nbsp;&nbsp;}}<span class="kw">&gt;</span><br/>
+            <span class="ln">5</span>&nbsp;&nbsp;&#123;personality.title}<br/>
+            <span class="ln">6</span><span class="kw">&lt;/FadeInText&gt;</span><br/>
+            <br/>
+            <span class="com">// CoverSlide:33, IntroSlide:40, PromptsSlide:31,</span><br/>
+            <span class="com">// ModelSlide:22, HoursSlide:20, PersonalitySlide:119,</span><br/>
+            <span class="com">// UsageSlide:35, ShareSlide:203, ToolsSlide:22</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl demo-good p-5 mb-5" style="border-color: rgba(52, 211, 153, 0.5);">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="badge badge-option">A</span>
+          <span class="text-sm text-white">Pretendard 일원화 + 토큰 단일화</span>
+          <span class="badge badge-after ml-auto">추천</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="slide-bg-personality rounded-xl p-6 flex flex-col items-center text-center">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(124, 111, 247, 0.6);">Your Coding Personality</p>
+            <h3 class="font-pretendard-black text-4xl md:text-5xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-base mb-2" style="color: var(--accent);">Deep Diver</p>
+            <p class="text-[11px] max-w-xs" style="color: rgba(184, 182, 200, 0.5);">코드의 깊은 곳까지 잠수해서 진짜 원인을 찾아내는 타입.</p>
+          </div>
+          <div class="code-box">
+            <span class="com">// 토큰 단일화 후</span><br/>
+            <span class="ln">1</span><span class="com">// tailwind.config: extend.fontFamily</span><br/>
+            <span class="ln">2</span>display: [<span class="str">'Pretendard Variable'</span>, <span class="str">'Pretendard'</span>],<br/>
+            <br/>
+            <span class="ln">3</span><span class="com">// 사용처</span><br/>
+            <span class="ln">4</span><span class="kw">&lt;FadeInText</span> className=<span class="str">"font-display font-black ..."</span><span class="kw">&gt;</span><br/>
+            <span class="ln">5</span>&nbsp;&nbsp;&#123;personality.title}<br/>
+            <span class="ln">6</span><span class="kw">&lt;/FadeInText&gt;</span><br/>
+            <br/>
+            <span class="com">// 폰트 변경 진실의 원천이 1곳. fallback 재발 불가.</span>
+          </div>
+        </div>
+        <ul class="text-[12px] mt-4 space-y-1" style="color: var(--text);">
+          <li>✅ <strong>토큰 단일화</strong> — 누락에 의한 fallback 재발 구조적으로 차단</li>
+          <li>✅ <strong>한 화면 톤 통일</strong> — 동석 지님 "위아래 다른 거 같다" 정합</li>
+          <li>✅ <strong>AI 슬롭 시그니처 제거</strong> — 디스플레이 serif는 AI 시그니처 중 하나</li>
+          <li>⚠ Wrapped 디자이너 무드 평탄화 → weight/size로 정보 위계 보강 필요</li>
+        </ul>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-5">
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-option">B</span>
+            <span class="text-sm text-white">영문 Serif + 한글 Pretendard</span>
+          </div>
+          <div class="slide-bg-personality rounded-xl p-4 flex flex-col items-center text-center">
+            <p class="font-instrument-serif italic text-[10px] mb-2" style="color: rgba(124, 111, 247, 0.6); letter-spacing: 0.18em;">YOUR CODING PERSONALITY</p>
+            <h3 class="font-pretendard-black text-3xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="font-instrument-serif italic text-xl mb-2" style="color: var(--accent);">Deep Diver</p>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> Wrapped 영문 무드 보존. 폰트 2종 혼용 = "폰트 글마다 다름" 지적과 충돌 가능. 시스템 룰의 명확성으로 정당화 가능.</p>
+        </div>
+
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-option">C</span>
+            <span class="text-sm text-white">IBM Plex Sans KR Bold</span>
+          </div>
+          <div class="slide-bg-personality rounded-xl p-4 flex flex-col items-center text-center">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(124, 111, 247, 0.6);">Your Coding Personality</p>
+            <h3 class="font-ibm-plex-kr text-3xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-base mb-2" style="color: var(--accent);">Deep Diver</p>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 한글 정체성 부여 + fallback 해결. 폰트 1종 추가 로딩 → preload 전략 필요. 라이선스 검증 필수.</p>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q2</span>
+        <h4>폰트 전략을 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 한 화면 톤 통일 + 토큰 단일화(재발 방지) + 라이선스/로딩 비용.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q2" checked /> A. Pretendard 일원화 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q2" /> B. 영문 Serif + 한글 Pretendard</label>
+          <label><input type="radio" name="q2" /> C. IBM Plex Sans KR 도입</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec3" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: #67e8f9;">Section 3 · 묶음 2 · Codex 의뢰</p>
+        <h2 class="text-3xl font-bold text-white mb-2">아이콘 시스템 — Codex 시각 사양 미리보기</h2>
+        <p class="text-sm" style="color: var(--text);">이모지 23종 + lucide 메타포는 Codex로 의뢰. 본 섹션은 의뢰서 [<code class="font-mono text-xs px-1 py-0.5 rounded" style="background: var(--bg-elev);">docs/ICON-REDESIGN-CODEX-BRIEF.md</code>]의 시각 언어 사양을 시각화합니다.</p>
+      </div>
+
+      <div class="rounded-2xl demo-codex p-5 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-codex">의뢰 인벤토리</span>
+          <span class="text-sm text-white">새로 그릴 23개 + lucide 메타포 검토</span>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div>
+            <p class="text-xs font-semibold mb-2" style="color: var(--text-bright);">A. Personality (8개)</p>
+            <div class="text-3xl space-x-1">🤿 🔎 📚 🏄 ⚒️ ⚡ 🏗️ 🌪️</div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold mb-2" style="color: var(--text-bright);">B. Coding Time (6개)</p>
+            <div class="text-3xl space-x-1">🦉 🐦 ☀️ ⚔️ 🌆 🌙</div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold mb-2" style="color: var(--text-bright);">C. AI Role (9개)</p>
+            <div class="text-3xl space-x-1">🏭 🚨 💅 🧐 ✍️ 🎨 🚀 🧙 🧪</div>
+          </div>
+        </div>
+        <p class="text-xs mt-4 pt-4 border-t" style="color: var(--text-muted); border-color: var(--border);">
+          + lucide 메타포 검토: <code class="font-mono text-[10px] px-1 rounded" style="background: var(--bg-elev);">Code2, Brain, Sparkles, Wrench, Bot, Zap, Flame, Terminal</code> 등
+        </p>
+      </div>
+
+      <div class="rounded-2xl demo-bad p-5 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-before">절대 금지</span>
+          <span class="text-sm text-white">AI 슬롭 시그니처 — Codex가 그려서는 안 되는 인상</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <div class="text-3xl mb-2" style="background: linear-gradient(135deg, #a78bfa, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent;">✨</div>
+            <p class="text-[10px]" style="color: var(--text-muted);">그라디언트 채움</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <div class="text-3xl mb-2">🤖</div>
+            <p class="text-[10px]" style="color: var(--text-muted);">이모지풍 디테일</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <div class="text-3xl mb-2" style="text-shadow: 0 0 12px #7c6ff7, 0 0 20px #7c6ff7;">⚡</div>
+            <p class="text-[10px]" style="color: var(--text-muted);">네온/글로우</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <svg viewBox="0 0 24 24" width="36" height="36" class="mx-auto mb-2" fill="none" stroke-width="2"><circle cx="12" cy="12" r="8" stroke="#7c6ff7"/><path stroke="#22d3ee" d="M12 4 L12 12 L18 12"/></svg>
+            <p class="text-[10px]" style="color: var(--text-muted);">다채색 분할</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <svg viewBox="0 0 24 24" width="36" height="36" class="mx-auto mb-2" style="color: var(--accent);" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3a6 6 0 016 6c0 3-2 5-2 8H8c0-3-2-5-2-8a6 6 0 016-6z"/></svg>
+            <p class="text-[10px]" style="color: var(--text-muted);">AI/뇌/마법 메타포</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <div class="text-3xl mb-2 inline-block" style="text-shadow: 2px 2px 0 #7c6ff7;">📦</div>
+            <p class="text-[10px]" style="color: var(--text-muted);">3D/그림자</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <svg viewBox="0 0 24 24" width="36" height="36" class="mx-auto mb-2" style="color: var(--accent);" fill="none"><path stroke-width="3.5" stroke="currentColor" d="M4 12 L20 12" /><path stroke-width="0.5" stroke="currentColor" d="M4 12 L20 12 M6 8 L18 8" /></svg>
+            <p class="text-[10px]" style="color: var(--text-muted);">두께 변동 stroke</p>
+          </div>
+          <div class="rounded-lg p-4 text-center" style="background: var(--bg-card);">
+            <svg viewBox="0 0 24 24" width="36" height="36" class="mx-auto mb-2" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke="#7c6ff7"/><path d="M8 12l2 2 4-4" stroke="#34d399"/><path d="M2 12l3-3M22 12l-3-3" stroke="#fbbf24" stroke-width="1"/></svg>
+            <p class="text-[10px]" style="color: var(--text-muted);">불필요한 장식선</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl demo-good p-5 mb-5" style="border-color: rgba(52, 211, 153, 0.5);">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-after">지향 사양</span>
+          <span class="text-sm text-white">기하학·도식적, currentColor, stroke 1.75, 24×24</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div>
+            <p class="text-xs font-semibold mb-3" style="color: var(--text-bright);">스펙 (의뢰서 §4.1)</p>
+            <ul class="text-[12px] space-y-1.5" style="color: var(--text);">
+              <li>· viewBox 0 0 24 24 통일</li>
+              <li>· stroke-width 1.75</li>
+              <li>· stroke-linecap / linejoin round</li>
+              <li>· currentColor 만 (하드코딩 금지)</li>
+              <li>· stroke-only 권장</li>
+            </ul>
+          </div>
+          <div>
+            <p class="text-xs font-semibold mb-3" style="color: var(--text-bright);">미적 톤 (§4.3)</p>
+            <ul class="text-[12px] space-y-1.5" style="color: var(--text);">
+              <li>✅ 기하학·도식적 (Phosphor Regular, Tabler 톤)</li>
+              <li>✅ 개념의 압축 — 형태의 핵심만</li>
+              <li>✅ 24px 그리드 정렬</li>
+              <li>✅ 명도로 정보 표현 (hue 추가 금지)</li>
+              <li>✅ 카테고리 안의 시각 변조 일관</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl demo-codex p-5 mb-5">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="badge badge-codex">시각 룰 placeholder</span>
+          <span class="text-sm text-white">의뢰서 §4.4 제안 — Codex가 검토 후 확정</span>
+        </div>
+
+        <div class="mb-5 pb-5 border-b" style="border-color: var(--border);">
+          <p class="text-xs font-semibold mb-3" style="color: var(--text-bright);">A. Personality (8개) — 외곽 도형 + 내부 도식</p>
+          <div class="grid grid-cols-4 md:grid-cols-8 gap-3">
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 14 Q12 10 16 14" /><path d="M12 8 L12 18" stroke-dasharray="2 2" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">RDM 잠수</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="11" cy="11" r="3" /><path d="M13.5 13.5 L17 17" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">RDS 감별</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M7 8 L17 8 M7 12 L17 12 M7 16 L13 16" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">RWM 사서</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M5 14 Q9 10 12 14 T19 14" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">RWS 트렌드</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9 8 L15 8 L13 16 L11 16 Z" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">EDM 장인</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M13 6 L9 13 L13 13 L11 18" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">EDS 번개</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><rect x="8" y="9" width="8" height="7" /><path d="M8 9 L12 6 L16 9" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">EWM 빌더</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 8 Q12 14 16 8 Q12 14 16 16 Q12 14 8 16" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">EWS 카오스</p></div>
+          </div>
+        </div>
+
+        <div class="mb-5 pb-5 border-b" style="border-color: var(--border);">
+          <p class="text-xs font-semibold mb-3" style="color: var(--text-bright);">B. Coding Time (6개) — 시계 다이얼 + 핸들 변화</p>
+          <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L12 7 M12 12 L8 12" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Night Owl</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L15 8 M12 12 L9 12" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Early Bird</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L17 12 M12 12 L12 8" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Morning</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L17 12 M12 12 L15 16" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Afternoon</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L12 17 M12 12 L9 16" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Evening</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border);"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 12 L8 12 M12 12 L9 9" /></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">Moonlight</p></div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold mb-3" style="color: var(--text-bright);">C. AI Role (9개) — 다루는 대상의 추상 도식</p>
+          <div class="grid grid-cols-3 md:grid-cols-9 gap-2">
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="14" rx="1.5"/><path d="M4 10 L20 10 M9 14 L9 20 M15 14 L15 20"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">feature</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="5"/><path d="M9 13 L9 8 M15 13 L15 8 M12 8 L12 4"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">debug</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6 L19 6 M5 12 L13 12 M5 18 L19 18"/><path d="M16 9 L19 12 L16 15"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">refactor</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8 L11 8 M5 12 L13 12 M5 16 L9 16"/><circle cx="17" cy="14" r="3"/><path d="M19.2 16.2 L21 18"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">review</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6 L15 6 L19 10 L19 20 L5 20 Z"/><path d="M15 6 L15 10 L19 10"/><path d="M9 14 L15 14 M9 17 L13 17"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">writing</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1.5"/><circle cx="9" cy="11" r="1.5"/><path d="M4 16 L9 13 L14 16 L20 12"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">design</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 L16 12 L12 20 L8 12 Z"/><circle cx="12" cy="12" r="2"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">devops</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="7" rx="7" ry="2"/><path d="M5 7 L5 17 Q5 19 12 19 Q19 19 19 17 L19 7"/><path d="M5 12 Q12 14 19 12"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">data</p></div>
+            <div class="text-center"><div class="icon-placeholder mx-auto rounded-lg" style="background: var(--bg-card); border: 1px solid var(--border); width: 48px; height: 48px;"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 L9 11 L5 19 Q5 20 6 20 L18 20 Q19 20 19 19 L15 11 L15 4"/><path d="M8 4 L16 4"/><path d="M9 14 L15 14"/></svg></div><p class="text-[9px] mt-1" style="color: var(--text-muted);">test</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q3</span>
+        <h4>Codex 의뢰 송부 시점을 결정하세요</h4>
+        <p class="decide-reason">아이콘 결과물이 도착해야 묶음 2 진입 가능. 묶음 1과 병행할지, 컨펌 후 송부할지 결정.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q3" checked /> 묶음 1 송부와 동시에 의뢰 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q3" /> 묶음 1 검수 통과 후 의뢰</label>
+          <label><input type="radio" name="q3" /> §3.2 lucide 분류 + §4.4 시각 룰 컨펌 후 의뢰</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec4" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 4 · 묶음 2C / 4B</p>
+        <h2 class="text-3xl font-bold text-white mb-2">진입 모션 — Spring Rotate vs 잔잔한 페이드</h2>
+        <p class="text-sm" style="color: var(--text);">Codex 새 SVG가 적용된 후 어떤 진입 모션이 시각 시스템과 정합하는지 결정. 라이브 애니메이션으로 비교 (자동 반복).</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5 mb-5">
+        <div class="rounded-2xl demo-bad p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-before">현재</span>
+            <span class="text-sm text-white">spring rotate -180→0 + scale 0→1</span>
+          </div>
+          <div class="mini-slide slide-bg-personality">
+            <div class="text-7xl mb-3 anim-spring-rotate">🤿</div>
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(124, 111, 247, 0.6);">Your Coding Personality</p>
+            <h3 class="font-instrument-serif text-3xl font-bold mb-1 text-center" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-sm" style="color: var(--accent);">Deep Diver</p>
+          </div>
+          <ul class="text-[11px] mt-3 space-y-1" style="color: var(--text);">
+            <li>❌ rotate -180° = AI 생성 디자인 시그니처 (의뢰서 §4.2 금지)</li>
+            <li>❌ spring 오버슈트 = 시각적 노이즈</li>
+            <li>❌ 다른 슬라이드 요소 모션과 톤 충돌</li>
+          </ul>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-after">제안</span>
+            <span class="text-sm text-white">opacity 0→1 + scale 0.95→1.0, 350ms ease-out</span>
+            <span class="badge badge-decided ml-auto">추천</span>
+          </div>
+          <div class="mini-slide slide-bg-personality">
+            <div class="mb-3 anim-calm-fade">
+              <svg viewBox="0 0 24 24" width="80" height="80" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-bright);">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8 14 Q12 10 16 14" />
+                <path d="M12 8 L12 18" stroke-dasharray="2 2" />
+              </svg>
+            </div>
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(184, 182, 200, 0.4);">Your Coding Personality</p>
+            <h3 class="font-pretendard-black text-3xl mb-1 text-center" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-sm" style="color: rgba(184, 182, 200, 0.6);">Deep Diver</p>
+          </div>
+          <ul class="text-[11px] mt-3 space-y-1" style="color: var(--text);">
+            <li>✅ 새 SVG의 정제된 시각 톤과 정합</li>
+            <li>✅ 묶음 4B 모션 토큰 시스템과 일관 적용 가능</li>
+            <li>✅ Wrapped 진입의 호흡은 유지하되 노이즈 제거</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rounded-2xl demo-codex p-5 mb-5">
+        <p class="text-sm font-semibold text-white mb-3">모션 토큰 시스템 (묶음 4B)</p>
+        <div class="code-box">
+          <span class="com">// src/components/wrapped/motion.ts (신규)</span><br/>
+          <span class="kw">export const</span> MOTION = {<br/>
+          &nbsp;&nbsp;slide: { duration: 0.3, ease: <span class="str">'easeOut'</span> },<br/>
+          &nbsp;&nbsp;enterLabel:   { duration: 0.25, delay: 0.1 },<br/>
+          &nbsp;&nbsp;enterHeading: { duration: 0.35, delay: 0.2 },<br/>
+          &nbsp;&nbsp;enterBody:    { duration: 0.3,  delay: 0.4 },<br/>
+          &nbsp;&nbsp;icon:         { initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, duration: 0.35 },<br/>
+          }
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q4</span>
+        <h4>아이콘 진입 모션을 결정하세요</h4>
+        <p class="decide-reason">결정 근거: Codex SVG와 시각 정합 + 모션 토큰 시스템 일관성. spring rotate는 §4.2 위배.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q4" /> spring rotate 유지 (§4.2 위배)</label>
+          <label><input type="radio" name="q4" checked /> 잔잔한 페이드 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q4" /> 무모션</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec5" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 5 · 결합 미리보기</p>
+        <h2 class="text-3xl font-bold text-white mb-2">Dashboard "내 AI의 직업" 카드</h2>
+        <p class="text-sm" style="color: var(--text);">동석 지님이 스크린샷으로 직접 지적한 카드. 위에서 결정한 항목들이 결합되었을 때의 결과물 미리보기. <strong>이 섹션은 결정 항목 없음</strong> — 색상 결정은 §6에서.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="rounded-2xl demo-bad p-4">
+          <div class="mb-3"><span class="badge badge-before">현재</span></div>
+          <div class="rounded-xl border p-5" style="background: var(--bg-card); border-color: var(--border);">
+            <div class="mb-1 flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-1.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--accent);"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                <h2 class="text-lg font-bold" style="color: var(--text-bright);">내 AI의 직업</h2>
+              </div>
+              <button class="text-sm" style="color: var(--text);">대시보드</button>
+            </div>
+            <p class="font-instrument-serif mb-4 text-sm" style="color: rgba(184, 182, 200, 0.5);">버그 헌터와(과) 데이터 엔지니어, 투잡 뛰는 중</p>
+            <div class="space-y-1">
+              <div class="flex items-center gap-3"><span class="w-6 text-center text-lg">🚨</span><div class="w-24 shrink-0 flex items-center gap-1.5"><span class="text-xs font-bold" style="color: var(--text-bright);">버그 헌터</span><span class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold" style="background: rgba(124, 111, 247, 0.15); color: var(--accent);">대표</span></div><div class="flex-1 h-2 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 100%; background: var(--rose); opacity: 0.85;"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">82</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 text-center text-lg">🧙</span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">데이터 엔지니어</span></div><div class="flex-1 h-2 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 78%; background: var(--cyan); opacity: 0.5;"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">64</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 text-center text-lg">💅</span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">리팩터링</span></div><div class="flex-1 h-2 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 55%; background: var(--cyan); opacity: 0.5;"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">45</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 text-center text-lg">🎨</span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">아트 디렉터</span></div><div class="flex-1 h-2 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 40%; background: #a78bfa; opacity: 0.5;"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">33</div></div>
+            </div>
+          </div>
+          <ul class="text-[11px] mt-4 space-y-1" style="color: var(--text-muted);">
+            <li>❌ <code class="font-mono text-[10px] px-1 rounded" style="background: var(--bg-elev);">&lt;/&gt;</code> Code2 (§3 제거 대상)</li>
+            <li>❌ 4종 이모지 + 4가지 hue (§3 / §6 정리 대상)</li>
+            <li>❌ 부제 한글이 시스템 serif fallback (§2 정리 대상)</li>
+            <li>❌ "대표" 뱃지 보라 (§6 정리 대상)</li>
+          </ul>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="mb-3"><span class="badge badge-after">결합 미리보기 (Q1+Q2+Q3+Q5+Q6 추천 채택 시)</span></div>
+          <div class="rounded-xl border p-5" style="background: var(--bg-card); border-color: var(--border);">
+            <div class="mb-1 flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-1.5">
+                <h2 class="text-lg font-bold font-pretendard-black" style="color: var(--text-bright);">내 AI의 직업</h2>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: rgba(184, 182, 200, 0.35);"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <button class="text-sm" style="color: var(--text);">대시보드</button>
+            </div>
+            <p class="mb-4 text-sm" style="color: rgba(184, 182, 200, 0.55);">버그 헌터 · 데이터 엔지니어 비중이 높아요</p>
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-3"><span class="w-6 flex justify-center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-bright);"><circle cx="12" cy="13" r="5"/><path d="M9 13 L9 8 M15 13 L15 8 M12 8 L12 4"/></svg></span><div class="w-24 shrink-0 flex items-center gap-1.5"><span class="text-xs font-bold" style="color: var(--text-bright);">버그 헌터</span><span class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold" style="background: rgba(255, 255, 255, 0.08); color: var(--text-bright);">1위</span></div><div class="flex-1 h-1.5 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 100%; background: var(--text-bright); opacity: 0.9;"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">82</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 flex justify-center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: rgba(232, 230, 240, 0.7);"><ellipse cx="12" cy="7" rx="7" ry="2"/><path d="M5 7 L5 17 Q5 19 12 19 Q19 19 19 17 L19 7"/><path d="M5 12 Q12 14 19 12"/></svg></span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">데이터 엔지니어</span></div><div class="flex-1 h-1.5 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 78%; background: rgba(232, 230, 240, 0.55);"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">64</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 flex justify-center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: rgba(232, 230, 240, 0.55);"><path d="M5 6 L19 6 M5 12 L13 12 M5 18 L19 18"/><path d="M16 9 L19 12 L16 15"/></svg></span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">리팩터링</span></div><div class="flex-1 h-1.5 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 55%; background: rgba(232, 230, 240, 0.4);"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">45</div></div>
+              <div class="flex items-center gap-3"><span class="w-6 flex justify-center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: rgba(232, 230, 240, 0.45);"><rect x="4" y="6" width="16" height="12" rx="1.5"/><circle cx="9" cy="11" r="1.5"/><path d="M4 16 L9 13 L14 16 L20 12"/></svg></span><div class="w-24 shrink-0"><span class="text-xs font-bold" style="color: var(--text-bright);">아트 디렉터</span></div><div class="flex-1 h-1.5 overflow-hidden rounded-full" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 40%; background: rgba(232, 230, 240, 0.3);"></div></div><div class="w-12 shrink-0 text-right text-[11px]" style="color: rgba(184, 182, 200, 0.4);">33</div></div>
+            </div>
+          </div>
+          <ul class="text-[11px] mt-4 space-y-1" style="color: var(--text);">
+            <li>✅ Code2 제거 + 새 SVG (§3) + Pretendard (§2)</li>
+            <li>✅ 컬러 4종 hue → 흰색 단일 + 농도 (§6)</li>
+            <li>✅ "대표"(보라) → "1위"(중성) (§6)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec6" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 6 · 묶음 3</p>
+        <h2 class="text-3xl font-bold text-white mb-2">색상 시스템 톤 다운</h2>
+        <p class="text-sm" style="color: var(--text);">동석 지님 지적의 "남색 + 다채색" 정리. 액센트와 카테고리 컬러 둘 다 결정 필요.</p>
+      </div>
+
+      <h3 class="text-xl font-bold text-white mb-3">6A. 액센트 컬러</h3>
+      <div class="grid md:grid-cols-3 gap-4 mb-5">
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="mb-3"><span class="badge badge-before">현재</span> <span class="text-sm text-white ml-2">#7c6ff7 보라</span></div>
+          <div class="slide-bg-personality rounded-xl p-5 flex flex-col items-center text-center">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(124, 111, 247, 0.7);">Your Coding Personality</p>
+            <h3 class="font-pretendard-black text-2xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-sm mb-3" style="color: var(--accent);">Deep Diver</p>
+            <button class="text-[10px] px-2 py-1 rounded" style="background: rgba(124, 111, 247, 0.18); color: var(--accent);">대표</button>
+            <div class="w-full h-1.5 rounded-full mt-3" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 70%; background: var(--accent); opacity: 0.85;"></div></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 정체성 강하나 동석 지님 "남색/보라 빼기" 기조와 정면 충돌. 보라 배경+보라 액센트로 시각 무게 한쪽 쏠림.</p>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="mb-3"><span class="badge badge-option">B</span> <span class="text-sm text-white ml-2">중성 톤 (오프 화이트)</span> <span class="badge badge-after ml-auto">추천</span></div>
+          <div class="rounded-xl p-5 flex flex-col items-center text-center" style="background: radial-gradient(ellipse at center, #16161e 0%, #08080c 70%);">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(184, 182, 200, 0.4);">Your Coding Personality</p>
+            <h3 class="font-pretendard-black text-2xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-sm mb-3" style="color: rgba(184, 182, 200, 0.65);">Deep Diver</p>
+            <button class="text-[10px] px-2 py-1 rounded" style="background: rgba(255, 255, 255, 0.08); color: var(--text-bright);">1위</button>
+            <div class="w-full h-1.5 rounded-full mt-3" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 70%; background: var(--text-bright); opacity: 0.9;"></div></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 톤 다운 기조 정합 + 정보 위계는 농도로 표현. 새 SVG 시각 시스템과 정합. ThemeSwitcher의 다른 액센트 옵션과 충돌 점검 필요.</p>
+        </div>
+
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="mb-3"><span class="badge badge-option">C</span> <span class="text-sm text-white ml-2">차분한 다크 시안</span></div>
+          <div class="rounded-xl p-5 flex flex-col items-center text-center" style="background: radial-gradient(ellipse at center, #0e1820 0%, #06090c 70%);">
+            <p class="text-[10px] uppercase tracking-widest mb-2" style="color: rgba(34, 211, 238, 0.5);">Your Coding Personality</p>
+            <h3 class="font-pretendard-black text-2xl mb-1" style="color: var(--text-bright);">심해 잠수부</h3>
+            <p class="text-sm mb-3" style="color: #67e8f9;">Deep Diver</p>
+            <button class="text-[10px] px-2 py-1 rounded" style="background: rgba(34, 211, 238, 0.15); color: #67e8f9;">1위</button>
+            <div class="w-full h-1.5 rounded-full mt-3" style="background: rgba(255, 255, 255, 0.05);"><div class="h-full rounded-full" style="width: 70%; background: #22d3ee; opacity: 0.85;"></div></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 새 정체성 + AI 슬롭(보라/핑크) 회피. 단, 새 hue 도입 = 동석 지님 "다채색 빼기" 기조와 부분 충돌.</p>
+        </div>
+      </div>
+
+      <div class="decide-box mb-10">
+        <span class="decide-label">Decide Now · Q5</span>
+        <h4>액센트 컬러를 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 정보 위계 표현력 + 톤 다운 기조 정합 + ThemeSwitcher 옵션과의 정합.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q5" /> A. 보라 #7c6ff7 유지</label>
+          <label><input type="radio" name="q5" checked /> B. 중성 톤 (오프 화이트) <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q5" /> C. 차분한 다크 시안</label>
+        </div>
+      </div>
+
+      <h3 class="text-xl font-bold text-white mb-3">6B. 카테고리 컬러 9종</h3>
+      <div class="grid md:grid-cols-3 gap-4 mb-5">
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="mb-3"><span class="badge badge-before">현재</span> <span class="text-sm text-white ml-2">다채색 9종</span></div>
+          <div class="rounded-xl p-4 space-y-1.5" style="background: var(--bg-card);">
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #7c6ff7;"></span><span class="text-[11px] flex-1" style="color: var(--text);">풀스택 기획자</span><span class="text-[10px]" style="color: var(--text-muted);">82</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #f472b6;"></span><span class="text-[11px] flex-1" style="color: var(--text);">버그 헌터</span><span class="text-[10px]" style="color: var(--text-muted);">68</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #22d3ee;"></span><span class="text-[11px] flex-1" style="color: var(--text);">리팩터링 전문가</span><span class="text-[10px]" style="color: var(--text-muted);">52</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #34d399;"></span><span class="text-[11px] flex-1" style="color: var(--text);">코드 분석가</span><span class="text-[10px]" style="color: var(--text-muted);">45</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #fbbf24;"></span><span class="text-[11px] flex-1" style="color: var(--text);">AI 작가</span><span class="text-[10px]" style="color: var(--text-muted);">38</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #a78bfa;"></span><span class="text-[11px] flex-1" style="color: var(--text);">아트 디렉터</span><span class="text-[10px]" style="color: var(--text-muted);">32</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #f97316;"></span><span class="text-[11px] flex-1" style="color: var(--text);">배포 마스터</span><span class="text-[10px]" style="color: var(--text-muted);">28</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #06b6d4;"></span><span class="text-[11px] flex-1" style="color: var(--text);">데이터 엔지니어</span><span class="text-[10px]" style="color: var(--text-muted);">21</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #22c55e;"></span><span class="text-[11px] flex-1" style="color: var(--text);">QA 엔지니어</span><span class="text-[10px]" style="color: var(--text-muted);">14</span></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 카테고리 식별성 최대. 동석 지님 "다채색 빼기" 기조 위배.</p>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="mb-3"><span class="badge badge-option">B</span> <span class="text-sm text-white ml-2">모노크롬 + 농도</span> <span class="badge badge-after ml-auto">추천</span></div>
+          <div class="rounded-xl p-4 space-y-1.5" style="background: var(--bg-card);">
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 1);"></span><span class="text-[11px] flex-1" style="color: var(--text);">풀스택 기획자</span><span class="text-[10px]" style="color: var(--text-muted);">82</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.8);"></span><span class="text-[11px] flex-1" style="color: var(--text);">버그 헌터</span><span class="text-[10px]" style="color: var(--text-muted);">68</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.65);"></span><span class="text-[11px] flex-1" style="color: var(--text);">리팩터링</span><span class="text-[10px]" style="color: var(--text-muted);">52</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.55);"></span><span class="text-[11px] flex-1" style="color: var(--text);">코드 분석가</span><span class="text-[10px]" style="color: var(--text-muted);">45</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.45);"></span><span class="text-[11px] flex-1" style="color: var(--text);">AI 작가</span><span class="text-[10px]" style="color: var(--text-muted);">38</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.38);"></span><span class="text-[11px] flex-1" style="color: var(--text);">아트 디렉터</span><span class="text-[10px]" style="color: var(--text-muted);">32</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.32);"></span><span class="text-[11px] flex-1" style="color: var(--text);">배포 마스터</span><span class="text-[10px]" style="color: var(--text-muted);">28</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.25);"></span><span class="text-[11px] flex-1" style="color: var(--text);">데이터 엔지니어</span><span class="text-[10px]" style="color: var(--text-muted);">21</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.18);"></span><span class="text-[11px] flex-1" style="color: var(--text);">QA 엔지니어</span><span class="text-[10px]" style="color: var(--text-muted);">14</span></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 톤 다운 기조 정합. 카테고리 식별은 새 SVG 형태가 담당. 농도로 점수 위계 자연스럽게 표현.</p>
+        </div>
+
+        <div class="rounded-2xl demo-neutral p-4">
+          <div class="mb-3"><span class="badge badge-option">C</span> <span class="text-sm text-white ml-2">2~3톤 그룹 팔레트</span></div>
+          <div class="rounded-xl p-4 space-y-1.5" style="background: var(--bg-card);">
+            <p class="text-[9px] uppercase tracking-wider" style="color: var(--text-muted);">CODE</p>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #e8e6f0;"></span><span class="text-[11px] flex-1" style="color: var(--text);">풀스택 기획자</span><span class="text-[10px]" style="color: var(--text-muted);">82</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.7);"></span><span class="text-[11px] flex-1" style="color: var(--text);">버그 헌터</span><span class="text-[10px]" style="color: var(--text-muted);">68</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(232, 230, 240, 0.5);"></span><span class="text-[11px] flex-1" style="color: var(--text);">리팩터링</span><span class="text-[10px]" style="color: var(--text-muted);">52</span></div>
+            <p class="text-[9px] uppercase tracking-wider mt-2" style="color: var(--text-muted);">MAKE</p>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #fbbf24;"></span><span class="text-[11px] flex-1" style="color: var(--text);">AI 작가</span><span class="text-[10px]" style="color: var(--text-muted);">38</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(251, 191, 36, 0.6);"></span><span class="text-[11px] flex-1" style="color: var(--text);">아트 디렉터</span><span class="text-[10px]" style="color: var(--text-muted);">32</span></div>
+            <p class="text-[9px] uppercase tracking-wider mt-2" style="color: var(--text-muted);">SHIP</p>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: #34d399;"></span><span class="text-[11px] flex-1" style="color: var(--text);">배포 마스터</span><span class="text-[10px]" style="color: var(--text-muted);">28</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background: rgba(52, 211, 153, 0.6);"></span><span class="text-[11px] flex-1" style="color: var(--text);">QA 엔지니어</span><span class="text-[10px]" style="color: var(--text-muted);">14</span></div>
+          </div>
+          <p class="text-[11px] mt-3" style="color: var(--text);"><strong>품질 평가:</strong> 정보 그룹 식별 양호. 절충안. 단, 그룹 정의가 추가 작업 (어느 카테고리가 어느 그룹인지 합의).</p>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q6</span>
+        <h4>카테고리 컬러 9종 처리를 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 새 SVG가 카테고리 식별을 얼마나 담당하는지 + 톤 다운 강도.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q6" /> A. 다채색 9종 유지</label>
+          <label><input type="radio" name="q6" checked /> B. 모노크롬 + 농도 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q6" /> C. 2~3톤 그룹 팔레트</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec7" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 7 · 묶음 4A</p>
+        <h2 class="text-3xl font-bold text-white mb-2">분석 로딩 연출</h2>
+        <p class="text-sm" style="color: var(--text);">동석 지: "처음에 나오는 로딩이 답답해." / 영태 김: "시간 자체는 필요. 연출 추가하면."</p>
+      </div>
+
+      <div class="rounded-2xl demo-bad p-5 mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-before">현재</span>
+          <span class="text-sm text-white">텍스트 2줄, 시각 요소 0</span>
+        </div>
+        <div class="rounded-xl p-8" style="background: var(--bg-card); border: 1px dashed var(--border);">
+          <p class="text-base font-semibold mb-2" style="color: var(--text-bright);">세션 파일 확인 중...</p>
+          <p class="text-sm" style="color: var(--text);">128개 세션을 읽었습니다.</p>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-4 mb-5">
+        <div class="rounded-2xl demo-good p-4">
+          <div class="mb-3"><span class="badge badge-option">A</span> <span class="text-xs ml-2 text-white">단계 체크리스트</span></div>
+          <div class="rounded-xl p-6" style="background: var(--bg-card); border: 1px solid var(--border);">
+            <p class="text-sm font-semibold mb-4" style="color: var(--text-bright);">당신의 AI를 분석하는 중</p>
+            <div class="space-y-3">
+              <div class="flex items-center gap-3"><span class="step-dot done"></span><span class="text-xs" style="color: var(--text-muted);">파일 스캔 · 128</span></div>
+              <div class="flex items-center gap-3"><span class="step-dot done"></span><span class="text-xs" style="color: var(--text-muted);">메시지 파싱 · 14,328</span></div>
+              <div class="flex items-center gap-3"><span class="step-dot active anim-pulse"></span><span class="text-xs" style="color: var(--text-bright);">통계 계산</span></div>
+              <div class="flex items-center gap-3"><span class="step-dot"></span><span class="text-xs" style="color: var(--text-muted);">성향 분석</span></div>
+            </div>
+          </div>
+          <ul class="text-[11px] mt-3 space-y-1" style="color: var(--text);">
+            <li>✅ 진척도 명확</li>
+            <li>⚠ 분석이 짧은 시간 안에 끝나면 깜빡임 → 최소 노출 시간 보장 필수</li>
+          </ul>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4" style="border-color: rgba(52, 211, 153, 0.5);">
+          <div class="mb-3"><span class="badge badge-option">B</span> <span class="text-xs ml-2 text-white">카운트업 + 미리보기</span> <span class="badge badge-after ml-2">추천</span></div>
+          <div class="rounded-xl p-6" style="background: var(--bg-card); border: 1px solid var(--border);">
+            <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--text-muted);">읽는 중</p>
+            <p class="font-pretendard-black text-5xl mb-1" style="color: var(--text-bright);"><span class="anim-countup"></span></p>
+            <p class="text-xs mb-5" style="color: var(--text-muted);">개의 메시지</p>
+            <div class="space-y-1.5 text-[10px] font-mono" style="color: var(--text-muted);">
+              <div class="flex items-center gap-2 opacity-100"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" style="color: var(--text-bright);"><path d="M3 7 L9 7 L11 5 L21 5 L21 19 L3 19 Z"/></svg> ~/.claude/projects/foo</div>
+              <div class="flex items-center gap-2 opacity-70"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7 L9 7 L11 5 L21 5 L21 19 L3 19 Z"/></svg> ~/.claude/projects/bar</div>
+              <div class="flex items-center gap-2 opacity-40"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7 L9 7 L11 5 L21 5 L21 19 L3 19 Z"/></svg> ~/.claude/projects/baz</div>
+            </div>
+          </div>
+          <ul class="text-[11px] mt-3 space-y-1" style="color: var(--text);">
+            <li>✅ 실제 분석 데이터 기반 (가짜 진행률 아님)</li>
+            <li>✅ Wrapped 첫 슬라이드와 정보 위계 정합</li>
+            <li>✅ 폴더 아이콘은 Codex SVG 시스템 정합</li>
+          </ul>
+        </div>
+
+        <div class="rounded-2xl demo-good p-4">
+          <div class="mb-3"><span class="badge badge-option">C</span> <span class="text-xs ml-2 text-white">미니멀 스피너</span></div>
+          <div class="rounded-xl p-6 flex flex-col items-center justify-center" style="background: var(--bg-card); border: 1px solid var(--border); min-height: 220px;">
+            <div class="anim-spin mb-5"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" style="color: var(--text-bright);"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg></div>
+            <p class="text-sm text-center anim-pulse" style="color: var(--text-bright);">프롬프트 패턴 살피는 중</p>
+            <p class="text-[11px] text-center mt-2" style="color: var(--text-muted);">잠시만 기다려 주세요</p>
+          </div>
+          <ul class="text-[11px] mt-3 space-y-1" style="color: var(--text);">
+            <li>✅ 슬롭 요소 0</li>
+            <li>⚠ 메시지 로테이션이 분석 단계와 무관 → 표면 연출</li>
+            <li>⚠ 답답함 근본 해소력 약함</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q7</span>
+        <h4>분석 로딩 연출을 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 답답함 근본 해소력 + 분석 데이터 정합 + 사용성.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q7" /> A. 단계 체크리스트</label>
+          <label><input type="radio" name="q7" checked /> B. 카운트업 + 미리보기 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q7" /> C. 미니멀 스피너</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec8" class="scroll-mt">
+      <div class="mb-6">
+        <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--accent);">Section 8</p>
+        <h2 class="text-3xl font-bold text-white mb-2">정리 — 흐름 + 메타 결정</h2>
+        <p class="text-sm" style="color: var(--text);">위에서 결정한 항목들의 인덱스 + 마지막으로 검토 회수만 결정.</p>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 p-5 mb-5" style="background: var(--bg-elev);">
+        <p class="text-xs uppercase tracking-widest mb-3" style="color: var(--text-muted);">위에서 결정한 항목 (각 섹션 라디오로 답함)</p>
+        <div class="grid md:grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec1" class="hover:text-white">Q1 스킵 톤</a></span>
+            <span style="color: var(--text-muted);">기본 추천: C 흰 윤곽</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec2" class="hover:text-white">Q2 폰트</a></span>
+            <span style="color: var(--text-muted);">기본 추천: A Pretendard 일원화</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec3" class="hover:text-white">Q3 Codex 송부</a></span>
+            <span style="color: var(--text-muted);">기본 추천: 묶음 1과 동시 의뢰</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec4" class="hover:text-white">Q4 진입 모션</a></span>
+            <span style="color: var(--text-muted);">기본 추천: 잔잔한 페이드</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec6" class="hover:text-white">Q5 액센트</a></span>
+            <span style="color: var(--text-muted);">기본 추천: B 중성 톤</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec6" class="hover:text-white">Q6 카테고리 컬러</a></span>
+            <span style="color: var(--text-muted);">기본 추천: B 모노크롬+농도</span>
+          </div>
+          <div class="flex justify-between" style="color: var(--text);">
+            <span><a href="#sec7" class="hover:text-white">Q7 로딩 연출</a></span>
+            <span style="color: var(--text-muted);">기본 추천: B 카운트업</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="decide-box">
+        <span class="decide-label">Decide Now · Q8 (Last)</span>
+        <h4>동석 지님 검토 회수를 결정하세요</h4>
+        <p class="decide-reason">결정 근거: 톤 어긋남 조기 감지 + 재작업 비용. 마지막 메타 결정.</p>
+        <div class="decide-options">
+          <label><input type="radio" name="q8" /> A. 묶음별 단계 공유 (4회)</label>
+          <label><input type="radio" name="q8" checked /> B. 1+2 통과 후 1차, 3+4 통과 후 2차 <span class="recommend-tag">추천</span></label>
+          <label><input type="radio" name="q8" /> C. 4개 묶음 통과 후 1회</label>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl p-5" style="background: rgba(124, 111, 247, 0.08); border: 1px solid rgba(124, 111, 247, 0.25);">
+        <p class="text-sm font-semibold text-white mb-3">기본 추천안 채택 시 작업 흐름</p>
+        <p class="text-sm leading-7" style="color: var(--text);">
+          묶음 1(스킵 흰 윤곽 + Pretendard 일원화 + 토큰 단일화) <strong>+ Codex 의뢰 송부 동시 진행</strong> →
+          묶음 2(새 SVG 23종 통합 + 잔잔한 페이드 + lucide 메타포 정리) →
+          <strong>1·2 통과 후 동석 지님 1차 검수</strong> →
+          묶음 3(중성 액센트 + 모노크롬 농도) + 묶음 4(카운트업 로딩 + 모션 토큰) →
+          <strong>3·4 통과 후 2차 검수</strong>.
+        </p>
+        <p class="text-[12px] mt-3 pt-3 border-t" style="color: var(--text-muted); border-color: rgba(124, 111, 247, 0.2);">
+          단계 분할의 근거: <strong>속도가 아닌 검수 회수·롤백 가능성·후수정 리스크 분리</strong>. 작업 원칙(품질 우선) 정합. 각 묶음의 검수 기준 미충족 시 다음 묶음 진입 보류.
+        </p>
+      </div>
+    </section>
+
+    <footer class="text-xs text-center pt-10 pb-4" style="color: var(--text-muted);">
+      <div class="space-y-1">
+        <div>본 문서: <code class="font-mono">docs/FEEDBACK-2026-05-10-mockup.html</code> (v3 · 섹션별 즉시 결정)</div>
+        <div>상세 진단: <code class="font-mono">docs/FEEDBACK-2026-05-10.md</code></div>
+        <div>아이콘 의뢰서: <code class="font-mono">docs/ICON-REDESIGN-CODEX-BRIEF.md</code></div>
+        <div>작업 원칙: <code class="font-mono">CLAUDE.md</code> · <code class="font-mono">.claude/rules/harness.md</code></div>
+      </div>
+    </footer>
+
+  </main>
+
+</body>
+</html>

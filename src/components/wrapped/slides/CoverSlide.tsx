@@ -29,8 +29,7 @@ export function CoverSlide({ totalSessions }: Props) {
         stagger={0.1}
         showCursor
         cursorHideAt={subtitleStart - 0.05}
-        className="mb-3 text-center text-5xl font-bold text-text-bright md:text-7xl"
-        style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}
+        className="font-display mb-3 text-center text-5xl font-bold text-text-bright md:text-7xl"
       >
         Memradar
       </TypewriterText>

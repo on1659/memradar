@@ -19,6 +19,14 @@
   --color-rose: #f472b6;
   --color-cyan: #0891b2;
   --color-violet: #7c3aed;
+
+  /* ── Typography tokens ───────────────────────────────────────────────
+     단일 진실의 원천(Single source of truth). 인라인 fontFamily 금지.
+     - font-sans : 본문/일반 UI (Tailwind v4가 `font-sans` 클래스 자동 생성)
+     - font-display : Wrapped 큰 타이틀 등 디스플레이용 (현재 동일 패밀리)
+     향후 display용 별도 폰트 도입 시 `--font-display`만 교체하면 됨. */
+  --font-sans: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  --font-display: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
 }
 
 :root {
@@ -175,12 +183,17 @@
   --t-accent-dim: #92400e;
 }
 
-/* ── Typography ────────────────────────────────────────────────────── */
+/* ── Typography ──────────────────────────────────────────────────────
+   폰트 패밀리는 `@theme`의 --font-sans/--font-display 토큰을 참조한다.
+   인라인 `style={{ fontFamily }}`는 금지(DESIGN-GUIDE §4 참조).
+   h1/h2 글로벌 serif 룰은 2026-05-11 묶음 1B에서 제거됨 — 모든 헤딩은
+   본문 폰트(Pretendard)로 통일되며, 디스플레이 강조가 필요한 곳에서는
+   `font-display` 클래스 + `tracking-tight` 등 utility로 표현한다. */
 body {
   margin: 0;
   background: var(--t-bg);
   color: var(--t-text);
-  font-family: 'Pretendard', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
@@ -189,11 +202,6 @@ body {
 
 #root {
   min-height: 100vh;
-}
-
-h1, h2 {
-  font-family: 'Noto Serif KR', 'Cormorant Garamond', Georgia, serif;
-  letter-spacing: -0.02em;
 }
 
 .dashboard-shell {
@@ -530,6 +538,54 @@ h1, h2 {
   --color-text-bright: var(--t-text-bright);
   --color-accent: var(--t-accent);
   --color-accent-dim: var(--t-accent-dim);
+  color: var(--t-text);
+}
+
+/* ── Wrapped 보조 액션 컨트롤 토큰 ─────────────────────────────────── */
+/* FEEDBACK-2026-05-10 §4 Q1 결정: 흰 윤곽 + 반투명 배경 + backdrop-blur. */
+/* 두 토큰을 시각적으로 분리해 X 닫기와 스킵의 우선순위 충돌을 해소한다. */
+
+/* 강조 — 스킵 버튼 전용 (현재). Wrapped 그라디언트 8종 위에서 시인성 확보. */
+/* 사용 스코프: .wrapped-surface 컨테이너 안에서만 사용 (--t-text-bright 오버라이드 의존). */
+.wrapped-control-skip {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: var(--t-text-bright);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.wrapped-control-skip:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* 일반 — X 닫기, prev/next, dashboard prompt X, "계속 보기" 등. */
+/* 1A 이전 prev/next/X close 등은 border 없이 bg-white/5만 — 1A부터 border 1px rgba(255,255,255,0.1) 추가 (DESIGN-GUIDE §5.2-D D 패턴 정합). */
+/* 사용 스코프: .wrapped-surface 컨테이너 안에서만 사용. */
+.wrapped-control-secondary {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--t-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.wrapped-control-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--t-text-bright);
+}
+.wrapped-control-secondary:disabled,
+.wrapped-control-secondary[disabled] {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+.wrapped-control-secondary:disabled:hover,
+.wrapped-control-secondary[disabled]:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
   color: var(--t-text);
 }
 

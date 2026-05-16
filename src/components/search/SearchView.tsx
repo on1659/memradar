@@ -11,6 +11,7 @@ import {
 } from '../../lib/search'
 import { SearchBar } from './SearchBar'
 import { SearchResults } from './SearchResults'
+import { SYSTEM_ICONS } from '../../icons'
 
 interface SearchViewProps {
   sessions: Session[]
@@ -61,7 +62,8 @@ export function SearchView({ sessions, onSelectResult, onClose }: SearchViewProp
     <div className="min-h-screen max-w-4xl mx-auto p-6">
       <div className="mb-2 animate-in">
         <h1 className="text-2xl font-bold text-text-bright flex items-center gap-2 mb-4">
-          <span className="text-accent">✦</span> 검색
+          <SYSTEM_ICONS.brandMark className="h-7 w-7 text-accent" aria-hidden="true" />
+          검색
         </h1>
       </div>
 

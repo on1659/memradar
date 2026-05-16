@@ -19,7 +19,7 @@ export function ModelSlide({ modelsUsed }: Props) {
       <FadeInText className="text-accent/60 text-sm tracking-widest uppercase mb-8">
         Your Favorite Model
       </FadeInText>
-      <FadeInText delay={0.3} className="text-4xl md:text-6xl font-bold text-text-bright mb-4 text-center" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
+      <FadeInText delay={0.3} className="font-display text-4xl md:text-6xl font-bold text-text-bright mb-4 text-center">
         {shortModelName(topModel[0])}
       </FadeInText>
       <FadeInText delay={0.6} className="text-lg text-accent mb-8">

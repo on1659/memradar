@@ -1,12 +1,13 @@
 import { createPortal } from 'react-dom'
 import { useEffect } from 'react'
-import { Bell, Palette, Search, Sparkles, Wrench, X } from 'lucide-react'
+import { BarChart3, Bell, Palette, Search, X } from 'lucide-react'
+import { ToolDefaultIcon, type IconComponent } from '../../icons'
 import { latestProductUpdate, productUpdates, type ProductUpdate } from '../../content/productUpdates'
 import { useI18n } from '../../i18n'
 
-const UPDATE_META: Record<ProductUpdate['category'], { icon: typeof Sparkles; accent: string; soft: string; label: string }> = {
+const UPDATE_META: Record<ProductUpdate['category'], { icon: IconComponent; accent: string; soft: string; label: string }> = {
   dashboard: {
-    icon: Sparkles,
+    icon: BarChart3,
     accent: 'text-cyan',
     soft: 'bg-cyan/10 text-cyan',
     label: 'Dashboard',
@@ -24,7 +25,7 @@ const UPDATE_META: Record<ProductUpdate['category'], { icon: typeof Sparkles; ac
     label: 'Insight',
   },
   workflow: {
-    icon: Wrench,
+    icon: ToolDefaultIcon,
     accent: 'text-green',
     soft: 'bg-green/10 text-green',
     label: 'Workflow',

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ChevronDown, ChevronUp, Pause, Play, SkipBack, SkipForward, Wrench } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage } from '../../types'
 import { cleanClaudeText } from '../../lib/cleanClaudeText'
 import { useI18n } from '../../i18n'
 import { mdComponents } from '../markdown'
+import { ToolDefaultIcon } from '../../icons'
 import {
   buildTimeline,
   computeDensityBuckets,
@@ -71,7 +72,7 @@ function ToolUsePanel({ message }: { message: ParsedMessage }) {
         className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2 py-0.5 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
         aria-expanded={expanded}
       >
-        <Wrench className="h-3 w-3" />
+        <ToolDefaultIcon className="h-3 w-3" aria-hidden="true" />
         <span>{preview}{extra}</span>
         {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </button>

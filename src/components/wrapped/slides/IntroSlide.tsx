@@ -36,8 +36,7 @@ export function IntroSlide({ firstDate, totalSessions }: Props) {
         Your Memradar
       </FadeInText>
       <div
-        className="mb-6 text-center text-5xl font-bold text-text-bright md:text-7xl"
-        style={{ fontFamily: "'Instrument Serif', serif" }}
+        className="font-display mb-6 text-center text-5xl font-bold text-text-bright md:text-7xl"
       >
         <TypewriterText
           delay={line1Start}

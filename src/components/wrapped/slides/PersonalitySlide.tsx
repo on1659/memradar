@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
 import { useI18n } from '../../../i18n'
+import { PERSONALITY_ICONS } from '../../../icons'
 
 interface Props {
   personality: PersonalityResult
@@ -101,6 +102,7 @@ function getAxisHandleCopy(
 export function PersonalitySlide({ personality }: Props) {
   const { locale } = useI18n()
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
+  const PersonalityIcon = PERSONALITY_ICONS[personality.type]
 
   return (
     <SlideLayout gradient="from-[#06060e] via-[#10081e] to-[#06060e]">
@@ -108,15 +110,15 @@ export function PersonalitySlide({ personality }: Props) {
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: 'spring', duration: 1 }}
-        className="text-8xl mb-4"
+        className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-white/5"
       >
-        {personality.emoji}
+        <PersonalityIcon size={64} aria-hidden="true" />
       </motion.div>
 
       <FadeInText delay={0.4} className="text-accent/60 text-sm tracking-widest uppercase mb-3">
         Your Coding Personality
       </FadeInText>
-      <FadeInText delay={0.6} className="text-4xl md:text-6xl font-bold text-text-bright mb-1 text-center" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
+      <FadeInText delay={0.6} className="font-display text-4xl md:text-6xl font-bold text-text-bright mb-1 text-center">
         {personality.title}
       </FadeInText>
       <FadeInText delay={0.8} className="text-lg text-accent mb-2">

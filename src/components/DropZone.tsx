@@ -8,7 +8,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Copy, FolderOpen, Shield, Terminal } from 'lucide-react'
+import { AlertTriangle, Check, Copy, FolderOpen, Shield, Terminal, Wifi } from 'lucide-react'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { useTheme } from './theme'
 
@@ -237,6 +237,61 @@ export function DropZone({ onFilesLoaded }: DropZoneProps) {
                 </p>
               </div>
             </div>
+
+            <div className="mt-5 rounded-2xl border border-border/60 bg-bg/35 p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full border border-accent/20 bg-accent/10 p-2 text-accent">
+                  <Wifi className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-text-bright">다른 기기에서 보기</p>
+                    <span className="rounded-full border border-border/70 bg-bg-card/70 px-2 py-0.5 text-[10px] font-medium text-text/60">선택</span>
+                  </div>
+                  <p className="mt-1.5 text-sm leading-6 text-text">
+                    휴대폰·태블릿·다른 PC에서 같은 분석을 보고 싶을 때만 쓰세요.
+                    같은 와이파이 안에 있는 기기끼리만 동작합니다.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-accent/12 bg-[#0c1220] px-4 py-3 font-mono text-sm leading-6 text-white/85">
+                <span className="text-accent/70">$</span> npx memradar --server --host 0.0.0.0
+              </div>
+
+              <ol className="mt-4 space-y-2.5 text-sm leading-6 text-text">
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent/12 text-[11px] font-semibold text-accent">1</span>
+                  <span>휴대폰을 PC와 <strong className="text-text-bright">같은 와이파이</strong>에 연결합니다.</span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent/12 text-[11px] font-semibold text-accent">2</span>
+                  <span>
+                    터미널 콘솔에 <code className="rounded bg-bg-card/70 px-1.5 py-0.5 text-[12px] text-accent">http://192.168.x.x:3939</code> 처럼 LAN 주소가 출력돼요.
+                    그 주소를 휴대폰 브라우저에 붙여넣으세요.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent/12 text-[11px] font-semibold text-accent">3</span>
+                  <span>PC가 켜져 있는 동안만 접근 가능. PC를 끄거나 와이파이가 바뀌면 다시 실행해 주세요.</span>
+                </li>
+              </ol>
+
+              <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber/30 bg-amber/8 px-3.5 py-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber" />
+                <div className="text-xs leading-5 text-text">
+                  <p className="font-semibold text-text-bright">공용 와이파이에선 사용 금지</p>
+                  <p className="mt-0.5">
+                    카페·코워킹·공항 와이파이에선 같은 망의 누구나 세션 로그를 열어볼 수 있습니다.
+                    안전하게 쓰려면 SSH 포트 포워딩(<code className="text-accent">ssh -L 3939:localhost:3939 ...</code>)이나 Tailscale 같은 VPN을 권장해요.
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-3 text-[11px] leading-5 text-text/55">
+                기본값은 <code className="text-text/70">--host 127.0.0.1</code>(자기 PC만). 환경변수 <code className="text-text/70">MEMRADAR_HOST</code> 도 같은 효과.
+              </p>
+            </div>
           </motion.section>
 
           <motion.aside
@@ -418,7 +473,7 @@ function CopyCommand({ command }: { command: string }) {
   return (
     <div className="rounded-[28px] border border-accent/18 bg-[#0c1220] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-medium tracking-[0.18em] text-text/55 uppercase">
+        <div className="flex items-center gap-2 text-xs font-medium tracking-[0.18em] text-white/55 uppercase">
           <Terminal className="h-3.5 w-3.5 text-accent" />
           Terminal Command
         </div>
@@ -476,8 +531,8 @@ function CopyCommand({ command }: { command: string }) {
         </div>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-text">
-        그대로 붙여넣고 Enter를 누르면 Claude는 <code className="text-accent/80">.claude</code>, Codex는 <code className="text-accent/80">.codex</code> 아래 로그를 같이 찾아서 분석 화면을 엽니다.
+      <p className="mt-3 text-sm leading-6 text-white/72">
+        그대로 붙여넣고 Enter를 누르면 Claude는 <code className="text-accent">.claude</code>, Codex는 <code className="text-accent">.codex</code> 아래 로그를 같이 찾아서 분석 화면을 엽니다.
         실행이 안 되면 <a href="https://github.com/on1659/memradar#설치-가이드" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent-bright">설치 가이드</a>를 참고하세요.
       </p>
     </div>

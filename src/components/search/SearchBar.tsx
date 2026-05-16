@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Search, SlidersHorizontal, X, User, Bot } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { hasActiveFilters, shortenCwd, type SearchFilters, type SearchSort, type SearchFacets } from '../../lib/search'
+import { useI18n } from '../../i18n'
 
 const SORT_LABELS: Record<SearchSort, string> = {
   relevance: '관련도',
@@ -27,6 +28,9 @@ export function SearchBar({
   onSortChange,
   onClose,
 }: SearchBarProps) {
+  const { t } = useI18n()
+  const youLabel = t('role.you')
+  const aiLabel = t('role.ai')
   const [showFilters, setShowFilters] = useState(false)
 
   const setFilter = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
@@ -116,13 +120,11 @@ export function SearchBar({
                 <button
                   key={role ?? 'all'}
                   onClick={() => setFilter('role', role)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition-colors ${
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                     filters.role === role ? 'bg-accent/10 text-accent' : 'text-text hover:text-text-bright'
                   }`}
                 >
-                  {role === 'user' && <User className="w-3 h-3" />}
-                  {role === 'assistant' && <Bot className="w-3 h-3" />}
-                  {role === undefined ? '전체' : role === 'user' ? 'User' : 'Claude'}
+                  {role === undefined ? '전체' : role === 'user' ? youLabel : aiLabel}
                 </button>
               ))}
             </div>

@@ -2,13 +2,15 @@ import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { getCodingTimeLabel } from '../../../lib/personality'
 import type { Stats } from '../../../types'
+import { TIME_ICONS, type CodingTimeIconKey } from '../../../icons'
 
 interface Props {
   stats: Stats
 }
 
 export function HoursSlide({ stats }: Props) {
-  const { label, emoji } = getCodingTimeLabel(stats)
+  const { label } = getCodingTimeLabel(stats)
+  const TimeIcon = TIME_ICONS[label as CodingTimeIconKey]
   const max = Math.max(...stats.hourlyActivity, 1)
 
   return (
@@ -16,8 +18,10 @@ export function HoursSlide({ stats }: Props) {
       <FadeInText className="text-cyan/60 text-sm tracking-widest uppercase mb-8">
         Your Coding Hours
       </FadeInText>
-      <FadeInText delay={0.3} className="text-6xl mb-2">{emoji}</FadeInText>
-      <FadeInText delay={0.5} className="text-4xl md:text-5xl font-bold text-text-bright mb-2" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
+      <FadeInText delay={0.3} className="mb-3 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-white/5">
+        <TimeIcon size={58} aria-hidden="true" />
+      </FadeInText>
+      <FadeInText delay={0.5} className="font-display text-4xl md:text-5xl font-bold text-text-bright mb-2">
         {label}
       </FadeInText>
       <FadeInText delay={0.7} className="text-text/50 mb-10">

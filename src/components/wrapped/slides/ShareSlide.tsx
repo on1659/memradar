@@ -6,6 +6,7 @@ import { SlideLayout, FadeInText } from './SlideLayout'
 import { shortModelName } from '../../../lib/modelNames'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
 import type { Stats } from '../../../types'
+import { PERSONALITY_ICONS } from '../../../icons'
 
 interface Props {
   personality: PersonalityResult
@@ -33,6 +34,7 @@ export function ShareSlide({
   const [shareStatus, setShareStatus] = useState<string | null>(null)
 
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
+  const PersonalityIcon = PERSONALITY_ICONS[personality.type]
   const axisBarColors: Record<AxisKey, string> = {
     style: '#7b6cf6',
     scope: '#22d3ee',
@@ -197,10 +199,14 @@ export function ShareSlide({
         }}
       >
         <div className="text-center">
-          <div className="mb-3 text-[48px] leading-none">{personality.emoji}</div>
+          <div className="mb-3 flex justify-center" style={{ color: '#e8e6f0' }}>
+            <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <PersonalityIcon size={46} aria-hidden="true" />
+            </span>
+          </div>
           <div
-            className="mb-1 text-[2.2rem] font-bold leading-none"
-            style={{ fontFamily: "'Instrument Serif', serif", color: '#e8e6f0' }}
+            className="font-display mb-1 text-[2.2rem] font-bold leading-none"
+            style={{ color: '#e8e6f0' }}
           >
             {personality.title}
           </div>

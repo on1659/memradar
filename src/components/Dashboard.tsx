@@ -3,17 +3,13 @@ import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   BarChart3,
-  Brain,
   Calendar,
   CircleHelp,
-  Code2,
-  Flame,
   MessageSquare,
-  Terminal,
   Timer,
   TrendingUp,
-  Zap,
 } from 'lucide-react'
+import { PERSONALITY_ICONS, ROLE_ICONS, ToolDefaultIcon, type RoleIconKey } from '../icons'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Session, SessionSource, Stats } from '../types'
 import { computeStats } from '../parser'
@@ -22,7 +18,7 @@ import { computePersonality } from '../lib/personality'
 import { analyzeUsageTopCategories, type UsageCategoryScore } from '../lib/usageProfile'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
-import { calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
+import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { MemradarTopBar } from './MemradarTopBar'
@@ -384,6 +380,7 @@ function InteractiveRoleDonutChart({
       {categories.map((category, index) => {
         const sharePct = Math.round((category.score / total) * 100)
         const barPct = Math.max(4, Math.round((category.score / maxScore) * 100))
+        const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
         const metricLabel = metricMode === 'count'
           ? (isKorean ? `${category.score}회` : `${category.score}`)
           : `${sharePct}%`
@@ -400,7 +397,9 @@ function InteractiveRoleDonutChart({
             tooltipWidthClass="w-64"
           >
             <div className="flex items-center gap-3">
-              <span className="w-6 shrink-0 text-center text-lg">{category.emoji}</span>
+              <span className="flex w-6 shrink-0 justify-center">
+                <CategoryIcon size={22} aria-hidden="true" />
+              </span>
               <div className="w-28 shrink-0">
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-xs font-bold text-text-bright">{category.title}</span>
@@ -805,6 +804,7 @@ export function Dashboard({
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
+  const PersonalityIcon = PERSONALITY_ICONS[personality.type]
   const [sessionFilterLocal, setSessionFilterLocal] = useState(filters?.sessionFilter ?? '')
   const [dateFromLocal, setDateFromLocal] = useState(filters?.dateFrom ?? '')
   const [dateToLocal, setDateToLocal] = useState(filters?.dateTo ?? '')
@@ -1104,6 +1104,12 @@ export function Dashboard({
     const sourceLabel = session.source === 'claude' ? 'Claude' : 'Codex'
     const messageCount = session.messageCount.user + session.messageCount.assistant
     const sessionTokenTotal = getSessionTotalTokens(session)
+    const sessionCost = sessionTokenTotal > 0 ? calculateSessionCost(session) : 0
+    const sessionCostLabel = sessionCost >= 0.01
+      ? `$${sessionCost.toFixed(2)}`
+      : sessionCost > 0
+        ? `<$0.01`
+        : ''
     const sessionDisplayName = getSessionDisplayName(session)
 
     return (
@@ -1145,8 +1151,18 @@ export function Dashboard({
                 </span>
               )}
               {sessionTokenTotal > 0 && (
-                <span className="rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright">
-                  {formatTokens(sessionTokenTotal)} 토큰
+                <span className="group relative inline-flex">
+                  <span
+                    className="rounded-full border border-text/12 bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-bright"
+                    title={sessionCostLabel ? `예상 비용 ${sessionCostLabel}` : undefined}
+                  >
+                    {formatTokens(sessionTokenTotal)} 토큰
+                  </span>
+                  {sessionCostLabel && (
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-bg-card px-2 py-1 text-[10px] font-mono font-semibold text-text-bright opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                      {sessionCostLabel}
+                    </span>
+                  )}
                 </span>
               )}
             </span>
@@ -1222,7 +1238,11 @@ export function Dashboard({
               </span>
             </div>
 
-            <div className="mb-3 text-[56px] leading-none">{personality.emoji}</div>
+            <div className="mb-3 flex justify-center">
+              <span className="flex h-20 w-20 items-center justify-center rounded-3xl border border-border/70 bg-bg-hover/40">
+                <PersonalityIcon size={56} aria-hidden="true" />
+              </span>
+            </div>
             <h2 className="mb-1 text-3xl font-bold text-text-bright">{personality.title}</h2>
             <p className="mb-3 text-sm text-accent">{personality.subtitle}</p>
             <p className="mx-auto max-w-lg text-sm leading-relaxed text-text/70">{personality.description}</p>
@@ -1281,7 +1301,6 @@ export function Dashboard({
         <div className="rounded-[26px] border border-border bg-bg-card p-5">
           <div className="mb-1 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <Code2 className="h-4 w-4 shrink-0 text-accent" />
               <h2 className="truncate text-lg font-bold text-text-bright">{aiRoleLabel}</h2>
               <DashboardHoverTooltip
                 title={aiRoleLabel}
@@ -1356,7 +1375,7 @@ export function Dashboard({
         <div className="dashboard-card dashboard-card-token">
           <div className="dashboard-token-header">
             <div className="dashboard-token-title">
-              <Zap className="dashboard-token-title-icon h-4 w-4" aria-hidden="true" />
+              <BarChart3 className="dashboard-token-title-icon h-4 w-4" aria-hidden="true" />
               <span className="whitespace-nowrap text-sm text-text">{tokenUsageLabel}</span>
             </div>
             <div className="dashboard-token-header-actions">
@@ -1453,7 +1472,7 @@ export function Dashboard({
               {showLowestTokenDay ? (
                 <Calendar className="h-4 w-4 text-rose" />
               ) : (
-                <Flame className="h-4 w-4 text-amber" />
+                <TrendingUp className="h-4 w-4 text-amber" />
               )}
               <span key={`${activeTokenDay}-label`} className="dashboard-cycle-drop text-sm text-text">
                 {activeTokenDayLabel}
@@ -1495,7 +1514,7 @@ export function Dashboard({
         <div className="dashboard-side-stack">
           <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-side-card-primary">
             <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-              <Zap className="h-3.5 w-3.5 text-amber" />
+              <Timer className="h-3.5 w-3.5 text-amber" />
               연속 기록
             </h3>
             <div className="dashboard-card-body-compact dashboard-streak-body dashboard-streak-body-single">
@@ -1543,17 +1562,14 @@ export function Dashboard({
 
       <div className="dashboard-analytics-grid">
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-model">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <Brain className="h-4 w-4 text-accent" /> 사용한 모델
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold text-text-bright">사용한 모델</h2>
           <div className="dashboard-card-body-center">
             <InteractiveDonutChart data={topModels} />
           </div>
         </div>
 
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-language">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <Code2 className="h-4 w-4 text-green" />
+          <h2 className="mb-3 text-sm font-semibold text-text-bright">
             {isKorean ? '사용한 언어' : 'Languages'}
           </h2>
           <div className="dashboard-card-body-center">
@@ -1573,7 +1589,7 @@ export function Dashboard({
 
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-skills">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <Terminal className="h-4 w-4 text-violet" />
+            <ToolDefaultIcon className="h-4 w-4 text-violet" aria-hidden="true" />
             자주 쓴 스킬
           </h2>
           <GenericDonutChart data={stats.topSkills} centerLabel="스킬" />
@@ -1588,10 +1604,7 @@ export function Dashboard({
         </div>
 
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-words">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <Brain className="h-4 w-4 text-rose" />
-            자주 쓴 단어
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold text-text-bright">자주 쓴 단어</h2>
           <WordCloud
             words={stats.topWords}
             wordsUser={stats.topWordsUser}

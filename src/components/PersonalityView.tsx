@@ -7,6 +7,7 @@ import type { PersonalityResult, TypeCode, AxisKey } from '../lib/personality'
 import { USAGE_CATEGORIES, analyzeUsageTopCategories } from '../lib/usageProfile'
 import type { UsageCategoryScore } from '../lib/usageProfile'
 import { MemradarTopBar } from './MemradarTopBar'
+import { PERSONALITY_ICONS, ROLE_ICONS, type RoleIconKey } from '../icons'
 
 interface Props {
   sessions: Session[]
@@ -89,6 +90,11 @@ const USAGE_CATEGORY_HELP: Record<string, string> = {
   test: '테스트 작성, 검증 자동화, e2e/unit/spec 관련 요청이 많을 때 올라가요.',
 }
 
+function RoleCategoryIcon({ id, size = 24, className }: { id: string; size?: number; className?: string }) {
+  const Icon = ROLE_ICONS[id as RoleIconKey]
+  return <Icon size={size} className={className} aria-hidden="true" />
+}
+
 // --- Usage category analysis: shared engine from usageProfile.ts (analyzeUsageTopCategories)
 
 function UsageProfile({ sessions }: { sessions: Session[] }) {
@@ -110,10 +116,11 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
       <div className="space-y-3">
         {categories.map((category, rank) => {
           const pct = Math.round((category.score / maxScore) * 100)
+          const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
           return (
             <div key={category.id} className="rounded-lg border border-border bg-bg-card p-3">
               <div className="flex items-center gap-3 mb-1.5">
-                <span className="text-xl">{category.emoji}</span>
+                <CategoryIcon size={24} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-text-bright">{category.title}</span>
@@ -193,6 +200,7 @@ function UsageAllJobs({
       <div className="space-y-1">
         {categories.map((category, index) => {
           const pct = Math.round((category.score / maxScore) * 100)
+          const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
           const tooltipDescription = `${category.subtitle}. ${USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 잡혔어요.'}`
           return (
             <HoverTooltip
@@ -205,7 +213,9 @@ function UsageAllJobs({
               tooltipWidthClass="w-64"
             >
               <div className="flex items-center gap-3">
-                <span className="w-6 text-center text-lg">{category.emoji}</span>
+                <span className="flex w-6 justify-center">
+                  <CategoryIcon size={22} aria-hidden="true" />
+                </span>
                 <div className="w-24 shrink-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-text-bright truncate">{category.title}</span>
@@ -383,6 +393,7 @@ function TypeCard({ type }: {
   const info = useMemo(() => {
     return computePersonalityStatic(type)
   }, [type])
+  const PersonalityIcon = PERSONALITY_ICONS[type]
   const axisTags = [
     { label: AXIS_LABELS[type[0]][0], color: CODE_REPORT_AXIS_COLORS.style },
     { label: AXIS_LABELS[type[1]][0], color: CODE_REPORT_AXIS_COLORS.scope },
@@ -392,7 +403,9 @@ function TypeCard({ type }: {
   return (
     <div className="rounded-xl border border-border bg-bg-card p-4 transition-all hover:border-border/80">
       <div className="flex items-start gap-3 mb-3">
-        <span className="text-3xl">{info.emoji}</span>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-bg-hover/40">
+          <PersonalityIcon size={28} aria-hidden="true" />
+        </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-text-bright">{info.title}</h3>
           <p className="text-xs text-text/50">{info.subtitle}</p>
@@ -458,9 +471,6 @@ function computePersonalityStatic(type: TypeCode): PersonalityResult {
     rhythm: { label: ['스프린터', '마라토너'], value: rhythmValue },
   }
 
-  // We need the actual type defs — call computePersonality with mock data
-  // Instead, just import from the TYPE_DEFS via computePersonality
-  // Since TYPE_DEFS is not exported, we'll use a workaround
   return {
     type,
     axes,
@@ -607,7 +617,7 @@ export function PersonalitySections() {
               style={{ borderColor: 'var(--t-border)' }}
             >
               <div className="mb-2 flex items-start gap-3">
-                <span className="text-2xl">{category.emoji}</span>
+                <RoleCategoryIcon id={category.id} size={28} />
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-bold text-text-bright">{category.title}</h3>
                   <p className="text-xs text-text/45">{category.subtitle}</p>
@@ -627,6 +637,7 @@ export function PersonalitySections() {
 export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboard, themeProps }: Props) {
   const stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
+  const PersonalityIcon = PERSONALITY_ICONS[personality.type]
   const usageCategories = useMemo(() => analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length), [sessions])
 
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
@@ -671,7 +682,11 @@ export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboa
               </span>
             </div>
 
-            <div className="mb-3 text-[56px] leading-none">{personality.emoji}</div>
+            <div className="mb-3 flex justify-center">
+              <span className="flex h-20 w-20 items-center justify-center rounded-3xl border border-border/70 bg-bg-hover/40">
+                <PersonalityIcon size={56} aria-hidden="true" />
+              </span>
+            </div>
             <h2 className="mb-1 text-3xl font-bold" style={{ color: PERSONALITY_CARD_THEME.title }}>
               {personality.title}
             </h2>
@@ -797,26 +812,24 @@ export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboa
           <p className="text-sm text-text/50">`내 AI의 직업` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {USAGE_CATEGORIES.map((category) => {
-            return (
-              <div
-                key={category.id}
-                className="rounded-xl border bg-bg-card p-4"
-                style={{ borderColor: 'var(--t-border)' }}
-              >
-                <div className="mb-2 flex items-start gap-3">
-                  <span className="text-2xl">{category.emoji}</span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-text-bright">{category.title}</h3>
-                    <p className="text-xs text-text/45">{category.subtitle}</p>
-                  </div>
+          {USAGE_CATEGORIES.map((category) => (
+            <div
+              key={category.id}
+              className="rounded-xl border bg-bg-card p-4"
+              style={{ borderColor: 'var(--t-border)' }}
+            >
+              <div className="mb-2 flex items-start gap-3">
+                <RoleCategoryIcon id={category.id} size={28} />
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold text-text-bright">{category.title}</h3>
+                  <p className="text-xs text-text/45">{category.subtitle}</p>
                 </div>
-                <p className="text-sm leading-relaxed text-text/70">
-                  {USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 보일 때 잡히는 역할이에요.'}
-                </p>
               </div>
-            )
-          })}
+              <p className="text-sm leading-relaxed text-text/70">
+                {USAGE_CATEGORY_HELP[category.id] ?? '이 카테고리와 관련된 요청이 자주 보일 때 잡히는 역할이에요.'}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -11,13 +11,14 @@
 3. 디자인 토큰
 4. 타이포그래피
 5. 컴포넌트 패턴
-6. 모션·인터랙션
-7. Copy Tone & i18n
-8. Wrapped 스토리텔링 패턴
-9. 접근성
-10. 대시보드 전용 규칙
-11. UI 변경 시 절차
-12. 참조 파일 인덱스
+6. 아이콘 시스템
+7. 모션·인터랙션
+8. Copy Tone & i18n
+9. Wrapped 스토리텔링 패턴
+10. 접근성
+11. 대시보드 전용 규칙
+12. UI 변경 시 절차
+13. 참조 파일 인덱스
 
 ---
 
@@ -173,27 +174,77 @@ Tailwind 기본값을 기준으로 사용처를 고정한다.
 
 ## 4. 타이포그래피
 
-### 4.1 폰트 스택
+### 4.1 폰트 토큰 (단일 진실의 원천)
 
-원본: `src/index.css:177-195`.
+원본: `src/index.css` `@theme` 블록 + `body` 룰.
+
+**토큰 정의 — `@theme`:**
 
 ```css
-body {
-  font-family: 'Pretendard', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.01em;
-}
-
-h1, h2 {
-  font-family: 'Noto Serif KR', 'Cormorant Garamond', Georgia, serif;
-  letter-spacing: -0.02em;
+@theme {
+  /* ... 색상 토큰 ... */
+  --font-sans: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+  --font-display: 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
 }
 ```
 
-- **본문 (Pretendard)**: 한글 가독성 최우선. UI 전체에 적용.
-- **제목 (Noto Serif KR)**: 감성적 강조가 필요할 때. 대시보드 헤더, 중요한 제목에만.
-- **Wrapped 특수 제목 (`Instrument Serif`)**: PersonalitySlide·ShareSlide 의 타이틀에 `style={{ fontFamily: "'Instrument Serif', serif" }}` 인라인으로 적용 (예: `ShareSlide.tsx:168`).
+**body 룰:**
 
-### 4.2 사이즈 스케일 & 용도
+```css
+body {
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+```
+
+Tailwind v4의 CSS-first 토큰 시스템이 자동으로 `font-sans`, `font-display` 클래스를 생성한다.
+
+| 클래스 | 토큰 | 용도 |
+| --- | --- | --- |
+| `font-sans` | `--font-sans` | 본문/일반 UI (body 기본값과 동일) |
+| `font-display` | `--font-display` | Wrapped 큰 타이틀 등 디스플레이용 |
+
+**현재 두 토큰은 동일 패밀리(Pretendard Variable)** 를 가리킨다 (2026-05-11 묶음 1B 결정 — Pretendard 일원화). 향후 디스플레이용 별도 폰트(예: 한글 디스플레이 폰트)를 도입할 때 `--font-display`만 교체하면 모든 사용처가 한 번에 따라간다.
+
+### 4.2 폰트 로드
+
+`index.html` 에서 jsdelivr CDN 기반 Pretendard Variable dynamic-subset CSS 를 로드한다.
+
+```html
+<link
+  rel="stylesheet"
+  as="style"
+  crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+/>
+```
+
+- 버전은 `v1.3.9` 고정 (2026-05-11 시점 최신 안정). 갱신은 별도 PR.
+- `dynamic-subset` 빌드는 글리프를 필요한 만큼만 내려받아 초기 페인트가 가볍다.
+- Noto Sans/Serif KR(Google Fonts) 도 함께 로드되지만, **현재 Noto Serif KR 은 어떤 룰에서도 참조되지 않는다** (h1/h2 글로벌 룰이 묶음 1B 에서 제거됨). Noto Sans KR 은 `--font-sans` 폴백 체인의 두 번째 항목으로 남아 있어 Pretendard 로딩 실패/CDN 차단 환경에서 여전히 동작한다.
+- **CSP 메모**: 향후 Content Security Policy 도입 시 외부 폰트 CDN 두 곳을 화이트리스트해야 한다 — `style-src https://cdn.jsdelivr.net https://fonts.googleapis.com` + `font-src https://cdn.jsdelivr.net https://fonts.gstatic.com`. 현재는 CSP 미설정 상태라 즉시 영향 없음.
+
+### 4.3 인라인 `fontFamily` 금지 룰
+
+- **컴포넌트에서 `style={{ fontFamily: ... }}` 를 직접 박지 않는다.** 토큰화된 클래스(`font-sans`, `font-display`) 또는 새 토큰 도입으로 처리한다.
+- 같은 폰트 결정이 코드 N곳에 흩어지는 구조는 다음 변경 시 다시 깨진다 (2026-05-10 시점 9곳에서 `Instrument Serif` 인라인 → 한글 fallback "궁서체" 문제 발생 → 묶음 1B 에서 일괄 제거).
+- 외부 환경(`sessionExport.ts` 의 자체완결 HTML 등) 에서는 CSS 변수에 의존할 수 없으므로 **인라인 폰트 스택을 유지하는 것이 정상**이다. 본 룰은 React 컴포넌트 트리에 한정한다.
+
+### 4.4 h1/h2 글로벌 룰 정책
+
+- **글로벌 `h1, h2 { font-family: 'Noto Serif KR', ... }` 룰은 제거되었다** (2026-05-11 묶음 1B). 모든 헤딩이 본문 폰트(Pretendard)로 통일된다.
+- 영향 영역:
+  - `DropZone.tsx` 랜딩 `<h1>Memradar</h1>` (이전: Noto Serif → 현재: Pretendard)
+  - `MemradarTopBar.tsx` 글자별 애니메이션 (h1 안의 `dashboard-brand-letter`/`dashboard-brand-mark`)
+  - `markdown.tsx` 의 사용자 메시지 마크다운 헤딩(h1/h2)
+  - `Dashboard.tsx`, `PersonalityView.tsx`, `Search`, `Updates`, `SessionView.tsx` 의 h2 들
+- 디스플레이 강조가 필요한 곳에서는 `font-display` 클래스 + `tracking-tight` 같은 utility 를 조합한다. 글로벌 헤딩 폰트 룰은 다시 도입하지 않는다 (인라인 `fontFamily` 금지 원칙과 동일한 이유 — 정의의 단일 출처를 토큰 한 곳에 둔다).
+
+### 4.5 모노스페이스
+
+`font-mono` Tailwind 클래스(코드 블록·도구 호출 헤더·토큰 카운터 등 18곳)는 본 토큰 시스템과 별개로 Tailwind 기본값(`ui-monospace, SFMono-Regular, ...`) 을 사용한다. JetBrains Mono 같은 별도 모노 폰트를 도입할 일이 생기면 `--font-mono` 토큰을 새로 추가한다 (현재 미정의).
+
+### 4.6 사이즈 스케일 & 용도
 
 | 용도 | 클래스 | 예시 위치 |
 |---|---|---|
@@ -207,7 +258,9 @@ h1, h2 {
 | 설명 캡션 | `text-xs` | 서브타이틀, 메타 |
 | 미세 라벨 | `text-[10px]` / `text-[11px]` | 배지, 타임스탬프 |
 
-### 4.3 텍스트 강도 계층
+> Wrapped 대/중/특대 타이틀은 §4.1 의 `font-display` 클래스를 함께 적용한다 (현재는 `font-sans` 와 동일 패밀리이지만, 의미적으로 디스플레이 슬롯임을 표시).
+
+### 4.7 텍스트 강도 계층
 
 배경에 올리는 텍스트는 **6단계 투명도**로 위계를 만든다.
 
@@ -299,6 +352,53 @@ border-white/10  bg-white/5   /* 또는 bg-white/[0.05] */
 좌측(브랜드+서브타이틀)과 우측(새소식·코드리포트·테마 버튼 3개)은 `lg:flex-row lg:items-end lg:justify-between`으로 배치한다.  
 `items-end`로 우측 버튼이 좌측 서브타이틀 하단 기준선에 맞춰 정렬된다.
 
+#### 5.3.1 Wrapped 보조 컨트롤 토큰
+
+Wrapped 슬라이드 위에 떠 있는 보조 액션(스킵·X 닫기·prev/next 화살표·dashboard prompt 컨트롤 등)은 **두 단계로 분리된 토큰**을 쓴다. 이 토큰들은 §2.3 Wrapped 전용 팔레트와 §5.2-D 흰색 기반 반투명 패턴을 잇는 다리 역할이며, **인라인 클래스 조합 대신 단일 클래스로 일원화**해 8개 슬라이드 그라디언트 어디서든 동일한 톤을 보장한다.
+
+원본: `src/index.css` 의 `.wrapped-surface` 정의 직후 블록.
+
+| 클래스 | 톤 | 시각 우선순위 | 사용처 |
+|---|---|---|---|
+| `.wrapped-control-skip` | 강조 — 흰 윤곽 + 반투명 배경 + `backdrop-filter: blur(4px)` | **상** (능동 회피 액션) | Wrapped 스킵 버튼 (현재 1곳) |
+| `.wrapped-control-secondary` | 일반 — `bg-white/5` 톤 + `border-white/10`, hover 시 `text-bright` | 중 | X 닫기, prev/next 화살표, dashboard prompt X, "계속 보기" 등 |
+
+```css
+.wrapped-control-skip {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: var(--t-text-bright);
+  backdrop-filter: blur(4px);
+}
+
+.wrapped-control-secondary {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--t-text);
+}
+```
+
+**왜 두 단계로 나누나** (`docs/FEEDBACK-2026-05-10.md` §1A 결정의 핵심):
+
+- 이전에는 스킵 버튼과 X 닫기 버튼이 동일한 `bg-white/5 + border-white/10` 톤이라 **시각 우선순위가 충돌**했다. "회피 의도가 분명한 스킵"이 "단순 닫기"와 같은 무게로 보였다.
+- §4 Q1 결정대로 스킵에는 **흰 윤곽 + 반투명 배경 + backdrop-blur** 를 적용해 8개 슬라이드 그라디언트(`#06060e`/`#0a0612` 계열) 위에서 항상 시인성이 확보되게 하고, 나머지 보조 컨트롤은 종전 톤을 유지하되 토큰화로 일원화했다.
+- 결과: **강조 톤은 단 하나**(스킵)로 한정해, 시각 우선순위가 명확히 분리됨.
+
+**규칙**:
+
+- 위치/형상 클래스(`absolute`, `rounded-full`, `px-3 py-2` 등)와 `aria-label`, `data-wrapped-control="true"` 는 토큰과 별개로 호출부에서 유지한다.
+- `wrapped-control-secondary` 는 `:disabled` 시 자동으로 `opacity: 0.2` + `cursor: not-allowed` 로 톤다운(prev/next 비활성화 케이스 호환).
+- 모션은 0.15s ease 로 제한 — `prefers-reduced-motion` 와 충돌하지 않는 짧은 색 전환만 사용.
+- **사용 스코프는 `.wrapped-surface` 컨테이너 안으로 한정**한다. 두 토큰 모두 `--t-text-bright` 등 Wrapped 팔레트 변수에 의존하므로 외부에서 쓰면 의도와 다른 색이 나올 수 있다.
+- ShareSlide 하단 컨트롤(`ShareSlide.tsx:378-456`)은 본 토큰 적용 범위 밖. 별도 정리 시 동일 토큰을 재사용한다.
+- 새 강조 톤이 필요해도 **하나의 슬라이드 영역 안에 `wrapped-control-skip` 클래스를 둘 이상 두지 않는다** — 강조의 핵심은 "단일성"이다.
+
+**1A 시점의 의도된 시각 변경**:
+
+- 1A 이전 prev/next 화살표·X 닫기·dashboard prompt X·"계속 보기"는 **border 없이 `bg-white/5`만** 사용했다.
+- 1A에서 `wrapped-control-secondary` 토큰으로 흡수하면서 **`border 1px rgba(255,255,255,0.1)` 미세 윤곽이 모든 보조 컨트롤에 추가**된다. 이는 §5.2-D D 패턴(`border-white/10 bg-white/5`)과의 정합을 위한 의도된 변경이다.
+- 결정문(`FEEDBACK-2026-05-10.md` §4 Q1)에는 스킵 분리만 명시되었으나, 보조 컨트롤의 윤곽 도입은 토큰 시스템 일관성을 위한 부수 효과로 본 가이드에서 합의한다.
+
 ### 5.4 배지·라벨
 
 작은 정보성 태그는 공통 원칙: **둥근 `rounded-full` + `text-[10px] font-medium` + `px-2 py-0.5`**.
@@ -387,7 +487,7 @@ select:focus {
 ```
 
 - 컨테이너: `rounded-lg border border-border/60 bg-bg-card/40 overflow-hidden`
-- 헤더: `Wrench` 아이콘(`text-text/50`) + `font-mono text-[11px] font-semibold` 도구명 + `text-text/60` 한 줄 요약(파일 basename·command 80자·`pattern` 등). `is_error` 면 우측에 `AlertTriangle` + `red-400`.
+- 헤더: `ToolDefaultIcon`(`src/icons` — 이전 lucide `Wrench` 에서 2A 정리됨, `text-text/50`) + `font-mono text-[11px] font-semibold` 도구명 + `text-text/60` 한 줄 요약(파일 basename·command 80자·`pattern` 등). `is_error` 면 우측에 `AlertTriangle` + `red-400`.
 - Edit/Write 본문 색: 빨강 `border-red-500/20 bg-red-500/5`, 초록 `border-emerald-500/20 bg-emerald-500/5`. 라벨은 `red-300/70` / `emerald-300/70` 톤다운.
 - Stats 라벨: `+추가` 는 `text-emerald-400`, `-삭제` 는 `text-red-400`. 본문이 비면 `(empty)` 자리표시.
 - 결과 헤더: `text-[10px] uppercase tracking-wider text-text/35`("result").
@@ -396,9 +496,108 @@ select:focus {
 
 주의 — 이 카드는 **서버 모드 + heavy parse 결과**(`ParsedMessage.toolCalls`) 가 있을 때만 노출된다. 정적 HTML 모드에선 도구 이름 pill(5.4 배지·라벨) 로 폴백하고 본문은 표시하지 않는다 — 단일 HTML 파일 용량이 커지지 않도록.
 
+### 5.8 고정 다크 영역 위 텍스트 — 테마 토큰 금지
+
+랜딩(`DropZone.tsx`)의 터미널 박스(`bg-[#0c1220]`)나 Wrapped 슬라이드처럼 **테마와 무관하게 항상 어두운 배경**을 쓰는 영역이 있다. 그 위에 **테마 토큰**(`text-text`, `text-text/70` 등)을 그대로 쓰면 paper/light 테마에서 어두운 글자 색이 적용되어 다크 배경 위 어두운 글자로 깨진다(가독성 0).
+
+규칙: 고정 다크 영역 안의 텍스트는 **항상 흰색 알파 톤**을 쓴다.
+
+- 본문(주): `text-white` 또는 `text-white/85`
+- 본문(보조): `text-white/72`
+- 메타·라벨(uppercase 등): `text-white/55`
+- 약한 힌트: `text-white/40`
+
+`code` 같은 서브 요소도 마찬가지 — `text-accent` 처럼 의미 색은 그대로 OK이지만, **중성 텍스트는 절대 `text-text` 계열을 다크 영역에 두지 않는다**. 적용 사례: `DropZone.tsx` 의 `Terminal Command` 라벨(`text-white/55`), 입력창 옆 안내 문구(`text-white/72`).
+
+> Wrapped 슬라이드(§2.3)는 `.wrapped-surface` 가 토큰을 자체 라이트 톤으로 덮어쓰므로 이 규칙의 예외다 — Wrapped 안에서는 `text-text-bright`, `text-text` 등을 그대로 써도 된다(컨테이너가 토큰을 재정의함). 단 `bg-[#...]` 같은 inline-hex 다크 박스는 그 컨테이너 밖에서도 만들 수 있으므로 본 규칙을 적용한다.
+
 ---
 
-## 6. 모션·인터랙션
+## 6. 아이콘 시스템
+
+본 프로젝트의 아이콘은 두 출처를 사용한다:
+
+- **`src/icons/` (자체 SVG 시스템)** — Memradar 정체성 + 도메인 의미를 담은 37개 SVG. 2026-05-11 Codex 의뢰로 신규 도입(의뢰서: `docs/CODEX-ORDER-ICONS.md`, 시각 결정 노트: `docs/ICONS-DESIGN-NOTES.md`).
+- **`lucide-react`** — 표준 액션/네비게이션 아이콘만 (ArrowLeft, Check, X, Chevron* 등). 메타포성 아이콘(Brain, Sparkles, Code2, Wrench 등)은 2A에서 정리됨(판정표: `docs/LUCIDE-VERDICTS.md`).
+
+### 6.1 자체 SVG 시스템 — `src/icons/`
+
+5개 카테고리 × 37개 의미 아이콘 (Wrench는 D+E 공유 재사용으로 36 .tsx 파일):
+
+```text
+src/icons/
+  ├─ index.ts                    # 5개 Record 매핑 + IconComponent 타입 export
+  ├─ personality/                # 그룹 A · 8개 (성향)
+  ├─ time/                       # 그룹 B · 6개 (코딩 시간대)
+  ├─ role/                       # 그룹 C · 9개 (AI 직업)
+  ├─ tools/                      # 그룹 D · 10개 (도구 — 향후 확장 슬롯)
+  └─ system/                     # 그룹 E · 3개 (BrandMark, EmptySessions, Warning) + Wrench 재사용
+```
+
+### 6.2 시각 사양 (필수 준수)
+
+| 항목 | 값 |
+| --- | --- |
+| viewBox | `0 0 24 24` |
+| stroke-width | `1.75` (lucide 기본 2 보다 정제됨) |
+| stroke-linecap / linejoin | `round` |
+| color | `currentColor` 만 (하드코딩 hex/rgb 금지) |
+| fill | `none` 또는 `currentColor` 만 |
+
+### 6.3 사용 패턴
+
+```tsx
+// 자체 SVG
+import { BrandMarkIcon, ToolDefaultIcon } from '@/icons'  // 또는 상대 경로
+
+<BrandMarkIcon size={28} className="text-accent" aria-hidden="true" />
+
+// Record 매핑으로 동적 아이콘
+import { PERSONALITY_ICONS, ROLE_ICONS, TIME_ICONS } from '@/icons'
+
+const Icon = PERSONALITY_ICONS[personality.type]
+<Icon size={48} className="text-text-bright" />
+```
+
+`IconComponent` 공통 인터페이스 (lucide와 자체 SVG 모두 수용):
+
+```ts
+type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>
+```
+
+데이터 구조에 아이콘을 보관할 때(예: `ProductUpdates` 의 `UPDATE_META.icon`)는 `typeof Sparkles` 같은 좁은 타입이 아니라 `IconComponent`로 받아 lucide와 자체 SVG를 자유롭게 교체 가능하게 한다.
+
+### 6.4 글자 → SVG 시각 매칭 룰
+
+이모지/유니코드 글리프(`✦`, `📭`, `🔧` 등)를 SVG 컴포넌트로 교체할 때 **size는 font-size와 1:1이 아니다**:
+
+| 글자 컨텍스트 | 글자 글리프 | SVG size |
+| --- | --- | --- |
+| `text-3xl` (30px) | ≈ 22~26px | **28** |
+| `text-2xl` (24px) | ≈ 18~22px | **20** |
+| `text-4xl` (36px) | ≈ 26~32px | **48** (빈 상태) |
+| `text-sm` (14px) | ≈ 11~13px | **14** |
+
+이유: 글자 글리프는 폰트의 캡 높이/베이스라인 안에 그려지지만 SVG는 `viewBox` 박스 기준이라 같은 size 숫자에서 SVG가 더 작아 보임. 시각 매칭은 케이스별 검수 필요.
+
+또한 부모 wrapper의 책임이:
+
+- **단순 색**(`text-text/40` 등)이면 wrapper 제거 가능 — SVG에 className 직접 부여.
+- **애니메이션/위치**(`loading-brand-spark`, `dashboard-brand-mark`, `dashboard-button-attention-icon` 등)면 wrapper 유지 + SVG는 자식으로 — 애니메이션 보존을 위해 필수. 정렬은 `inline-flex items-center` 보강.
+
+### 6.5 lucide 사용 정책
+
+- **유지(a)** — 표준 액션/네비게이션 아이콘 (`ArrowLeft`, `Check`, `X`, `Chevron*`, `Calendar`, `MessageSquare`, `BarChart3`, `Timer`, `TrendingUp`, `CircleHelp`, `Bell`, `Search`, `Palette`, `Moon`, `MoonStar`, `SunMedium` 등).
+- **메타포 금지(b/c)** — `Brain`, `Sparkles`, `Code2`, `Wrench`, `Bot`, `User`, `Zap`, `Flame`, `Terminal`(메타포 컨텍스트). 2A 정리 결과는 `docs/LUCIDE-VERDICTS.md` 참조.
+- **신규 lucide 도입 시** — `LUCIDE-VERDICTS.md` 에 결정 행 추가 (메타포성 검토 + 자체 SVG 대안 검토 포함).
+
+### 6.6 sessionExport 예외 — 이모지 보존
+
+`src/lib/sessionExport.ts` 는 외부 단독 실행 가정(사용자가 export한 MD/HTML 파일이 앱 시각 시스템 없이 단독 렌더). 따라서 `⚠️` (경고/중단) / `🔧` (도구 호출 글리프) 는 **이모지로 그대로 유지**하며 SVG로 교체하지 않는다. 파일 헤더 주석에 정책 lock-down.
+
+---
+
+## 7. 모션·인터랙션
 
 ### 6.1 기본 전환 값
 

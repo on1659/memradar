@@ -6,6 +6,7 @@ import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
 import { analyzeUsageTopCategories, getUsageHeadline } from '../../lib/usageProfile'
 import { useI18n } from '../../i18n'
+import { SYSTEM_ICONS } from '../../icons'
 import { CoverSlide } from './slides/CoverSlide'
 import { IntroSlide } from './slides/IntroSlide'
 import { PromptsSlide } from './slides/PromptsSlide'
@@ -90,7 +91,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
   if (sessions.length === 0) {
     return (
       <div className="wrapped-surface flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#06060e] text-text">
-        <div className="text-4xl">📭</div>
+        <SYSTEM_ICONS.emptySessions className="h-16 w-16" aria-hidden="true" />
         <div className="text-lg font-semibold text-text-bright">
           {locale === 'ko' ? '분석할 세션이 없습니다' : 'No sessions to analyze'}
         </div>
@@ -192,7 +193,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
         <button
           onClick={goPrev}
           disabled={!canPrev}
-          className="rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10 disabled:opacity-20"
+          className="wrapped-control-secondary rounded-full p-2"
           aria-label="이전 슬라이드"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -214,7 +215,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
         <button
           onClick={goNext}
           disabled={!canNext}
-          className="rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10 disabled:opacity-20"
+          className="wrapped-control-secondary rounded-full p-2"
           aria-label="다음 슬라이드"
         >
           <ArrowRight className="h-5 w-5" />
@@ -225,7 +226,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
         <button
           onClick={() => setSlideIndex(lastSlideIndex)}
           data-wrapped-control="true"
-          className="absolute right-16 top-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-text transition-colors hover:border-accent/30 hover:bg-white/10 hover:text-text-bright"
+          className="wrapped-control-skip absolute right-16 top-4 z-10 gap-1.5 rounded-full px-3 py-2 text-xs font-semibold"
           aria-label="마지막 슬라이드로 건너뛰기"
         >
           <span>스킵</span>
@@ -236,7 +237,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       <button
         onClick={onClose}
         data-wrapped-control="true"
-        className="absolute right-4 top-4 z-10 rounded-full bg-white/5 p-2 text-text transition-colors hover:bg-white/10"
+        className="wrapped-control-secondary absolute right-4 top-4 z-10 rounded-full p-2"
         aria-label="전체 보기로 돌아가기"
       >
         <X className="h-5 w-5" />
@@ -250,7 +251,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
           <div className="relative w-full max-w-sm rounded-3xl border border-accent/25 bg-[#11101d] p-6 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
             <button
               onClick={() => setDashboardPromptOpen(false)}
-              className="absolute right-4 top-4 rounded-full bg-white/5 p-2 text-text/70 transition-colors hover:bg-white/10 hover:text-text-bright"
+              className="wrapped-control-secondary absolute right-4 top-4 rounded-full p-2"
               aria-label="팝업 닫기"
             >
               <X className="h-4 w-4" />
@@ -264,7 +265,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
             <div className="mt-6 flex gap-2">
               <button
                 onClick={() => setDashboardPromptOpen(false)}
-                className="flex-1 rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-text transition-colors hover:bg-white/10"
+                className="wrapped-control-secondary flex-1 rounded-xl px-4 py-3 text-sm font-medium"
               >
                 {dashboardPromptStayLabel}
               </button>

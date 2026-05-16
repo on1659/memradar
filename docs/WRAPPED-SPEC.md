@@ -17,9 +17,27 @@
 
 순서는 `WrappedView.tsx` 의 import 순서와 동일하다. `lastSlideIndex = 7`.
 
+### 폰트 시스템
+
+모든 슬라이드의 큰 타이틀은 **`font-display` 클래스**(= `--font-display` 토큰, 현재 Pretendard Variable)로 통일한다. 인라인 `style={{ fontFamily }}` 패턴은 금지(2026-05-11 묶음 1B 결정 — 한글 fallback "궁서체" 문제 차단). 자세한 내용은 [DESIGN-GUIDE.md §4.1, §4.3](./DESIGN-GUIDE.md) 참조.
+
+각 슬라이드의 `font-display` 사용 요소:
+
+| 슬라이드 | `font-display` 적용 요소 |
+| --- | --- |
+| Cover | "Memradar" 타이틀 (`text-5xl md:text-7xl`) |
+| Intro | 2줄 한글 타이틀 ("당신의 이야기가 / 시작된 날") |
+| Prompts | 큰 카운트업 숫자 (`AnimatedNumber` 래퍼 div, `text-7xl md:text-9xl`) |
+| Model | 모델명 (`shortModelName`, `text-4xl md:text-6xl`) |
+| Hours | 시간대 라벨 ("Night Owl" 등, `text-4xl md:text-5xl`) |
+| Personality | 성격 타이틀 (`personality.title`, `text-4xl md:text-6xl`) |
+| Usage | 직업 카테고리 타이틀 (`primary.title`, `text-4xl md:text-6xl`) |
+| Share | 공유 카드 헤드라인 (`personality.title`, `text-[2.2rem]`) |
+| ~~Tools~~ | (orphan — `WrappedView` 미import. 본 표는 향후 재진입 시 정합성 위해 같이 정리됨: "가장 많이 쓴 도구" 타이틀) |
+
 ### Slide 1: Cover — "Memradar"
 
-- 큰 타이틀: `Memradar` (Instrument Serif, 타이프라이터 진입)
+- 큰 타이틀: `Memradar` (`font-display` 토큰 — Pretendard, 타이프라이터 진입)
 - 서브카피: `당신의 AI 성향은?` / `What is your AI style?`
 - 요약: "N개의 세션을 바탕으로 당신의 AI 사용 흐름을 읽어볼게요."
 - 타이틀 카드 역할. 본 내러티브는 Slide 2(Intro) 부터 시작한다.
@@ -29,10 +47,9 @@
 ### Slide 2: Intro — "Your Memradar"
 
 - Eyebrow: `Your Memradar`
-- 큰 타이틀: `Memradar` (Instrument Serif)
-- 서브카피: `당신의 AI 성향은?` / `What is your AI style?`
-- 요약: "N개의 세션을 바탕으로 당신의 AI 사용 흐름을 읽어볼게요."
-- 푸터 배지: `첫 기록 YYYY년 M월 D일` / `First recorded on …`
+- 큰 타이틀 (2줄): `당신의 이야기가 / 시작된 날` · 영문은 `The day your / story began` (`font-display` 토큰 — Pretendard, 타이프라이터 2단)
+- 첫 기록 일자: `YYYY년 M월 D일` (locale에 따라 ko-KR / en-US, 타이프라이터)
+- 본문: `그 이후로 N개의 세션을 함께했습니다` / `N sessions together since then`
 
 구현: `src/components/wrapped/slides/IntroSlide.tsx`
 

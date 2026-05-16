@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ChevronRight, Wrench, AlertTriangle } from 'lucide-react'
+import { ChevronRight, AlertTriangle } from 'lucide-react'
 import type { ToolCall } from '../../types'
+import { ToolDefaultIcon, TOOL_ICONS } from '../../icons'
 import { Truncate } from './Truncate'
 
 export interface ExpandSignal {
@@ -30,6 +31,7 @@ function getNumber(input: Record<string, unknown>, key: string): number | undefi
 }
 
 function HeaderRow({ name, summary, isError, expanded, onToggle }: { name: string; summary?: string; isError?: boolean; expanded: boolean; onToggle: () => void }) {
+  const ToolIcon = TOOL_ICONS[name as keyof typeof TOOL_ICONS] ?? ToolDefaultIcon
   return (
     <button
       type="button"
@@ -37,7 +39,7 @@ function HeaderRow({ name, summary, isError, expanded, onToggle }: { name: strin
       className={`flex w-full items-center gap-2 px-3 py-2 text-left bg-bg-hover/40 hover:bg-bg-hover/70 transition-colors ${expanded ? 'border-b border-border/60' : ''}`}
     >
       <ChevronRight className={`h-3 w-3 text-text/40 transition-transform ${expanded ? 'rotate-90' : ''} flex-shrink-0`} />
-      <Wrench className="h-3 w-3 text-text/50 flex-shrink-0" />
+      <ToolIcon className="h-3 w-3 text-text/50 flex-shrink-0" aria-hidden="true" />
       <span className="font-mono text-[11px] font-semibold text-text-bright flex-shrink-0">{name}</span>
       {summary && (
         <span className="font-mono text-[11px] text-text/60 truncate min-w-0">{summary}</span>

@@ -1,4 +1,4 @@
-import { MoonStar, Palette, Sparkles, SunMedium } from 'lucide-react'
+import { Moon, MoonStar, Palette, SunMedium } from 'lucide-react'
 
 export const THEME_PRESETS = [
   {
@@ -6,7 +6,7 @@ export const THEME_PRESETS = [
     label: '다크 모드',
     description: '기본 다크 테마',
     preview: 'linear-gradient(135deg, #10131a 0%, #1a2130 100%)',
-    icon: MoonStar,
+    icon: Moon,
     colors: {
       bg: '#0f141c',
       card: '#171d28',
@@ -21,7 +21,7 @@ export const THEME_PRESETS = [
     label: '나이트',
     description: '더 깊은 블랙 톤',
     preview: 'linear-gradient(135deg, #04060a 0%, #10131a 100%)',
-    icon: Sparkles,
+    icon: MoonStar,
     colors: {
       bg: '#04070d',
       card: '#0b1018',

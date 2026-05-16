@@ -52,6 +52,8 @@ const translations = {
     'replay.tools': '도구',
     'replay.toolExpand': '도구 호출 {count}개 보기',
     'replay.toolCollapse': '접기',
+    'role.you': '나',
+    'role.ai': 'AI',
   },
   en: {
     'app.loading.searching': 'Searching session files...',
@@ -101,6 +103,8 @@ const translations = {
     'replay.tools': 'Tools',
     'replay.toolExpand': 'Show {count} tool call(s)',
     'replay.toolCollapse': 'Hide',
+    'role.you': 'You',
+    'role.ai': 'AI',
   },
 } as const
 

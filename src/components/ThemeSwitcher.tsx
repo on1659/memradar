@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, MoonStar, Palette, Sparkles, SunMedium } from 'lucide-react'
+import { ArrowLeft, Moon, MoonStar, Palette, SunMedium } from 'lucide-react'
 import { useI18n } from '../i18n'
 import {
   ACCENT_LABEL_KEYS,
@@ -14,12 +14,12 @@ const THEMES = [
   {
     id: 'dark',
     preview: 'linear-gradient(135deg, #10131a 0%, #1a2130 100%)',
-    icon: MoonStar,
+    icon: Moon,
   },
   {
     id: 'night',
     preview: 'linear-gradient(135deg, #04060a 0%, #10131a 100%)',
-    icon: Sparkles,
+    icon: MoonStar,
   },
   {
     id: 'light',

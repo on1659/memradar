@@ -1,14 +1,11 @@
 import { motion } from 'framer-motion'
+import { Rank1Icon, TOOL_ICONS, ToolDefaultIcon } from '../../../icons'
 import { SlideLayout, FadeInText } from './SlideLayout'
 
 interface Props {
   toolsUsed: Record<string, number>
 }
 
-const TOOL_ICONS: Record<string, string> = {
-  Read: '📖', Edit: '✏️', Write: '📝', Bash: '💻', Grep: '🔍',
-  Glob: '📂', Agent: '🤖', WebSearch: '🌐', WebFetch: '🌐',
-}
 
 export function ToolsSlide({ toolsUsed }: Props) {
   const sorted = Object.entries(toolsUsed).sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -19,7 +16,7 @@ export function ToolsSlide({ toolsUsed }: Props) {
       <FadeInText className="text-amber/60 text-sm tracking-widest uppercase mb-8">
         Your Top Tools
       </FadeInText>
-      <FadeInText delay={0.2} className="text-3xl md:text-4xl font-bold text-text-bright mb-10" style={{ fontFamily: "'Instrument Serif', serif" } as React.CSSProperties}>
+      <FadeInText delay={0.2} className="font-display text-3xl md:text-4xl font-bold text-text-bright mb-10">
         가장 많이 쓴 도구
       </FadeInText>
 
@@ -27,6 +24,7 @@ export function ToolsSlide({ toolsUsed }: Props) {
         {sorted.map(([tool, count], i) => {
           const rank = i + 1
           const pct = (count / maxCount) * 100
+          const ToolIcon = TOOL_ICONS[tool as keyof typeof TOOL_ICONS] ?? ToolDefaultIcon
           return (
             <motion.div
               key={tool}
@@ -35,10 +33,12 @@ export function ToolsSlide({ toolsUsed }: Props) {
               transition={{ delay: 0.5 + (4 - i) * 0.2, duration: 0.5 }}
               className="flex items-center gap-3"
             >
-              <span className={`text-lg w-8 text-center ${rank === 1 ? 'text-amber' : 'text-text/40'}`}>
-                {rank === 1 ? '👑' : `#${rank}`}
+              <span className={`flex w-8 justify-center ${rank === 1 ? 'text-amber' : 'text-text/40'}`}>
+                {rank === 1 ? <Rank1Icon size={20} aria-hidden="true" /> : `#${rank}`}
               </span>
-              <span className="text-lg">{TOOL_ICONS[tool] || '🔧'}</span>
+              <span className="flex h-7 w-7 items-center justify-center">
+                <ToolIcon size={22} aria-hidden="true" />
+              </span>
               <span className="text-sm text-text-bright w-16">{tool}</span>
               <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
                 <motion.div

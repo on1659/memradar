@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import type { Session } from '../../../types'
 import { analyzeUsageTopCategories, getUsageHeadline } from '../../../lib/usageProfile'
+import { ROLE_ICONS, type RoleIconKey } from '../../../icons'
 
 interface Props {
   sessions: Session[]
@@ -13,6 +14,7 @@ export function UsageSlide({ sessions }: Props) {
   const primary = top3[0]
 
   if (!primary) return null
+  const PrimaryIcon = ROLE_ICONS[primary.id as RoleIconKey]
 
   return (
     <SlideLayout gradient="from-[#0a0612] via-[#120a1e] to-[#0a0612]">
@@ -24,15 +26,14 @@ export function UsageSlide({ sessions }: Props) {
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: 'spring', duration: 1, delay: 0.4 }}
-        className="mb-4 text-8xl"
+        className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-white/5"
       >
-        {primary.emoji}
+        <PrimaryIcon size={64} aria-hidden="true" />
       </motion.div>
 
       <FadeInText
         delay={0.7}
-        className="mb-1 text-center text-4xl font-bold text-text-bright md:text-6xl"
-        style={{ fontFamily: "'Instrument Serif', serif" }}
+        className="font-display mb-1 text-center text-4xl font-bold text-text-bright md:text-6xl"
       >
         {primary.title}
       </FadeInText>
@@ -58,7 +59,10 @@ export function UsageSlide({ sessions }: Props) {
               transition={{ delay: 1.35 + index * 0.15 }}
               className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-3"
             >
-              <span className="text-2xl">{category.emoji}</span>
+              {(() => {
+                const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
+                return <CategoryIcon size={26} aria-hidden="true" />
+              })()}
               <div>
                 <div className="text-xs font-semibold text-text-bright">{category.title}</div>
                 <div className="text-[10px] text-text/30">{category.subtitle}</div>

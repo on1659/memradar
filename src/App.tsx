@@ -8,6 +8,7 @@ import { ReplayView } from './components/replay/ReplayView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import { useI18n } from './i18n'
+import { SYSTEM_ICONS } from './icons'
 import type { Session } from './types'
 
 declare global {
@@ -202,7 +203,7 @@ function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-3xl font-bold text-text-bright flex items-center gap-2">
-          <span className="loading-brand-spark text-accent">✦</span>
+          <SYSTEM_ICONS.brandMark className="loading-brand-spark h-8 w-8 text-accent" aria-hidden="true" />
           <span aria-label="Memradar" className="inline-flex">
             {brandLetters.map((letter, index) => (
               <span

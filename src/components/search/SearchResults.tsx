@@ -1,6 +1,7 @@
-import { User, Bot, Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { shortenCwd, type SearchResult } from '../../lib/search'
 import { cleanClaudeText } from '../../lib/cleanClaudeText'
+import { useI18n } from '../../i18n'
 
 interface SearchResultsProps {
   results: SearchResult[]
@@ -33,6 +34,10 @@ function formatTimestamp(ts: string): string {
 }
 
 export function SearchResults({ results, onSelect }: SearchResultsProps) {
+  const { t } = useI18n()
+  const youLabel = t('role.you')
+  const aiLabel = t('role.ai')
+
   if (results.length === 0) {
     return (
       <div className="text-center py-12 text-text/40 text-sm">
@@ -52,14 +57,14 @@ export function SearchResults({ results, onSelect }: SearchResultsProps) {
             className="w-full text-left p-4 hover:bg-bg-hover transition-colors group"
           >
             <div className="flex items-start gap-3">
-              {/* Role icon */}
-              <div
-                className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                  isUser ? 'bg-green/10 text-green' : 'bg-accent/10 text-accent'
+              {/* Role chip */}
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0 mt-0.5 ${
+                  isUser ? 'bg-green/12 text-green' : 'bg-text-bright/8 text-text-bright'
                 }`}
               >
-                {isUser ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-              </div>
+                {isUser ? youLabel : aiLabel}
+              </span>
 
               <div className="flex-1 min-w-0">
                 {/* Snippet */}

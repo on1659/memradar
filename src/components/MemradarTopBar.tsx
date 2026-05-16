@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Bell, RefreshCw } from 'lucide-react'
 import { useI18n } from '../i18n'
+import { SYSTEM_ICONS } from '../icons'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
 
@@ -26,7 +27,7 @@ interface MemradarTopBarProps {
 function DashboardBrand() {
   return (
     <h1 className="dashboard-brand-title flex items-center gap-2 text-3xl font-bold text-text-bright">
-      <span className="dashboard-brand-mark text-accent">✦</span>
+      <SYSTEM_ICONS.brandMark className="dashboard-brand-mark h-8 w-8 text-accent" aria-hidden="true" />
       <span aria-label="Memradar" className="inline-flex">
         {BRAND_LETTERS.map((letter, index) => (
           <span
@@ -104,7 +105,7 @@ export function MemradarTopBar({
                 className="dashboard-button-attention flex h-9 items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20 whitespace-nowrap"
               >
                 <span className="dashboard-button-attention-runner" aria-hidden="true" />
-                <span className="dashboard-button-attention-icon relative z-[1]">✦</span>
+                <SYSTEM_ICONS.brandMark className="dashboard-button-attention-icon relative z-[1] h-4 w-4" aria-hidden="true" />
                 <span className="relative z-[1] hidden sm:inline">{t('dashboard.wrapped')}</span>
               </button>
             )}
