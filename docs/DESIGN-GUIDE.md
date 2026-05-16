@@ -430,6 +430,18 @@ rounded-full border border-border/70 bg-bg-card px-2 py-0.5 text-[10px] font-med
 
 "개발중" 같은 상태 표시에는 `bg-white/10 text-[10px] text-text/50` (`ShareSlide.tsx` 공유 메뉴 참조).
 
+**성향 타입 배지 (Dashboard 성향 카드):**  
+`"내 전체 성향"` 레이블 옆에 표시되는 `EWS` 등 타입 코드 배지. accent 기반 컬러 배지로 레이블과 시각 위계를 구분.
+
+```
+rounded-full px-2.5 py-1 text-[10px] font-mono font-bold tracking-widest
+background: color-mix(in srgb, var(--t-accent) 15%, var(--t-bg-card))
+color:      color-mix(in srgb, var(--t-accent) 90%, var(--t-text-bright) 10%)
+border:     1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)
+```
+
+옆의 `"내 전체 성향"` 레이블은 동일 accent 계열이나 배경 10% + 색상 82%로 살짝 더 연하게 처리해 배지보다 낮은 시각 강도를 유지.
+
 ### 5.5 메시지 말풍선
 
 `SessionView.tsx` 의 대화 렌더링. 역할별 색을 유지해 스캔 시 즉시 구분된다.

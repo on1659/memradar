@@ -170,13 +170,28 @@ export function UpdatesPopover({ open, onClose }: UpdatesPopoverProps) {
     }
   }, [open])
 
+  // Close on outside click, but skip if the click is on the toggle button itself
+  // (the toggle button handles open/close via its own onClick).
+  // Using pointer-events-none on the overlay to avoid z-index stacking-context battles.
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target as Element
+      if (target.closest('[data-updates-toggle]')) return
+      if (target.closest('[data-updates-popover]')) return
+      onClose()
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [open, onClose])
+
   if (!open || typeof document === 'undefined') return null
 
   return createPortal(
     <>
-      <div className="dashboard-overlay bg-black/20 backdrop-blur-[1px]" onClick={onClose} />
+      <div className="dashboard-overlay pointer-events-none bg-black/20 backdrop-blur-[1px]" />
 
-      <div className="dashboard-popover right-6 top-20 w-[min(27rem,calc(100vw-2rem))] rounded-2xl border border-border bg-bg-card p-4 shadow-2xl animate-in max-sm:left-4 max-sm:right-4 max-sm:top-18 max-sm:w-auto">
+      <div data-updates-popover className="dashboard-popover right-6 top-20 w-[min(27rem,calc(100vw-2rem))] rounded-2xl border border-border bg-bg-card p-4 shadow-2xl animate-in max-sm:left-4 max-sm:right-4 max-sm:top-18 max-sm:w-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="mt-1 text-sm font-semibold text-text-bright">{t('dashboard.news')}</div>

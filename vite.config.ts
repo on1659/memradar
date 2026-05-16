@@ -238,6 +238,6 @@ function sessionApiPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), sessionApiPlugin()],
   server: {
-    port: 4748,
+    port: 4799,
   },
 })

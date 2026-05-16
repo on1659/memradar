@@ -10,6 +10,22 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-05-17-qa-batch-ux-improvements',
+    version: 'v3.6.2',
+    date: '2026-05-17',
+    title: 'QA 배치: 대화 기록 정렬 토글 + 새소식 팝오버 개선',
+    summary: '대화 기록의 정렬 토글 기능을 추가하고, 새소식 팝오버 외부 클릭 닫기를 개선했어요. 성향 타입 배지의 시각 강도도 조정해 더 명확하게 표시돼요.',
+    highlights: [
+      '대화 기록 정렬 버튼 재클릭 시 오름/내림차순 토글 (날짜순/토큰 사용순 각각)',
+      '정렬 방향을 화살표(↓/↑)로 시각화 — 현재 정렬 상태 한눈에',
+      '다른 정렬 선택 시 기본값(내림차순)으로 초기화',
+      '새소식 팝오버 외부 클릭 시 자동 닫기 (토글 버튼 제외해 의도치 않은 닫기 방지)',
+      '성향 타입 배지(EWS 등) accent 색상 기반으로 강조 — 라벨과의 시각 위계 명확화',
+      '오버레이 z-index 최적화로 스택 컨텍스트 정리',
+    ],
+    category: 'dashboard',
+  },
+  {
     id: '2026-05-08-replay-speed-and-host',
     version: 'v3.6.1',
     date: '2026-05-08',
