@@ -205,12 +205,14 @@ function validateNaturalness(sample: Sample, errors: string[], warnings: string[
     }
   }
 
-  // 동일 문장 3회+ 복붙 → 에러
+  // 동일 문장 3회+ 복붙 → 에러. 단 16자 이상 substantive 메시지만 센다 —
+  // "ㅇㅋ"·"ㅇㅇ"·"넵" 같은 짧은 추임새는 실제 대화에서 자연스럽게 반복되므로
+  // 복붙 stuffing 으로 보지 않는다.
   const sentenceFreq = new Map<string, number>()
   for (const m of messages) {
     if (typeof m.text !== 'string') continue
     const norm = m.text.trim()
-    if (norm.length === 0) continue
+    if (norm.length <= 15) continue
     sentenceFreq.set(norm, (sentenceFreq.get(norm) ?? 0) + 1)
   }
   for (const [sentence, count] of sentenceFreq) {
