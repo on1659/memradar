@@ -47,7 +47,8 @@ memradar의 "AI 직업"(역할 분류기, `src/lib/usageProfile.ts`)이 사용�
 - **세션 데이터 외부 전송 금지** (CLAUDE.md). 평가 샘플은 합성 데이터라 이 제약과
   무관하다. 향후 실세션을 쓰게 되면(Approach C) 라벨링은 로컬에서만.
 - 9개 역할 카테고리·8장 Wrapped 구조 유지. 이 작업은 측정이며 카테고리 변경이 아니다.
-- 외부 AI API 필요 (블라인드 샘플 생성). Codex CLI / GLM(zai) 자격증명 활용.
+- 외부 AI API 필요 (블라인드 샘플 생성) — `generate-eval-samples-zai.mts`가 쓰는
+  Z.AI/GLM(`ZAI_API_KEY`). Codex CLI 경로는 코드상 존재하지 않는다.
 - v3 §1-3 건강 범위: 전체 정답률 65~85%. 85% 초과 = 샘플이 엔진 친화적 편향(v2 재발),
   65% 미만 = 엔진 취약점 또는 스펙 모호.
 
@@ -65,9 +66,10 @@ memradar의 "AI 직업"(역할 분류기, `src/lib/usageProfile.ts`)이 사용�
 | 자산 | 상태 |
 |---|---|
 | `src/lib/usageProfile.ts` | Phase 1·2 반영 완료. `analyzeUsageTopCategories`(현 UI 연결) + `analyzeUsageRoles`(Phase 3 mixed/confidence 포함, UI 미연결). 카테고리 신호 사전(`CATEGORY_DATA`)은 현재 미export |
-| `scripts/generate-eval-samples.mts`, `...-zai.mts` | 블라인드 샘플 생성기 (Codex/GPT, GLM) — 파일 존재 |
+| `scripts/generate-eval-samples-zai.mts` | **외부 API 블라인드 생성기 — 유일** (Z.AI/GLM, `ZAI_API_KEY`). 단 109개 고정·배치 크기 파라미터 없음·`category`에 `consistency` 잔재 → 파일럿용 파라미터화 필요 |
+| `scripts/generate-eval-samples.mts` | 파일명과 달리 외부 API 미사용 — 정적 키워드 조합 생성기 (v2 잔재) |
 | `scripts/test-eval-and-report.mts` | 평가+HTML 리포트. **혼동행렬 O, 카테고리·난이도 정확도 O.** 단 카테고리 enum이 v1 잔재(`pure/mixed/ambiguous/consistency`)라 v3 4종(`pure/mixed/ambiguous/edge`)과 불일치. 역할별 precision/recall/F1·mixed 완전정답·undecided 비율은 **미구현** (v3 §7.2/§12가 "확장 필요"로 명시). 평가 함수가 `analyzeUsageTopCategories`에 하드와이어 |
-| `scripts/eval-role-samples.mts`, `make-static-samples.mts`, `run-eval.mjs`, `analyze-my-data.mts` | 용도 미확인 — Stage 0에서 obsolete/중복 여부 판정 |
+| `scripts/eval-role-samples.mts`, `make-static-samples.mts`, `run-eval.mjs` | Scout 판정: 셋 다 obsolete v1/v2 잔재 (각각 test-eval-and-report 부분집합 / v2 정적 생성기 / 엔진 코드 복붙·죽은 경로). 정리는 이번 범위 밖 |
 | `scripts/validate-eval-samples.mts` | **존재하지 않음** — Stage 0에서 v3 §5 기준으로 신규 작성 필요 |
 | `tests/fixtures/role-eval-samples/` | **디렉터리 부재** — Stage 0에서 생성 필요 (없으면 `test-eval-and-report.mts`가 에러) |
 | `/memtest`, `/generate-eval-samples` 스킬 | 이 평가 흐름을 래핑하는 프로젝트 스킬이 이미 존재 |
@@ -114,8 +116,9 @@ v3 스펙은 이미 v1·v2 실패 교훈을 반영한 검토된 방법론이고,
   - v3 §7.2 지표 추가: 역할별 precision/recall/F1, mixed top1/완전정답, undecided 비율.
 - `scripts/eval-role-samples.mts`·`make-static-samples.mts`·`run-eval.mjs` 용도 확인 —
   obsolete면 정리, 재사용 가능하면 흡수.
-- 생성 스크립트의 API 자격증명 경로 확인 (Codex CLI / GLM 키). 임의 배치 크기
-  (파일럿은 버킷당 5개)를 받는지도 확인 — v3 §8-1은 역할당 10개 배치 전제.
+- `generate-eval-samples-zai.mts` 파라미터화: CLI로 역할·난이도·버킷당 개수를 받게
+  확장 (현재 109개 고정) + `category` 타입을 v3 4종으로 정정. 자격증명은 Z.AI/GLM
+  (`ZAI_API_KEY`) — Codex CLI 경로는 코드상 없다.
 - 평가 대상 함수는 현 UI가 쓰는 `analyzeUsageTopCategories`로 고정. `analyzeUsageRoles`
   (Phase 3, UI 미연결)는 이번 측정 범위에서 제외 (YAGNI — 노출되지 않는 경로).
 
@@ -161,10 +164,9 @@ v3 스펙은 이미 v1·v2 실패 교훈을 반영한 검토된 방법론이고,
 
 ## 열린 질문
 
-- 생성 모델 조합: Codex + GLM 2개로 v3 §8-2 "2~3개 혼용" 요건 충족인가, Claude도 넣을까?
+- 생성 모델 다양화: 현재 외부 블라인드 생성기는 zai(GLM) 단일 — v3 §8-2는 2~3개
+  혼용 권장. Claude/Codex 생성 경로를 추가할지.
 - 400샘플 생성의 API 비용 예산 상한 — 파일럿 30개 비용으로 전체를 추정한 뒤 확정.
-- `scripts/eval-role-samples.mts`·`make-static-samples.mts`·`run-eval.mjs`가 v3
-  파이프라인의 살아있는 부품인가, v1/v2 잔재인가 (Stage 0에서 판정).
 
 ## 성공 기준
 

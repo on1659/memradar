@@ -28,3 +28,10 @@
 - **함정**: Tailwind 기본은 `overflow-wrap: normal` 이라 공백 없는 단일 토큰은 줄바꿈되지 않는다. `<p>` `<li>` 등 mdComponents 안 요소만 스타일링하고 wrapper에 줄바꿈 규칙을 안 주면, 사용자가 키 반복·base64·긴 URL·해시 등을 붙여넣는 순간 레이아웃이 깨진다. 한국어 텍스트만 테스트하면 발견 못 함.
 - **회피**: ReactMarkdown wrapper div에 `break-words` (= `overflow-wrap: break-word`) 추가. `pre`/`code`/`table` 처럼 정렬이 의미를 갖는 블록은 기존 `overflow-x-auto`로 가로 스크롤 처리(잘리면 의미 손실)이므로 wrapper 레벨 `break-words`와 충돌하지 않는다. 사용자 입력을 받는 모든 마크다운 표면에 동일 패턴 적용.
 - **연관 파일/함수**: `src/components/SessionView.tsx:MessageContent`, `src/components/markdown.tsx:mdComponents`
+
+## L-3: 설계 문서·스펙의 "스크립트 용도" 기술을 코드 검증 없이 신뢰하지 말 것
+
+- **언제 만났나**: 2026-05-22, AI 역할 평가 Stage 0 정찰 — `generate-eval-samples.mts`가 v3 스펙 §12와 `AI-ROLE-EVAL-EXECUTION-PLAN.md` 현황표에 "외부 API 블라인드 생성기"로 적혀 있었으나, 실제는 외부 호출이 전혀 없는 정적 키워드 조합 생성기였다. 진짜 외부 API 생성기는 `-zai.mts` 하나뿐이었다.
+- **함정**: 설계 문서·스펙이 스크립트의 *의도/계획*을 적어두면, 그 스크립트가 다르게 구현되거나 처음부터 다르게 만들어져도 문서는 갱신되지 않은 채 남는다. 파일명(`generate-...`)이나 문서 설명만 보고 지시서를 쓰면, 존재하지 않는 도구 경로(예: Codex CLI 자격증명)를 전제한 작업 계획이 나온다.
+- **회피**: 정찰 시 스크립트의 실제 역할은 파일명·문서가 아니라 코드에서 직접 확인한다. "외부 API를 부르는가"는 `fetch`/API 클라이언트 import/`process.env` 키 사용 여부를 grep해 import·호출부로만 판정. 문서는 출발점, 코드가 진실.
+- **연관 파일/함수**: `scripts/generate-eval-samples.mts`(정적), `scripts/generate-eval-samples-zai.mts`(실제 외부 API), `docs/AI-ROLE-EVAL-SAMPLES-SPEC.md` §12

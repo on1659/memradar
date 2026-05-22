@@ -173,6 +173,29 @@ function toDisplay({ id, title, subtitle, emoji, color }: CategoryData): UsageCa
 
 export const USAGE_CATEGORIES: UsageCategory[] = CATEGORY_DATA.map(toDisplay)
 
+export type { CategorySignals }
+
+/**
+ * 카테고리 id → 스코어링 신호 사전. `validate-eval-samples.mts` §5-3 주입 검사가
+ * 블라인드 생성 위반(샘플에 phraseStrong 과다 주입)을 사후 탐지하는 데 사용한다.
+ * `CATEGORY_DATA` 자체는 캡슐화 위해 노출하지 않고, signals 파생본만 read-only 로 공개.
+ */
+export const CATEGORY_SIGNALS: Readonly<Record<string, CategorySignals>> = Object.freeze(
+  CATEGORY_DATA.reduce<Record<string, CategorySignals>>((acc, cat) => {
+    // 엔진의 라이브 signals 참조를 그대로 넘기면 소비처의 배열 mutate 가 스코어링
+    // 데이터를 오염시킨다. 깊은 복사 후 배열까지 동결해 진짜 read-only 로 공개.
+    const s = cat.signals
+    acc[cat.id] = Object.freeze({
+      phraseStrong: Object.freeze([...s.phraseStrong]),
+      tokenStrong: Object.freeze([...s.tokenStrong]),
+      tokenWeak: Object.freeze([...s.tokenWeak]),
+      negative: Object.freeze([...s.negative]),
+      toolHints: Object.freeze([...s.toolHints]),
+    }) as CategorySignals
+    return acc
+  }, {})
+)
+
 // --- Scoring engine ----------------------------------------------------
 
 function isAsciiOnly(s: string): boolean {

@@ -2,14 +2,20 @@
 /* eslint-disable no-console */
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Session } from '../src/types.ts'
 import { analyzeUsageTopCategories } from '../src/lib/usageProfile.ts'
+
+// v3 §3-3 카테고리 4종. v1 잔재 'consistency' 제거, 'edge' 신규.
+type SampleCategory = 'pure' | 'mixed' | 'ambiguous' | 'edge'
+const SAMPLE_CATEGORIES: SampleCategory[] = ['pure', 'mixed', 'ambiguous', 'edge']
+const ROLE_IDS = ['feature', 'debug', 'refactor', 'review', 'writing', 'design', 'devops', 'data', 'test']
 
 interface SampleMetadata {
   id: string
   intendedRole: string
   acceptableRoles: string[]
-  category: 'pure' | 'mixed' | 'ambiguous' | 'consistency'
+  category: SampleCategory
   difficulty: 'easy' | 'normal' | 'hard'
   scenario: string
 }
@@ -18,8 +24,12 @@ interface EvaluationResult {
   sampleId: string
   metadata: SampleMetadata
   predictedRole: string | null
+  /** 랭킹 2위 역할 (mixed 완전정답 판정용). 2위가 없으면 null. */
+  predictedTop2: string | null
   confidence: number
   isCorrect: boolean
+  /** undecided: 분류 함수가 빈 배열을 반환한 경우 */
+  undecided: boolean
   details: {
     top3: Array<{ id: string; score: number }>
     topShare: number
@@ -28,14 +38,32 @@ interface EvaluationResult {
   }
 }
 
+/** 역할별 precision/recall/F1 (단일 라벨 기준 — 아래 computeStats 주석 참조) */
+interface RoleStats {
+  precision: number
+  recall: number
+  f1: number
+  tp: number
+  fp: number
+  fn: number
+  support: number
+}
+
 interface Stats {
   total: number
   correct: number
   accuracy: number
   byCategory: Record<string, { total: number; correct: number; accuracy: number }>
   byDifficulty: Record<string, { total: number; correct: number; accuracy: number }>
+  /** 9역할 각각의 precision/recall/F1 (단일 라벨 = intendedRole ground truth) */
+  byRole: Record<string, RoleStats>
   confusionMatrix: Array<{ actual: string; predicted: string; count: number }>
   confidenceDistribution: Array<{ min: number; max: number; correct: number; total: number; accuracy: number }>
+  /** undecided(분류 빈 배열) 비율 = undecided 수 / 전체 */
+  undecidedRate: number
+  undecidedCount: number
+  /** mixed 샘플 통계: top1 정답 수 + top1·top2 모두 정답인 "완전정답" 수 */
+  mixed: { total: number; correct: number; fullyCorrect: number }
 }
 
 function loadSamples(dir: string): { sample: Session; metadata: SampleMetadata }[] {
@@ -86,8 +114,11 @@ function loadSamples(dir: string): { sample: Session; metadata: SampleMetadata }
 }
 
 function evaluateSample(sample: Session, metadata: SampleMetadata): EvaluationResult {
+  // analyzeUsageTopCategories 는 점수순 랭킹 배열을 반환. 빈 배열 = undecided.
   const scores = analyzeUsageTopCategories([sample], 3)
+  const undecided = scores.length === 0
   const predictedRole = scores.length > 0 ? scores[0].id : null
+  const predictedTop2 = scores.length > 1 ? scores[1].id : null
   const topScore = scores.length > 0 ? scores[0].score : 0
   const totalScore = scores.reduce((sum, c) => sum + c.score, 0) || 1
   const topShare = topScore / totalScore
@@ -99,8 +130,10 @@ function evaluateSample(sample: Session, metadata: SampleMetadata): EvaluationRe
     sampleId: metadata.id,
     metadata,
     predictedRole,
+    predictedTop2,
     confidence: topShare,
     isCorrect,
+    undecided,
     details: {
       top3: scores.slice(0, 3).map((c) => ({
         id: c.id,
@@ -120,13 +153,17 @@ function computeStats(results: EvaluationResult[]): Stats {
     accuracy: 0,
     byCategory: {},
     byDifficulty: {},
+    byRole: {},
     confusionMatrix: [],
     confidenceDistribution: [],
+    undecidedRate: 0,
+    undecidedCount: 0,
+    mixed: { total: 0, correct: 0, fullyCorrect: 0 },
   }
 
-  stats.accuracy = stats.correct / stats.total
+  stats.accuracy = stats.total > 0 ? stats.correct / stats.total : 0
 
-  for (const category of ['pure', 'mixed', 'ambiguous', 'consistency']) {
+  for (const category of SAMPLE_CATEGORIES) {
     const filtered = results.filter((r) => r.metadata.category === category)
     const correct = filtered.filter((r) => r.isCorrect).length
     stats.byCategory[category] = {
@@ -146,6 +183,51 @@ function computeStats(results: EvaluationResult[]): Stats {
     }
   }
 
+  // --- 역할별 precision/recall/F1 ---------------------------------------
+  // 기준: 단일 라벨 — intendedRole 을 ground truth 로 사용 (혼동행렬과 동일 기준).
+  //   mixed 샘플의 intendedRole 은 "주도 역할"이다 (v3 §2-3).
+  //   acceptableRoles 기반 멀티라벨이 아니라, 한 샘플당 정답 역할 1개로 본다.
+  // 역할 r 에 대해:
+  //   TP = intendedRole===r && predictedRole===r
+  //   FP = predictedRole===r && intendedRole!==r
+  //   FN = intendedRole===r && predictedRole!==r  (predictedRole===null 포함)
+  for (const role of ROLE_IDS) {
+    let tp = 0
+    let fp = 0
+    let fn = 0
+    let support = 0
+    for (const r of results) {
+      const actual = r.metadata.intendedRole
+      const predicted = r.predictedRole
+      if (actual === role) support++
+      if (actual === role && predicted === role) tp++
+      else if (predicted === role && actual !== role) fp++
+      else if (actual === role && predicted !== role) fn++
+    }
+    // 0 division 방어: 분모 0 이면 해당 지표 0.
+    const precision = tp + fp > 0 ? tp / (tp + fp) : 0
+    const recall = tp + fn > 0 ? tp / (tp + fn) : 0
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
+    stats.byRole[role] = { precision, recall, f1, tp, fp, fn, support }
+  }
+
+  // --- undecided 비율 ---------------------------------------------------
+  stats.undecidedCount = results.filter((r) => r.undecided).length
+  stats.undecidedRate = stats.total > 0 ? stats.undecidedCount / stats.total : 0
+
+  // --- mixed 완전정답 ---------------------------------------------------
+  // top1 이 acceptableRoles 에 포함 = 정답(기존 isCorrect 와 동일).
+  // top1·top2 둘 다 acceptableRoles 에 포함 = "완전정답".
+  const mixedResults = results.filter((r) => r.metadata.category === 'mixed')
+  stats.mixed.total = mixedResults.length
+  for (const r of mixedResults) {
+    const accept = r.metadata.acceptableRoles
+    const top1Ok = r.predictedRole !== null && accept.includes(r.predictedRole)
+    if (top1Ok) stats.mixed.correct++
+    const top2Ok = r.predictedTop2 !== null && accept.includes(r.predictedTop2)
+    if (top1Ok && top2Ok) stats.mixed.fullyCorrect++
+  }
+
   const confusionMap = new Map<string, number>()
   for (const result of results) {
     if (result.predictedRole) {
@@ -154,9 +236,8 @@ function computeStats(results: EvaluationResult[]): Stats {
     }
   }
 
-  const categories = ['feature', 'debug', 'refactor', 'review', 'writing', 'design', 'devops', 'data', 'test']
-  for (const actual of categories) {
-    for (const predicted of categories) {
+  for (const actual of ROLE_IDS) {
+    for (const predicted of ROLE_IDS) {
       const key = `${actual}→${predicted}`
       const count = confusionMap.get(key) || 0
       if (count > 0) {
@@ -387,6 +468,16 @@ function generateHtmlReport(results: EvaluationResult[], stats: Stats, outputPat
       color: #831843;
     }
 
+    .badge-ambiguous {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-edge {
+      background: #cffafe;
+      color: #155e63;
+    }
+
     .badge-easy {
       background: #d1fae5;
       color: #065f46;
@@ -464,7 +555,7 @@ function generateHtmlReport(results: EvaluationResult[], stats: Stats, outputPat
       <!-- Summary Cards -->
       <div class="grid">
         <div class="card">
-          <div class="card-number">${stats.accuracy.toFixed(1)}%</div>
+          <div class="card-number">${(stats.accuracy * 100).toFixed(1)}%</div>
           <div class="card-label">전체 정확도</div>
           <div class="card-subtext">${stats.correct}/${stats.total} 샘플 정답</div>
         </div>
@@ -478,14 +569,23 @@ function generateHtmlReport(results: EvaluationResult[], stats: Stats, outputPat
           <div class="card-label">높은 신뢰도</div>
           <div class="card-subtext">80% 이상 신뢰도</div>
         </div>
+        <div class="card">
+          <div class="card-number">${(stats.undecidedRate * 100).toFixed(1)}%</div>
+          <div class="card-label">Undecided 비율</div>
+          <div class="card-subtext">${stats.undecidedCount}/${stats.total} 분류 보류 (edge 외 발생 시 비정상)</div>
+        </div>
+        <div class="card">
+          <div class="card-number">${stats.mixed.correct}/${stats.mixed.total}</div>
+          <div class="card-label">Mixed top1 정답</div>
+          <div class="card-subtext">완전정답(top1·top2 모두): ${stats.mixed.fullyCorrect}/${stats.mixed.total}</div>
+        </div>
       </div>
 
       <!-- Performance by Category -->
       <div class="section">
         <h2 class="section-title">📊 카테고리별 성능</h2>
         <div class="stats-row">
-          ${['pure', 'mixed', 'ambiguous', 'consistency']
-            .filter((cat) => stats.byCategory[cat].total > 0)
+          ${SAMPLE_CATEGORIES.filter((cat) => stats.byCategory[cat].total > 0)
             .map((cat) => {
               const data = stats.byCategory[cat]
               const label = cat.charAt(0).toUpperCase() + cat.slice(1)
@@ -610,6 +710,47 @@ function generateHtmlReport(results: EvaluationResult[], stats: Stats, outputPat
         </div>
       </div>
 
+      <!-- Role Precision / Recall / F1 -->
+      <div class="section">
+        <h2 class="section-title">🎭 역할별 Precision / Recall / F1</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+          단일 라벨 기준 — intendedRole 을 정답으로 사용 (혼동행렬과 동일 기준). Support = 해당 역할 샘플 수.
+        </p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>역할</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>TP</th>
+                <th>FP</th>
+                <th>FN</th>
+                <th>Support</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ROLE_IDS.map((role) => {
+                const rs = stats.byRole[role]
+                return `
+              <tr>
+                <td><strong>${role}</strong></td>
+                <td>${(rs.precision * 100).toFixed(1)}%</td>
+                <td>${(rs.recall * 100).toFixed(1)}%</td>
+                <td><strong>${(rs.f1 * 100).toFixed(1)}%</strong></td>
+                <td style="text-align: center;">${rs.tp}</td>
+                <td style="text-align: center;">${rs.fp}</td>
+                <td style="text-align: center;">${rs.fn}</td>
+                <td style="text-align: center;">${rs.support}</td>
+              </tr>
+            `
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Sample Details -->
       <div class="section">
         <h2 class="section-title">📋 샘플 상세 결과</h2>
@@ -717,7 +858,8 @@ function generateHtmlReport(results: EvaluationResult[], stats: Stats, outputPat
 }
 
 async function main() {
-  const currentDir = path.dirname(new URL(import.meta.url).pathname)
+  // fileURLToPath: Windows 에서 import.meta.url 의 '/D:/...' 형태를 'D:\...' 로 정규화
+  const currentDir = path.dirname(fileURLToPath(import.meta.url))
   const samplesDir = path.join(currentDir, '..', 'tests', 'fixtures', 'role-eval-samples')
   const docsDir = path.join(currentDir, '..', 'docs')
 
@@ -759,6 +901,27 @@ async function main() {
       const label = diff === 'easy' ? '쉬움' : diff === 'normal' ? '보통' : '어려움'
       console.log(`  • ${label.padEnd(15)} ${(data.accuracy * 100).toFixed(1).padStart(5)}% (${data.correct}/${data.total})`)
     }
+  }
+
+  console.log(`\n역할별 (precision / recall / F1):`)
+  for (const role of ROLE_IDS) {
+    const rs = stats.byRole[role]
+    if (rs.support === 0 && rs.fp === 0) continue
+    console.log(
+      `  • ${role.padEnd(10)} P ${(rs.precision * 100).toFixed(1).padStart(5)}%  ` +
+        `R ${(rs.recall * 100).toFixed(1).padStart(5)}%  ` +
+        `F1 ${(rs.f1 * 100).toFixed(1).padStart(5)}%  (support ${rs.support})`
+    )
+  }
+
+  console.log(
+    `\nUndecided 비율: ${(stats.undecidedRate * 100).toFixed(1)}% (${stats.undecidedCount}/${stats.total})`
+  )
+  if (stats.mixed.total > 0) {
+    console.log(
+      `Mixed: top1 정답 ${stats.mixed.correct}/${stats.mixed.total}, ` +
+        `완전정답 ${stats.mixed.fullyCorrect}/${stats.mixed.total}`
+    )
   }
 
   // Generate reports

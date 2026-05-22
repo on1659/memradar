@@ -2,6 +2,7 @@
 /* eslint-disable no-console */
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // Load .env if present (zero-dep)
 function loadDotEnv() {
@@ -27,10 +28,13 @@ const ZAI_ENDPOINT = process.env.ZAI_ENDPOINT || 'https://api.z.ai/api/paas/v4/c
 const ZAI_MODEL = process.env.ZAI_MODEL || 'glm-4.6'
 const ZAI_KEY = process.env.ZAI_API_KEY || process.env.Z_AI_API_KEY
 
+// v3 §3-3 카테고리 4종. v1 잔재 'consistency' 제거, 'edge' 신규.
+type SampleCategory = 'pure' | 'mixed' | 'ambiguous' | 'edge'
+
 interface SampleMeta {
   intendedRole: string
   acceptableRoles: string[]
-  category: 'pure' | 'mixed' | 'ambiguous' | 'consistency'
+  category: SampleCategory
   difficulty: 'easy' | 'normal' | 'hard'
   scenario: string
 }
@@ -116,20 +120,23 @@ interface GenerationConfig {
   meta: SampleMeta
 }
 
+// 역할별 pure 시나리오. 전체 생성·파라미터화 생성 양쪽이 공유.
+const PURE_SCENARIOS: Record<string, string> = {
+  feature: '사용자 대시보드에 새 필터 기능 추가',
+  debug: 'React 컴포넌트 무한 렌더링 원인 찾기',
+  refactor: '레거시 콜백 코드를 Promise 기반으로 변경',
+  review: 'async/await 패턴 코드 리뷰',
+  writing: '프로젝트 설치 및 시작 가이드 작성',
+  design: '다크 모드 UI 색상 팔레트 디자인',
+  devops: 'GitHub Actions CI 파이프라인 설정',
+  data: '사용자 활동 데이터 마이그레이션',
+  test: 'E2E 테스트 커버리지 확대',
+}
+
 function generatePureSamples(): GenerationConfig[] {
   const out: GenerationConfig[] = []
   let id = 1
-  const scenarios: Record<string, string> = {
-    feature: '사용자 대시보드에 새 필터 기능 추가',
-    debug: 'React 컴포넌트 무한 렌더링 원인 찾기',
-    refactor: '레거시 콜백 코드를 Promise 기반으로 변경',
-    review: 'async/await 패턴 코드 리뷰',
-    writing: '프로젝트 설치 및 시작 가이드 작성',
-    design: '다크 모드 UI 색상 팔레트 디자인',
-    devops: 'GitHub Actions CI 파이프라인 설정',
-    data: '사용자 활동 데이터 마이그레이션',
-    test: 'E2E 테스트 커버리지 확대',
-  }
+  const scenarios = PURE_SCENARIOS
   for (const cat of CATEGORIES) {
     for (let i = 0; i < 8; i++) {
       const difficulty = i < 2 ? 'easy' : i < 6 ? 'normal' : 'hard'
@@ -289,7 +296,8 @@ async function callZAI(prompt: string): Promise<string | null> {
 
 function validateSample(sample: Sample, meta: SampleMeta): string | null {
   if (!sample.id || !Array.isArray(sample.messages)) return 'missing id or messages'
-  if (sample.messages.length < 50 || sample.messages.length > 400) return `length ${sample.messages.length} out of range`
+  // 하한 20: v3 §2-7 short 구간(20~50) 허용.
+  if (sample.messages.length < 20 || sample.messages.length > 400) return `length ${sample.messages.length} out of range`
   if (sample.intendedRole !== meta.intendedRole) return 'intendedRole mismatch'
   if (JSON.stringify([...sample.acceptableRoles].sort()) !== JSON.stringify([...meta.acceptableRoles].sort())) {
     return 'acceptableRoles mismatch'
@@ -348,6 +356,84 @@ async function generateSample(config: GenerationConfig, retries = 3): Promise<Sa
   return null
 }
 
+// --- CLI 파라미터화 (파일럿/타깃 재생성용) ------------------------------
+// 인자가 하나도 없으면 기존 전체 생성(109개) 동작 유지 — 하위 호환.
+// 인자가 있으면 지정 역할 × 지정 난이도 × per-bucket 만 pure 샘플로 생성.
+
+const DIFFICULTIES = ['easy', 'normal', 'hard'] as const
+type Difficulty = (typeof DIFFICULTIES)[number]
+
+interface CliArgs {
+  roles: string[]
+  difficulties: Difficulty[]
+  perBucket: number
+  filtered: boolean
+}
+
+function parseArgs(argv: string[]): CliArgs {
+  let roles: string[] = []
+  let difficulties: Difficulty[] = []
+  let perBucket = 5
+  let filtered = false
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (arg === '--role' && argv[i + 1]) {
+      roles = argv[++i].split(',').map((s) => s.trim()).filter(Boolean)
+      filtered = true
+    } else if (arg === '--difficulty' && argv[i + 1]) {
+      difficulties = argv[++i]
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s): s is Difficulty => (DIFFICULTIES as readonly string[]).includes(s))
+      filtered = true
+    } else if (arg === '--per-bucket' && argv[i + 1]) {
+      const n = parseInt(argv[++i], 10)
+      if (Number.isFinite(n) && n > 0) perBucket = n
+      filtered = true
+    }
+  }
+
+  // 일부만 지정되면 나머지는 합리적 기본값으로 채운다.
+  if (filtered) {
+    if (roles.length === 0) roles = [...CATEGORIES]
+    if (difficulties.length === 0) difficulties = [...DIFFICULTIES]
+  }
+
+  return { roles, difficulties, perBucket, filtered }
+}
+
+// 지정 역할 × 난이도 × per-bucket 만큼 pure 샘플 config 생성.
+function generateFilteredSamples(args: CliArgs): GenerationConfig[] {
+  const out: GenerationConfig[] = []
+  const unknown = args.roles.filter((r) => !CATEGORIES.includes(r))
+  if (unknown.length > 0) {
+    console.error(`ERROR: 알 수 없는 역할: ${unknown.join(', ')}`)
+    console.error(`허용 역할: ${CATEGORIES.join(', ')}`)
+    process.exit(1)
+  }
+
+  let id = 1
+  for (const role of args.roles) {
+    for (const difficulty of args.difficulties) {
+      for (let i = 0; i < args.perBucket; i++) {
+        out.push({
+          id: `sample-${String(id).padStart(3, '0')}`,
+          meta: {
+            intendedRole: role,
+            acceptableRoles: [role],
+            category: 'pure',
+            difficulty,
+            scenario: `${PURE_SCENARIOS[role] ?? role} (variant ${i + 1})`,
+          },
+        })
+        id++
+      }
+    }
+  }
+  return out
+}
+
 async function main() {
   if (!ZAI_KEY) {
     console.error('ERROR: ZAI_API_KEY not set.')
@@ -357,18 +443,32 @@ async function main() {
     process.exit(1)
   }
 
-  const currentDir = path.dirname(new URL(import.meta.url).pathname)
+  // fileURLToPath: Windows 에서 import.meta.url 의 '/D:/...' 형태를 'D:\...' 로 정규화
+  const currentDir = path.dirname(fileURLToPath(import.meta.url))
   const outDir = path.join(currentDir, '..', 'tests', 'fixtures', 'role-eval-samples')
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true })
 
-  const pure = generatePureSamples()
-  const mixed = generateMixedSamples(pure.length + 1)
-  const ambig = generateAmbiguousSamples(pure.length + mixed.length + 1)
-  const cons = generateConsistencySamples()
-  const all = [...pure, ...mixed, ...ambig, ...cons]
+  const args = parseArgs(process.argv.slice(2))
 
-  console.log(`\n=== Z.AI Sample Generation (${ZAI_MODEL}) ===`)
-  console.log(`Target: ${all.length} samples (${pure.length} pure + ${mixed.length} mixed + ${ambig.length} ambig + ${cons.length} consistency)`)
+  let all: GenerationConfig[]
+  if (args.filtered) {
+    all = generateFilteredSamples(args)
+    console.log(`\n=== Z.AI Sample Generation (${ZAI_MODEL}) — 파라미터화 모드 ===`)
+    console.log(
+      `역할: ${args.roles.join(', ')} | 난이도: ${args.difficulties.join(', ')} | per-bucket: ${args.perBucket}`
+    )
+    console.log(`Target: ${all.length} samples`)
+  } else {
+    const pure = generatePureSamples()
+    const mixed = generateMixedSamples(pure.length + 1)
+    const ambig = generateAmbiguousSamples(pure.length + mixed.length + 1)
+    const cons = generateConsistencySamples()
+    all = [...pure, ...mixed, ...ambig, ...cons]
+    console.log(`\n=== Z.AI Sample Generation (${ZAI_MODEL}) — 전체 생성 ===`)
+    console.log(
+      `Target: ${all.length} samples (${pure.length} pure + ${mixed.length} mixed + ${ambig.length} ambig + ${cons.length} consistency)`
+    )
+  }
   console.log(`Output: ${outDir}\n`)
 
   // Parallelism: Z.AI usually allows 5-10 concurrent; be gentle
