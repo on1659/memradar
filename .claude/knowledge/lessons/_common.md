@@ -35,3 +35,24 @@
 - **함정**: 설계 문서·스펙이 스크립트의 *의도/계획*을 적어두면, 그 스크립트가 다르게 구현되거나 처음부터 다르게 만들어져도 문서는 갱신되지 않은 채 남는다. 파일명(`generate-...`)이나 문서 설명만 보고 지시서를 쓰면, 존재하지 않는 도구 경로(예: Codex CLI 자격증명)를 전제한 작업 계획이 나온다.
 - **회피**: 정찰 시 스크립트의 실제 역할은 파일명·문서가 아니라 코드에서 직접 확인한다. "외부 API를 부르는가"는 `fetch`/API 클라이언트 import/`process.env` 키 사용 여부를 grep해 import·호출부로만 판정. 문서는 출발점, 코드가 진실.
 - **연관 파일/함수**: `scripts/generate-eval-samples.mts`(정적), `scripts/generate-eval-samples-zai.mts`(실제 외부 API), `docs/AI-ROLE-EVAL-SAMPLES-SPEC.md` §12
+
+## L-4: `import.meta.url`을 `new URL().pathname`으로 변환하면 Windows에서 깨진다
+
+- **언제 만났나**: 2026-05-22, AI 역할 평가 Stage 0 — `.mts` 스크립트 3종(`test-eval-and-report`·`validate-eval-samples`·`generate-eval-samples-zai`)이 샘플 디렉터리를 못 찾아, 샘플이 있어도 "0 samples"로 오인.
+- **함정**: `new URL(import.meta.url).pathname`은 Windows에서 `/D:/Work/...` 형태(맨 앞 슬래시 + 드라이브 문자)를 돌려준다. 이 경로를 `fs.existsSync`/`readdirSync`에 그대로 넘기면 **에러 없이 조용히 false/빈 결과**가 나와 "파일이 없다"고 오판한다. POSIX에서만 테스트하면 절대 안 잡힌다.
+- **회피**: Node 스크립트에서 `__dirname` 대용이 필요하면 항상 `import { fileURLToPath } from 'node:url'` → `fileURLToPath(import.meta.url)`. `new URL().pathname`은 경로 용도로 쓰지 말 것.
+- **연관 파일/함수**: `scripts/test-eval-and-report.mts`, `scripts/validate-eval-samples.mts`, `scripts/generate-eval-samples-zai.mts`
+
+## L-5: 0~1 분수와 백분율을 한 파일에서 혼용하면 출력 지점 하나를 빠뜨린다
+
+- **언제 만났나**: 2026-05-22, AI 역할 평가 Stage 0 — `test-eval-and-report.mts`가 `accuracy`를 0~1 분수로 저장하고 콘솔·마크다운·stat-box 출력마다 `* 100`을 곱하는데, HTML 헤드라인 카드 한 곳만 누락돼 `77.8%`가 `0.8%`로 표시됨(ISSUE-001).
+- **함정**: 값을 분수(0~1)로 저장하고 표시 시점에 `* 100`을 곱하는 패턴은, 출력 지점이 여러 곳이면 그중 하나를 반드시 빠뜨린다. 빠뜨려도 타입 에러가 안 나고 숫자가 그럴듯해 리뷰에서도 놓치기 쉽다.
+- **회피**: 분수↔백분율 변환을 단일 헬퍼(`fmtPct(x)` 등)로 모으고 모든 출력 지점이 그것만 쓰게 한다. 변환을 출력 지점마다 인라인으로 반복하지 말 것.
+- **연관 파일/함수**: `scripts/test-eval-and-report.mts` (accuracy 출력 4지점)
+
+## L-6: `Object.freeze`는 얕은 동결 — 중첩 배열/객체는 그대로 가변
+
+- **언제 만났나**: 2026-05-22, AI 역할 평가 Stage 0 — `usageProfile.ts`의 `CATEGORY_SIGNALS` export를 JSDoc에 "read-only"라 적었으나 `Object.freeze`만 써서 내부 `phraseStrong` 배열은 여전히 `push` 가능했다.
+- **함정**: `Object.freeze(obj)`는 최상위 프로퍼티만 동결한다. 중첩 배열·객체는 가변인 채로 남아 "read-only 공개"라는 문서 주장과 런타임이 어긋난다. 게다가 export 상수가 다른 모듈의 라이브 객체를 *참조*만 하면, 소비처의 mutate가 원본(엔진 데이터 등)을 오염시킨다.
+- **회피**: 중첩 구조를 read-only로 공개할 때는 (1) 깊은 복사로 원본 참조를 끊고, (2) 중첩 배열·객체까지 재귀적으로 `Object.freeze`하고, (3) 타입도 `readonly`/`Readonly<>`로 깊이까지 표현해 문서·타입·런타임을 일치시킨다.
+- **연관 파일/함수**: `src/lib/usageProfile.ts:CATEGORY_SIGNALS`
