@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import type { Session } from '../../../types'
-import { analyzeUsageTopCategories, getUsageHeadline } from '../../../lib/usageProfile'
+import { analyzeUsageTopCategories } from '../../../lib/usageProfile'
 import { ROLE_ICONS, type RoleIconKey } from '../../../icons'
 
 interface Props {
@@ -11,10 +11,10 @@ interface Props {
 
 export function UsageSlide({ sessions }: Props) {
   const top3 = useMemo(() => analyzeUsageTopCategories(sessions, 3), [sessions])
-  const primary = top3[0]
 
-  if (!primary) return null
-  const PrimaryIcon = ROLE_ICONS[primary.id as RoleIconKey]
+  if (top3.length === 0) return null
+
+  const totalScore = top3.reduce((sum, c) => sum + c.score, 0) || 1
 
   return (
     <SlideLayout gradient="from-[#0a0612] via-[#120a1e] to-[#0a0612]">
@@ -22,58 +22,61 @@ export function UsageSlide({ sessions }: Props) {
         내 AI는 무슨 일을 할까?
       </FadeInText>
 
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', duration: 1, delay: 0.4 }}
-        className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-white/5"
-      >
-        <PrimaryIcon size={64} aria-hidden="true" />
-      </motion.div>
-
       <FadeInText
-        delay={0.7}
-        className="font-display mb-1 text-center text-4xl font-bold text-text-bright md:text-6xl"
+        delay={0.4}
+        className="font-display mb-2 text-center text-4xl font-bold text-text-bright md:text-5xl"
       >
-        {primary.title}
+        AI가 자주 한 일
       </FadeInText>
-      <FadeInText delay={0.9} className="mb-3 text-base text-text/45">
-        {primary.subtitle}
-      </FadeInText>
-      <FadeInText delay={1.05} className="mb-8 text-sm text-accent/80">
-        {getUsageHeadline(primary)}
+      <FadeInText delay={0.6} className="mb-8 text-sm text-text/45">
+        자주 보인 요청 패턴 (상위 {top3.length})
       </FadeInText>
 
-      {top3.length > 1 && (
-        <motion.div
-          className="flex flex-wrap justify-center gap-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
-        >
-          {top3.slice(1).map((category, index) => (
+      <motion.div
+        className="flex w-full max-w-md flex-col gap-3"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
+        {top3.map((category, index) => {
+          const sharePct = Math.round((category.score / totalScore) * 100)
+          const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
+          return (
             <motion.div
               key={category.id}
-              initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
+              initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1.35 + index * 0.15 }}
-              className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-3"
+              transition={{ delay: 0.9 + index * 0.15 }}
+              className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"
             >
-              {(() => {
-                const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
-                return <CategoryIcon size={26} aria-hidden="true" />
-              })()}
-              <div>
-                <div className="text-xs font-semibold text-text-bright">{category.title}</div>
-                <div className="text-[10px] text-text/30">{category.subtitle}</div>
+              <span className="flex w-9 shrink-0 justify-center">
+                <CategoryIcon size={30} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-semibold text-text-bright">
+                    {category.title}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-text/45">{sharePct}%</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: category.color, opacity: 0.75 }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${sharePct}%` }}
+                    transition={{ delay: 1.05 + index * 0.15, duration: 0.6 }}
+                  />
+                </div>
+                <div className="mt-1 truncate text-[10px] text-text/35">{category.subtitle}</div>
               </div>
             </motion.div>
-          ))}
-        </motion.div>
-      )}
+          )
+        })}
+      </motion.div>
 
-      <FadeInText delay={1.8} className="mt-8 text-xs text-text/20">
-        사용자 메시지 패턴을 기준으로 정리했어요
+      <FadeInText delay={1.8} className="mt-8 max-w-md text-center text-xs text-text/30">
+        사용자 메시지 패턴 기반의 가벼운 추정이에요. 정확한 분류는 아닙니다.
       </FadeInText>
     </SlideLayout>
   )

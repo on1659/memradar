@@ -370,7 +370,7 @@ export function analyzeUsageTopCategories(sessions: Session[], limit = 3): Usage
 
 export function getUsageHeadline(category: UsageCategoryScore | null | undefined): string {
   if (!category) return '당신의 AI 활용 스타일은 아직 탐색 중이에요'
-  return `가장 자주 보인 역할은 ${category.title} 쪽이에요`
+  return `자주 보인 역할은 ${category.title} 쪽 (키워드 추정)`
 }
 
 // --- Phase 3: mixed role / confidence (experimental) -------------------

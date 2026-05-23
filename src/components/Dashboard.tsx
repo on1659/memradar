@@ -457,7 +457,7 @@ const DASHBOARD_PERSONALITY_PANEL_HELP = {
 } as const
 
 const DASHBOARD_USAGE_CARD_HELP =
-  '사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요.'
+  '사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요. 키워드 기반 가벼운 추정이라, 정확한 분류는 아니에요.'
 
 function DashboardHoverTooltip({
   children,
@@ -980,24 +980,19 @@ export function Dashboard({
     scope: 'var(--color-cyan)',
     rhythm: 'var(--color-amber)',
   } as const
-  const aiRoleLabel = isKorean ? '내 AI의 직업' : 'AI Role'
+  const aiRoleLabel = isKorean ? 'AI가 자주 한 일' : 'What AI Did'
   const aiRoleFallbackTitle = isKorean ? '아직 탐색 중' : 'Still Exploring'
   const aiRoleFallbackBody = isKorean
-    ? '메시지가 더 쌓이면 대표 역할이 보여요.'
-    : 'More messages will reveal the most common role.'
-  const nextUsageCategory = topUsageCategories[1] ?? null
+    ? '메시지가 더 쌓이면 패턴이 또렷해져요.'
+    : 'More messages will sharpen the pattern.'
   const aiRoleSummary = topUsageCategory
-    ? nextUsageCategory && topUsageCategory.score <= nextUsageCategory.score * 1.5
-      ? isKorean
-        ? `${topUsageCategory.title}와(과) ${nextUsageCategory.title}, 투잡 뛰는 중`
-        : `${topUsageCategory.title} and ${nextUsageCategory.title}, split roles`
-      : isKorean
-        ? `${topUsageCategory.title} 성향이 가장 강해요`
-        : `${topUsageCategory.title} is the strongest pattern`
+    ? isKorean
+      ? '자주 보인 요청 패턴'
+      : 'Frequently observed patterns'
     : aiRoleFallbackBody
   const aiRoleTooltipDescription = isKorean
     ? DASHBOARD_USAGE_CARD_HELP
-    : 'Shows which roles your AI most often took based on recurring request patterns in your messages.'
+    : 'Shows which roles your AI most often took based on recurring request patterns in your messages. Rough estimate based on keywords, not a precise classification.'
 
   const longestStreak = useMemo(() => {
     let longest = 0

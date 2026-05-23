@@ -76,7 +76,7 @@ const PERSONALITY_PANEL_HELP = {
   headsUp: '이 유형일 때 가끔 의식하면 좋은 작업 습관이에요.',
 } as const
 
-const USAGE_CARD_HELP = '사용자 메시지에서 자주 나온 작업 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요.'
+const USAGE_CARD_HELP = '사용자 메시지에서 자주 나온 작업 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요. 키워드 기반 추정이라 정확한 분류는 아니에요.'
 
 const USAGE_CATEGORY_HELP: Record<string, string> = {
   feature: '새 기능 구현, 컴포넌트 추가, API 연결처럼 "만들어줘" 요청이 많을 때 올라가요.',
@@ -103,16 +103,10 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
 
   if (categories.length === 0) return null
 
-  // Top category — fun verdict
-  const top = categories[0]
-  const topVerdict = top.score > (categories[1]?.score || 0) * 1.5
-    ? `당신의 AI 직업은 "${top.title}" 입니다`
-    : `"${top.title}" 겸 "${categories[1]?.title}" — 투잡 뛰는 중`
-
   return (
     <div className="animate-in h-full rounded-xl border border-border bg-bg-card p-5">
-      <h2 className="text-lg font-bold text-text-bright mb-1">AI 활용 직업</h2>
-      <p className="text-sm text-text/50 mb-4">{topVerdict}</p>
+      <h2 className="text-lg font-bold text-text-bright mb-1">AI가 자주 한 일</h2>
+      <p className="text-sm text-text/50 mb-4">자주 보인 요청 패턴 (키워드 기반 추정)</p>
       <div className="space-y-3">
         {categories.map((category, rank) => {
           const pct = Math.round((category.score / maxScore) * 100)
@@ -126,7 +120,7 @@ function UsageProfile({ sessions }: { sessions: Session[] }) {
                     <span className="text-sm font-bold text-text-bright">{category.title}</span>
                     {rank === 0 && (
                       <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                        주직업
+                        상위 1
                       </span>
                     )}
                   </div>
@@ -164,19 +158,15 @@ function UsageAllJobs({
 
   if (categories.length === 0) return null
 
-  const top = categories[0]
-  const next = categories[1]
-  const topVerdict = next && top.score <= next.score * 1.5
-    ? `${top.title}와(과) ${next.title}, 투잡 뛰는 중`
-    : `당신의 AI는 주로 이런 일을 해요`
+  const topVerdict = '자주 보인 요청 패턴 (키워드 기반 추정)'
 
   return (
     <div className="animate-in rounded-xl border border-border bg-bg-card p-5">
       <div className="mb-1 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
-          <h2 className="truncate text-lg font-bold text-text-bright">내 AI의 직업</h2>
+          <h2 className="truncate text-lg font-bold text-text-bright">AI가 자주 한 일</h2>
           <HoverTooltip
-            title="AI 직업이란?"
+            title="이게 뭐예요?"
             description={USAGE_CARD_HELP}
             align="left"
             tooltipWidthClass="w-60"
@@ -221,7 +211,7 @@ function UsageAllJobs({
                     <span className="text-xs font-bold text-text-bright truncate">{category.title}</span>
                     {index === 0 && (
                       <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold text-accent">
-                        대표
+                        상위 1
                       </span>
                     )}
                   </div>
@@ -606,8 +596,8 @@ export function PersonalitySections() {
 
       <div className="animate-in mt-8">
         <div className="mb-3">
-          <h2 className="text-lg font-bold text-text-bright">AI 직업 종류 설명</h2>
-          <p className="text-sm text-text/50">`내 AI의 직업` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
+          <h2 className="text-lg font-bold text-text-bright">AI 역할 종류 설명</h2>
+          <p className="text-sm text-text/50">`AI가 자주 한 일` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {USAGE_CATEGORIES.map((category) => (
@@ -808,8 +798,8 @@ export function PersonalityView({ sessions, onBack, onOpenWrapped, onOpenDashboa
 
       <div className="animate-in mt-8">
         <div className="mb-3">
-          <h2 className="text-lg font-bold text-text-bright">AI 직업 종류 설명</h2>
-          <p className="text-sm text-text/50">`내 AI의 직업` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
+          <h2 className="text-lg font-bold text-text-bright">AI 역할 종류 설명</h2>
+          <p className="text-sm text-text/50">`AI가 자주 한 일` 카드에 보이는 역할이 각각 어떤 의미인지 정리했어요.</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {USAGE_CATEGORIES.map((category) => (
