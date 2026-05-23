@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AI 직업 → AI가 자주 한 일 · Before / After</title>
+<style>
+  :root {
+    --bg: #0b0e16;
+    --bg-elev: #131826;
+    --bg-card: #1a2030;
+    --border: #2a3142;
+    --border-strong: #3a4258;
+    --text: #e6e9f2;
+    --text-dim: #9aa3b8;
+    --text-faint: #6b7388;
+    --accent: #7c6ff7;
+    --rose: #f472b6;
+    --cyan: #22d3ee;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --purple: #a78bfa;
+    --orange: #f97316;
+    --teal: #06b6d4;
+    --emerald: #22c55e;
+    --bad: #ef4444;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", system-ui, sans-serif; line-height: 1.55; }
+  body { max-width: 1240px; margin: 0 auto; padding: 48px 32px 96px; }
+
+  header { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0 0 12px; font-size: 28px; letter-spacing: -0.01em; }
+  header p { margin: 6px 0; color: var(--text-dim); font-size: 14px; }
+  header code { background: var(--bg-elev); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+
+  section { margin: 56px 0; }
+  h2.surface { margin: 0 0 8px; font-size: 20px; }
+  .surface-note { margin: 0 0 20px; color: var(--text-dim); font-size: 13px; }
+
+  .ba {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+  }
+  @media (max-width: 880px) { .ba { grid-template-columns: 1fr; } }
+
+  .pane {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex; flex-direction: column;
+  }
+  .pane.before { border-color: rgba(239,68,68,0.3); }
+  .pane.after  { border-color: rgba(34,197,94,0.3); }
+  .pane h3 {
+    margin: 0 0 14px;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pane.before h3 .dot { background: var(--bad); }
+  .pane.after  h3 .dot { background: var(--ok); }
+  .pane h3 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .mock-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .mock-card .card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .mock-card .card-title { font-weight: 700; font-size: 15px; }
+  .mock-card .info-btn {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-elev); color: var(--text-dim);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; cursor: default;
+  }
+  .verdict {
+    font-size: 18px; font-weight: 700; color: var(--rose);
+    margin: 8px 0 12px;
+  }
+  .verdict-strike {
+    text-decoration: line-through;
+    text-decoration-color: rgba(239,68,68,0.6);
+    text-decoration-thickness: 2px;
+  }
+  .lead-neutral {
+    font-size: 13px; color: var(--text-dim); margin: 8px 0 12px;
+  }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; vertical-align: middle; margin-left: 6px; }
+  .badge-old { background: rgba(244,114,182,0.15); color: var(--rose); }
+  .badge-new { background: rgba(124,111,247,0.15); color: var(--accent); }
+
+  .cat-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+  .cat-row {
+    display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center;
+    font-size: 13px;
+  }
+  .cat-emoji { font-size: 16px; line-height: 1; }
+  .cat-name { color: var(--text); }
+  .cat-name .sub { color: var(--text-faint); font-size: 11px; margin-left: 4px; }
+  .cat-share { color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+
+  .help {
+    margin-top: 10px;
+    font-size: 11px; color: var(--text-faint); line-height: 1.5;
+    padding-top: 10px; border-top: 1px dashed var(--border);
+  }
+  .help .new { color: var(--ok); }
+
+  /* Wrapped slide mock */
+  .slide {
+    background: linear-gradient(180deg, #1a2030 0%, #131826 100%);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 24px 20px;
+    aspect-ratio: 9 / 14;
+    max-height: 520px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative;
+  }
+  .slide-num {
+    position: absolute; top: 12px; right: 14px;
+    font-size: 10px; color: var(--text-faint); letter-spacing: 0.1em;
+  }
+  .crown {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .crown .big-emoji { font-size: 80px; margin-bottom: 4px; }
+  .crown .big-title { font-size: 32px; font-weight: 800; color: var(--rose); letter-spacing: -0.02em; }
+  .crown .big-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+  .crown .verdict-line { font-size: 14px; color: var(--text); margin-top: 16px; font-weight: 600; }
+
+  .slide-header { text-align: center; }
+  .slide-header h4 { margin: 6px 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+  .slide-header .slide-sub { font-size: 12px; color: var(--text-dim); }
+
+  .slide-dist { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+  .slide-item { display: grid; grid-template-rows: auto auto; gap: 4px; }
+  .slide-item .top { display: grid; grid-template-columns: 28px 1fr 44px; gap: 10px; align-items: center; }
+  .slide-item .top .emo { font-size: 22px; }
+  .slide-item .top .title { font-weight: 600; font-size: 13px; }
+  .slide-item .top .title .role-sub { font-size: 10px; color: var(--text-faint); margin-left: 6px; }
+  .slide-item .top .pct { font-variant-numeric: tabular-nums; color: var(--text-dim); text-align: right; font-size: 12px; }
+  .slide-item .bar-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; margin-left: 38px; margin-right: 50px; }
+  .slide-item .bar-track .fill { height: 100%; border-radius: 999px; }
+
+  .slide-footer { text-align: center; font-size: 10px; color: var(--text-faint); margin-top: 12px; }
+  .slide-footer .new { color: rgba(34,197,94,0.85); }
+
+  .legacy-mini-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; font-size: 11px; color: var(--text-dim); }
+  .legacy-mini-list .item { display: flex; align-items: center; gap: 4px; }
+
+  table.diff {
+    width: 100%; border-collapse: collapse; margin-top: 16px;
+    background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  table.diff th, table.diff td {
+    padding: 12px 14px; text-align: left; vertical-align: top;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  table.diff th { background: var(--bg-card); font-size: 11px; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.06em; }
+  table.diff tr:last-child td { border-bottom: none; }
+  table.diff .b { color: var(--rose); }
+  table.diff .b.strike { text-decoration: line-through; text-decoration-thickness: 1px; }
+  table.diff .a { color: var(--text); }
+  table.diff .a .ok { color: var(--ok); }
+  table.diff .surf { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .why {
+    background: rgba(124,111,247,0.06);
+    border: 1px solid rgba(124,111,247,0.25);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 24px 0 32px;
+  }
+  .why h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent); letter-spacing: 0.02em; }
+  .why p { margin: 4px 0; font-size: 13px; color: var(--text-dim); }
+  .why .bad-num { color: var(--bad); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AI 직업 카피·구조 재포지셔닝 — Before / After</h1>
+  <p>커밋 <code>ba88105</code> · <code>refactor(ui): AI 직업 카피·구조 재포지셔닝 — 단정 판정 → 분포 표시</code></p>
+  <p>대상 표면 3곳: Dashboard 카드 · PersonalityView 섹션 · Wrapped Usage 슬라이드(7).</p>
+</header>
+
+<div class="why">
+  <h3>왜 바뀌었나</h3>
+  <p>v3 평가(블라인드 270샘플)에서 분류기 정확도 <span class="bad-num">37.8%</span>로 측정. 270개 중 <span class="bad-num">169개(63%)</span>가 <strong>debug</strong>로 빨려들어가는 sink. 즉 38% 분류기를 "당신의 AI 직업은 버그 헌터입니다"라고 단정해 보여주던 게 진짜 문제. UI를 정직하게 — 단정 판정 → 분포 표시 + "키워드 추정" 안내 — 로 재구성.</p>
+</div>
+
+
+<!-- 1. Dashboard -->
+<section>
+  <h2 class="surface">1 · Dashboard — "내 AI의 직업" 카드</h2>
+  <p class="surface-note">대시보드 우측 상단 영역. 가장 자주 보이는 표면.</p>
+
+  <div class="ba">
+    <div class="pane before">
+      <h3><span class="dot"></span>Before — 단정 verdict</h3>
+      <div class="mock-card">
+        <div class="card-head">
+          <div class="card-title">내 AI의 직업 <span class="info-btn">?</span></div>
+        </div>
+        <div class="verdict verdict-strike">버그 헌터 성향이 가장 강해요</div>
+        <div class="cat-list">
+          <div class="cat-row"><span class="cat-emoji">🚨</span><span class="cat-name">버그 헌터 <span class="sub">AI 119 신고 전문</span></span><span class="cat-share">35%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🏭</span><span class="cat-name">풀스택 기획자 <span class="sub">기능 뚝딱 제조기</span></span><span class="cat-share">25%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🧙</span><span class="cat-name">데이터 엔지니어 <span class="sub">JSON을 금으로 바꾸는 자</span></span><span class="cat-share">20%</span></div>
+        </div>
+        <p class="help">사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요.</p>
+      </div>
+    </div>
+
+    <div class="pane after">
+      <h3><span class="dot"></span>After — 분포 + 추정 안내</h3>
+      <div class="mock-card">
+        <div class="card-head">
+          <div class="card-title">AI가 자주 한 일 <span class="info-btn">?</span></div>
+        </div>
+        <div class="lead-neutral">자주 보인 요청 패턴</div>
+        <div class="cat-list">
+          <div class="cat-row"><span class="cat-emoji">🚨</span><span class="cat-name">버그 헌터 <span class="badge badge-new">상위 1</span></span><span class="cat-share">35%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🏭</span><span class="cat-name">풀스택 기획자</span><span class="cat-share">25%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🧙</span><span class="cat-name">데이터 엔지니어</span><span class="cat-share">20%</span></div>
+        </div>
+        <p class="help">사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요. <span class="new">키워드 기반 가벼운 추정이라, 정확한 분류는 아니에요.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- 2. PersonalityView -->
+<section>
+  <h2 class="surface">2 · PersonalityView — AI 직업 섹션</h2>
+  <p class="surface-note">대시보드 → "AI 코딩 성향" 진입 화면.</p>
+
+  <div class="ba">
+    <div class="pane before">
+      <h3><span class="dot"></span>Before — "당신의 직업은 X입니다"</h3>
+      <div class="mock-card">
+        <div class="card-head">
+          <div class="card-title">내 AI의 직업</div>
+          <span class="info-btn" title="AI 직업이란?">?</span>
+        </div>
+        <div class="verdict verdict-strike" style="font-size: 19px;">
+          당신의 AI 직업은 "버그 헌터" 입니다
+        </div>
+        <div class="lead-neutral verdict-strike" style="color: var(--rose);">
+          "버그 헌터" 겸 "풀스택 기획자" — 투잡 뛰는 중
+        </div>
+        <div class="cat-list">
+          <div class="cat-row"><span class="cat-emoji">🚨</span><span class="cat-name">버그 헌터 <span class="badge badge-old">주직업</span></span><span class="cat-share">35%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🏭</span><span class="cat-name">풀스택 기획자</span><span class="cat-share">25%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🧙</span><span class="cat-name">데이터 엔지니어</span><span class="cat-share">20%</span></div>
+        </div>
+        <p class="help">하단 도감 헤더: <strong style="color: var(--rose);">"AI 직업 종류 설명"</strong></p>
+      </div>
+    </div>
+
+    <div class="pane after">
+      <h3><span class="dot"></span>After — verdict 제거, 분포로</h3>
+      <div class="mock-card">
+        <div class="card-head">
+          <div class="card-title">AI가 자주 한 일</div>
+          <span class="info-btn" title="이게 뭐예요?">?</span>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row"><span class="cat-emoji">🚨</span><span class="cat-name">버그 헌터 <span class="badge badge-new">상위 1</span></span><span class="cat-share">35%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🏭</span><span class="cat-name">풀스택 기획자</span><span class="cat-share">25%</span></div>
+          <div class="cat-row"><span class="cat-emoji">🧙</span><span class="cat-name">데이터 엔지니어</span><span class="cat-share">20%</span></div>
+        </div>
+        <p class="help">사용자 메시지에서 자주 나온 작업 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요. <span class="new">키워드 기반 추정이라 정확한 분류는 아니에요.</span></p>
+        <p class="help" style="border-top: none; padding-top: 0;">하단 도감 헤더: <strong class="new">"AI 역할 종류 설명"</strong></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- 3. Wrapped Usage -->
+<section>
+  <h2 class="surface">3 · Wrapped Usage 슬라이드 (slide 7)</h2>
+  <p class="surface-note">연말결산 공유 카드. 가장 시각 임팩트가 큰 표면이라 가장 신중한 변경.</p>
+
+  <div class="ba">
+    <div class="pane before">
+      <h3><span class="dot"></span>Before — 단일 역할 왕관</h3>
+      <div class="slide">
+        <div class="slide-num">7 / 8 · USAGE</div>
+        <div class="crown">
+          <div class="big-emoji">🚨</div>
+          <div class="big-title verdict-strike">버그 헌터</div>
+          <div class="big-sub verdict-strike">AI 119 신고 전문</div>
+          <div class="verdict-line verdict-strike">가장 자주 보인 역할은 버그 헌터 쪽이에요</div>
+        </div>
+        <div class="legacy-mini-list">
+          <div class="item">🏭 풀스택…</div>
+          <div class="item">🧙 데이터…</div>
+          <div class="item">💅 리팩터…</div>
+        </div>
+        <div class="slide-footer">사용자 메시지 패턴을 기준으로 정리했어요</div>
+      </div>
+    </div>
+
+    <div class="pane after">
+      <h3><span class="dot"></span>After — 상위 3 분포 (왕관 없음)</h3>
+      <div class="slide">
+        <div class="slide-num">7 / 8 · USAGE</div>
+        <div class="slide-header">
+          <h4>AI가 자주 한 일</h4>
+          <div class="slide-sub">자주 보인 요청 패턴 (상위 3)</div>
+        </div>
+        <div class="slide-dist">
+          <div class="slide-item">
+            <div class="top">
+              <div class="emo">🚨</div>
+              <div class="title">버그 헌터<span class="role-sub">AI 119 신고 전문</span></div>
+              <div class="pct">35%</div>
+            </div>
+            <div class="bar-track"><div class="fill" style="width: 100%; background: var(--rose);"></div></div>
+          </div>
+          <div class="slide-item">
+            <div class="top">
+              <div class="emo">🏭</div>
+              <div class="title">풀스택 기획자<span class="role-sub">기능 뚝딱 제조기</span></div>
+              <div class="pct">25%</div>
+            </div>
+            <div class="bar-track"><div class="fill" style="width: 71%; background: var(--accent);"></div></div>
+          </div>
+          <div class="slide-item">
+            <div class="top">
+              <div class="emo">🧙</div>
+              <div class="title">데이터 엔지니어<span class="role-sub">JSON을 금으로 바꾸는 자</span></div>
+              <div class="pct">20%</div>
+            </div>
+            <div class="bar-track"><div class="fill" style="width: 57%; background: var(--teal);"></div></div>
+          </div>
+        </div>
+        <div class="slide-footer"><span class="new">사용자 메시지 패턴 기반의 가벼운 추정이에요. 정확한 분류는 아닙니다.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- 변경 요약 -->
+<section>
+  <h2 class="surface">변경 요약 (한눈에)</h2>
+
+  <table class="diff">
+    <thead>
+      <tr><th style="width: 22%;">표면</th><th style="width: 39%;">Before</th><th style="width: 39%;">After</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="surf">Dashboard 카드 제목</td>
+        <td class="b strike">내 AI의 직업 · "AI Role"</td>
+        <td class="a"><span class="ok">AI가 자주 한 일</span> · "What AI Did"</td>
+      </tr>
+      <tr>
+        <td class="surf">Dashboard 헤드라인</td>
+        <td class="b strike">"X 성향이 가장 강해요" / "X와 Y, 투잡 뛰는 중"</td>
+        <td class="a"><span class="ok">"자주 보인 요청 패턴"</span> (단정 verdict 제거)</td>
+      </tr>
+      <tr>
+        <td class="surf">Dashboard help 안내</td>
+        <td class="b">"… 어떤 역할을 많이 맡았는지 보여줘요."</td>
+        <td class="a">"… <span class="ok">키워드 기반 가벼운 추정이라, 정확한 분류는 아니에요.</span>"</td>
+      </tr>
+      <tr>
+        <td class="surf">PersonalityView verdict 줄</td>
+        <td class="b strike">"당신의 AI 직업은 'X' 입니다" · "X 겸 Y — 투잡 뛰는 중"</td>
+        <td class="a"><span class="ok">(완전 제거)</span></td>
+      </tr>
+      <tr>
+        <td class="surf">PersonalityView 헤더</td>
+        <td class="b strike">AI 활용 직업 / 내 AI의 직업</td>
+        <td class="a"><span class="ok">AI가 자주 한 일</span></td>
+      </tr>
+      <tr>
+        <td class="surf">PersonalityView 배지</td>
+        <td class="b strike">주직업</td>
+        <td class="a"><span class="ok">상위 1</span></td>
+      </tr>
+      <tr>
+        <td class="surf">PersonalityView 도감 헤더</td>
+        <td class="b strike">AI 직업 종류 설명</td>
+        <td class="a"><span class="ok">AI 역할 종류 설명</span></td>
+      </tr>
+      <tr>
+        <td class="surf">Wrapped 슬라이드 7 · 시각</td>
+        <td class="b strike">단일 역할 거대 왕관 (이모지 80px + 4xl 타이틀 + 단정 헤드라인)</td>
+        <td class="a"><span class="ok">상위 3개를 균형 행 + 비율 막대로</span> (왕관 없음)</td>
+      </tr>
+      <tr>
+        <td class="surf">Wrapped footer</td>
+        <td class="b">사용자 메시지 패턴을 기준으로 정리했어요</td>
+        <td class="a"><span class="ok">사용자 메시지 패턴 기반의 가벼운 추정이에요. 정확한 분류는 아닙니다.</span></td>
+      </tr>
+      <tr>
+        <td class="surf">엔진(usageProfile.ts)</td>
+        <td class="b">스코어링 로직</td>
+        <td class="a"><span class="ok">변경 없음</span> (getUsageHeadline 반환 문자열만 추정 톤)</td>
+      </tr>
+      <tr>
+        <td class="surf">i18n (영문)</td>
+        <td class="b">"AI Role" / "X is the strongest pattern" / "split roles"</td>
+        <td class="a"><span class="ok">"What AI Did" / "Frequently observed patterns"</span> + "Rough estimate based on keywords"</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+
+<section style="margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 12px;">
+  <p>※ 이 문서는 시각 비교용 모형(mock)입니다 — 실제 컴포넌트의 픽셀-수준 재현이 아니라, 구조·카피·시각 위계의 핵심 변화를 보여주기 위한 스케치입니다.</p>
+  <p>실제 변경 코드: <code>src/components/Dashboard.tsx</code>, <code>src/components/PersonalityView.tsx</code>, <code>src/components/wrapped/slides/UsageSlide.tsx</code>, <code>src/lib/usageProfile.ts</code>.</p>
+</section>
+
+</body>
+</html>
