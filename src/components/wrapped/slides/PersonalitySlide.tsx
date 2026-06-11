@@ -221,6 +221,10 @@ export function PersonalitySlide({ personality }: Props) {
           </div>
         </div>
       </motion.div>
+
+      <FadeInText delay={2} className="mt-8 max-w-md text-center text-xs text-text/30">
+        대화 패턴 기반의 가벼운 성향 추정이에요. 정확한 성격 분석은 아닙니다.
+      </FadeInText>
     </SlideLayout>
   )
 }

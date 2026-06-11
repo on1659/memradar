@@ -1,6 +1,7 @@
 import { Clock } from 'lucide-react'
 import { shortenCwd, type SearchResult } from '../../lib/search'
 import { cleanClaudeText } from '../../lib/cleanClaudeText'
+import { maskSecrets } from '../../lib/secretMask'
 import { useI18n } from '../../i18n'
 
 interface SearchResultsProps {
@@ -9,6 +10,13 @@ interface SearchResultsProps {
 }
 
 function HighlightedSnippet({ parts }: { parts: SearchResult['highlights'] }) {
+  // 시크릿 마스킹 — 렌더 직전의 최종 스니펫 문자열에만 적용 (search.ts 의
+  // 인덱싱/오프셋 추출 로직은 불변). 매치 경계가 시크릿 중간을 가르면 조각
+  // 단위 마스킹은 부분 노출이 남을 수 있어, 시크릿이 있는 스니펫(드묾)은
+  // 하이라이트를 포기하고 전체 마스킹된 평문으로 렌더한다.
+  const joined = parts.map((p) => p.text).join('')
+  const { masked, hits } = maskSecrets(joined)
+  if (hits.length > 0) return <span>{masked}</span>
   return (
     <span>
       {parts.map((part, i) =>
@@ -94,9 +102,9 @@ export function SearchResults({ results, onSelect }: SearchResultsProps) {
                   )}
                 </div>
 
-                {/* Session first message preview */}
+                {/* Session first message preview — 항상 마스킹, slice 전에 적용 */}
                 <div className="mt-1.5 text-[11px] text-text/30 truncate">
-                  세션: {cleanClaudeText(result.session.messages[0]?.text ?? '').text.slice(0, 60) || '(빈 세션)'}
+                  세션: {maskSecrets(cleanClaudeText(result.session.messages[0]?.text ?? '').text).masked.slice(0, 60) || '(빈 세션)'}
                 </div>
               </div>
 

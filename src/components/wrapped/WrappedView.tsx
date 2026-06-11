@@ -4,7 +4,9 @@ import { ArrowLeft, ArrowRight, SkipForward, X } from 'lucide-react'
 import type { Session, Stats } from '../../types'
 import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
-import { analyzeUsageTopCategories, getUsageHeadline } from '../../lib/usageProfile'
+import { analyzeUsageTopCategories, getUsageHeadline, USAGE_CATEGORIES } from '../../lib/usageProfile'
+import { applyCalibrationOverUniverse } from '../../lib/personaQuiz'
+import { loadPersonaQuiz } from '../../lib/personaQuizStorage'
 import { useI18n } from '../../i18n'
 import { SYSTEM_ICONS } from '../../icons'
 import { CoverSlide } from './slides/CoverSlide'
@@ -49,10 +51,14 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     return sorted[0]?.[0] || 'Unknown'
   }, [stats])
 
-  const topUsageCategory = useMemo(
-    () => analyzeUsageTopCategories(sessions, 1)[0] ?? null,
-    [sessions]
+  const personaCalibration = useMemo(
+    () => loadPersonaQuiz()?.finalDistribution ?? null,
+    []
   )
+  const topUsageCategory = useMemo(() => {
+    const auto = analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length)
+    return applyCalibrationOverUniverse(auto, personaCalibration, USAGE_CATEGORIES).slice(0, 1)[0] ?? null
+  }, [sessions, personaCalibration])
   const usageHeadline = useMemo(
     () => getUsageHeadline(topUsageCategory),
     [topUsageCategory]
@@ -117,7 +123,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
     <ModelSlide key="model" modelsUsed={stats.modelsUsed} />,
     <HoursSlide key="hours" stats={stats} />,
     <PersonalitySlide key="personality" personality={personality} />,
-    <UsageSlide key="usage" sessions={sessions} />,
+    <UsageSlide key="usage" sessions={sessions} calibration={personaCalibration} />,
     <ShareSlide
       key="share"
       personality={personality}

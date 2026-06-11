@@ -3,6 +3,8 @@ import { ChevronRight, AlertTriangle } from 'lucide-react'
 import type { ToolCall } from '../../types'
 import { ToolDefaultIcon, TOOL_ICONS } from '../../icons'
 import { Truncate } from './Truncate'
+import { maskSecrets, useSecretMask } from '../../lib/secretMask'
+import { SecretMaskToggle } from '../SecretMaskToggle'
 
 export interface ExpandSignal {
   expanded: boolean
@@ -54,11 +56,15 @@ function HeaderRow({ name, summary, isError, expanded, onToggle }: { name: strin
 }
 
 function ResultBlock({ content, isError }: { content: string; isError: boolean }) {
+  // 도구 결과는 env 출력 등 시크릿 최고위험 표면 — 렌더 직전 마스킹 + 리빌 토글
+  const { masked, hitCount } = useSecretMask(content)
+  const [revealed, setRevealed] = useState(false)
   if (!content) return null
   return (
     <div className={`px-3 py-2 border-t border-border/60 ${isError ? 'bg-red-500/5' : ''}`}>
       <div className="text-[10px] uppercase tracking-wider text-text/35 mb-1">result</div>
-      <Truncate text={content} maxChars={1200} />
+      <Truncate text={revealed ? content : masked} maxChars={1200} />
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 }
@@ -72,6 +78,10 @@ function diffStats(oldStr: string, newStr: string): { added: number; removed: nu
 function EditBody({ input }: { input: Record<string, unknown> }) {
   const oldStr = getString(input, 'old_string')
   const newStr = getString(input, 'new_string')
+  const oldMask = useSecretMask(oldStr)
+  const newMask = useSecretMask(newStr)
+  const [revealed, setRevealed] = useState(false)
+  const hitCount = oldMask.hitCount + newMask.hitCount
   const stats = diffStats(oldStr, newStr)
   return (
     <div className="px-3 py-2 space-y-2">
@@ -84,22 +94,25 @@ function EditBody({ input }: { input: Record<string, unknown> }) {
         <div className="rounded border border-red-500/20 bg-red-500/5">
           <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-red-300/70 border-b border-red-500/10">- old</div>
           <div className="px-2 py-1">
-            <Truncate text={oldStr || '(empty)'} maxChars={800} />
+            <Truncate text={(revealed ? oldStr : oldMask.masked) || '(empty)'} maxChars={800} />
           </div>
         </div>
         <div className="rounded border border-emerald-500/20 bg-emerald-500/5">
           <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-300/70 border-b border-emerald-500/10">+ new</div>
           <div className="px-2 py-1">
-            <Truncate text={newStr || '(empty)'} maxChars={800} />
+            <Truncate text={(revealed ? newStr : newMask.masked) || '(empty)'} maxChars={800} />
           </div>
         </div>
       </div>
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 }
 
 function WriteBody({ input }: { input: Record<string, unknown> }) {
   const content = getString(input, 'content')
+  const { masked, hitCount } = useSecretMask(content)
+  const [revealed, setRevealed] = useState(false)
   const lines = content ? content.split('\n').length : 0
   return (
     <div className="px-3 py-2 space-y-1">
@@ -107,8 +120,9 @@ function WriteBody({ input }: { input: Record<string, unknown> }) {
         <span className="text-emerald-400">+{lines}</span> lines · {content.length}자
       </div>
       <div className="rounded border border-emerald-500/20 bg-emerald-500/5 px-2 py-1">
-        <Truncate text={content || '(empty)'} maxChars={1500} />
+        <Truncate text={(revealed ? content : masked) || '(empty)'} maxChars={1500} />
       </div>
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 }
@@ -116,22 +130,30 @@ function WriteBody({ input }: { input: Record<string, unknown> }) {
 function BashBody({ input }: { input: Record<string, unknown> }) {
   const command = getString(input, 'command')
   const description = getString(input, 'description')
+  const cmdMask = useSecretMask(command)
+  const descMask = useSecretMask(description)
+  const [revealed, setRevealed] = useState(false)
+  const hitCount = cmdMask.hitCount + descMask.hitCount
   return (
     <div className="px-3 py-2 space-y-1">
-      {description && <div className="text-[10px] text-text/45">{description}</div>}
+      {description && <div className="text-[10px] text-text/45">{revealed ? description : descMask.masked}</div>}
       <div className="rounded bg-bg/60 border border-border/40 px-2 py-1">
-        <Truncate text={command} maxChars={600} />
+        <Truncate text={revealed ? command : cmdMask.masked} maxChars={600} />
       </div>
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 }
 
 function GenericBody({ input }: { input: Record<string, unknown> }) {
   const json = JSON.stringify(input, null, 2)
+  const { masked, hitCount } = useSecretMask(json)
+  const [revealed, setRevealed] = useState(false)
   if (json === '{}') return null
   return (
     <div className="px-3 py-2">
-      <Truncate text={json} maxChars={800} />
+      <Truncate text={revealed ? json : masked} maxChars={800} />
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 }
@@ -149,13 +171,16 @@ function summaryFor(call: ToolCall): string {
       return fp ? basename(fp) + range : ''
     }
     case 'Bash': {
-      const cmd = getString(i, 'command')
+      // 헤더 요약은 접힌 상태에서도 항상 보이는 프리뷰 표면 — 항상 마스킹.
+      // slice 전에 마스킹해야 시크릿이 80자 경계에서 잘린 채 노출되지 않는다.
+      const cmd = maskSecrets(getString(i, 'command')).masked
       return cmd.length > 80 ? cmd.slice(0, 80) + '…' : cmd
     }
     case 'Grep':
     case 'Glob': {
-      const pattern = getString(i, 'pattern')
-      const glob = getString(i, 'glob')
+      // pattern/glob 도 사용자 입력 — Bash 와 동일하게 항상 보이는 프리뷰 표면이므로 마스킹
+      const pattern = maskSecrets(getString(i, 'pattern')).masked
+      const glob = maskSecrets(getString(i, 'glob')).masked
       return pattern + (glob ? ` (${glob})` : '')
     }
     case 'TodoWrite': {

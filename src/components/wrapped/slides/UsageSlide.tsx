@@ -2,15 +2,21 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import type { Session } from '../../../types'
-import { analyzeUsageTopCategories } from '../../../lib/usageProfile'
+import { analyzeUsageTopCategories, USAGE_CATEGORIES } from '../../../lib/usageProfile'
+import { applyCalibrationOverUniverse, type CategoryId } from '../../../lib/personaQuiz'
 import { ROLE_ICONS, type RoleIconKey } from '../../../icons'
 
 interface Props {
   sessions: Session[]
+  /** 페르소나 진단 보정 분포 (localStorage). 없으면 자동 분류 그대로. */
+  calibration?: Record<CategoryId, number> | null
 }
 
-export function UsageSlide({ sessions }: Props) {
-  const top3 = useMemo(() => analyzeUsageTopCategories(sessions, 3), [sessions])
+export function UsageSlide({ sessions, calibration }: Props) {
+  const top3 = useMemo(() => {
+    const auto = analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length)
+    return applyCalibrationOverUniverse(auto, calibration, USAGE_CATEGORIES).slice(0, 3)
+  }, [sessions, calibration])
 
   if (top3.length === 0) return null
 

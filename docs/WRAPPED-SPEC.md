@@ -118,7 +118,7 @@
 - Scope: 프로젝트 수/주 × 프로젝트 전환율 × 집중도
 - Rhythm: 세션 중앙값 × 시간대 엔트로피 × Deep/Quick 세션 비율
 
-슬라이더 라벨·핸들에는 한/영 툴팁이 달리며, `|axis.value − 0.5| < 0.04` 인 경우 "균형형 / Balanced" 로 표시된다. 카드에는 STRENGTHS / HEADS UP 블록이 따라붙는다.
+슬라이더 라벨·핸들에는 한/영 툴팁이 달리며, `|axis.value − 0.5| < 0.04` 인 경우 "균형형 / Balanced" 로 표시된다. 카드에는 STRENGTHS / HEADS UP 블록이 따라붙는다. 블록 아래에는 면책 캡션 1줄(`대화 패턴 기반의 가벼운 성향 추정이에요. 정확한 성격 분석은 아닙니다.`)이 표시된다.
 
 구현: `src/components/wrapped/slides/PersonalitySlide.tsx`
 알고리즘: `src/lib/personality.ts` — `computePersonality()`
@@ -143,6 +143,8 @@
 
 - TOP1 있음 → `가장 자주 보인 역할은 {카테고리} 쪽이에요`
 - TOP1 없음 → `당신의 AI 활용 스타일은 아직 탐색 중이에요`
+
+슬라이드 하단에는 면책 캡션 1줄(`사용자 메시지 패턴 기반의 가벼운 추정이에요. 정확한 분류는 아닙니다.`)이 표시된다.
 
 구현: `src/components/wrapped/slides/UsageSlide.tsx`
 알고리즘: `src/lib/usageProfile.ts` — `analyzeUsageTopCategories()`, `getUsageHeadline()`

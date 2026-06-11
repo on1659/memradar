@@ -152,14 +152,14 @@ interface Provider {
 
 ## CLI 아키텍처
 
-`cli/index.mjs` 는 Node ESM 스크립트이며 기본 동작은 로컬 HTTP 서버(포트 **3939**, 바인딩 **`127.0.0.1`**)를 띄우는 것이다. 같은 네트워크의 다른 기기에서 접근해야 한다면 `--host 0.0.0.0` 또는 `MEMRADAR_HOST=0.0.0.0` 로 바인딩을 풀 수 있다 — 비-loopback 시 콘솔에 LAN URL 목록 + 보안 경고가 함께 출력된다.
+`cli/index.mjs` 는 Node ESM 스크립트이며 기본 동작은 정적 HTML 모드 — 세션이 임베드된 단일 HTML 파일을 생성해 브라우저로 연다. `--server` 플래그를 주면 로컬 HTTP 서버(포트 **3939**, 바인딩 **`127.0.0.1`**)를 띄운다. 같은 네트워크의 다른 기기에서 접근해야 한다면 `--host 0.0.0.0` 또는 `MEMRADAR_HOST=0.0.0.0` 로 바인딩을 풀 수 있다 — 비-loopback 시 콘솔에 LAN URL 목록 + 보안 경고가 함께 출력된다.
 
 1. `~/.claude/projects/` 및 선택적으로 `~/.codex/sessions/` 를 스캔해 `.jsonl` 세션을 수집
 2. `dist/` 번들을 서빙하며 아래 API 를 노출한다:
    - `GET /api/sessions` — 감지된 세션 목록
    - `GET /api/session-content` — 개별 세션 원본 콘텐츠
    - `GET /api/skills` — 스킬 인벤토리
-3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 — 새 버전이 감지되면 `npx --yes memradar@<latest>` 로 child 를 띄워 자동 재실행한 뒤 본 프로세스를 종료한다. child 에는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 을 주입해 자기 자신을 또 업데이트하려 시도하지 않게 한다 — npx 캐시가 옛 버전이면 재귀 spawn 으로 무한 재시도가 되던 문제를 회피한다
+3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 (세션 데이터 미포함 — `--no-update-check` 플래그 또는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 로 생략 가능) — 새 버전이 감지되면 `npx --yes memradar@<latest>` 로 child 를 띄워 자동 재실행한 뒤 본 프로세스를 종료한다. child 에는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 을 주입해 자기 자신을 또 업데이트하려 시도하지 않게 한다 — npx 캐시가 옛 버전이면 재귀 spawn 으로 무한 재시도가 되던 문제를 회피한다
 4. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
 5. `--static` 모드(기본값) 에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `os.tmpdir()/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__` 로 인라인 주입된다. 직렬화는 세션을 하나씩 스트리밍 방식으로 디스크에 기록해 V8 max string length(~512MB) 한계를 회피한다. 출력 HTML 이 200MB 를 넘으면 브라우저 부담 안내 + 서버 모드 권장 메시지를 출력하고 자동 열기는 생략한다
 6. `--version` 플래그 지원

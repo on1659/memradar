@@ -1,0 +1,2 @@
+{"sessionId":"session-gamma","cwd":"D:/Work/vibe/promptale","version":"1.0.0","timestamp":"2026-04-03T22:02:00.000Z","message":{"role":"user","content":"Final pass for harness docs and fixture coverage"}}
+{"sessionId":"session-gamma","cwd":"D:/Work/vibe/promptale","version":"1.0.0","timestamp":"2026-04-03T22:09:00.000Z","message":{"role":"assistant","model":"gpt-5.4-mini","content":[{"type":"text","text":"The docs now explain the CLI fixture path and browser smoke expectations."},{"type":"tool_use","name":"Write"}],"usage":{"input_tokens":980,"output_tokens":760}}}

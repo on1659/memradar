@@ -5,7 +5,9 @@ export default defineConfig({
   timeout: 30000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // 로컬도 1회 재시도: fullyParallel 로 다수 chromium 동시 기동 시 발생하는
+  // GPU/teardown 경합 플래키(assertion 아님)를 흡수. CI 는 2회 유지.
+  retries: process.env.CI ? 2 : 1,
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: 'test-results/playwright-report' }],

@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage } from '../../types'
 import { cleanClaudeText } from '../../lib/cleanClaudeText'
+import { maskSecrets } from '../../lib/secretMask'
 import { useI18n } from '../../i18n'
 import { mdComponents } from '../markdown'
 import { ToolDefaultIcon } from '../../icons'
@@ -38,6 +39,15 @@ function useGapLabel() {
     },
     [t]
   )
+}
+
+/**
+ * 리플레이 표시 문자열 (clean → mask).
+ * 본문 렌더와 타이핑 길이 산정(currentMessageLength)이 반드시 같은 텍스트를 쓰도록
+ * 단일화한 변환 — 길이가 어긋나면 타이핑 완료/캐럿 종료 시점이 틀어진다.
+ */
+function toDisplayText(text: string): string {
+  return maskSecrets(cleanClaudeText(text).text).masked
 }
 
 function MessageBody({
@@ -192,8 +202,12 @@ export function ReplayView({ session, onBack }: ReplayViewProps) {
     currentEvent.message.role === 'assistant'
   const currentMessageStartMs = currentEvent?.kind === 'message' ? currentEvent.offsetMs : 0
   const currentMessageDurationMs = currentEvent?.kind === 'message' ? currentEvent.durationMs : 1
-  const currentMessageLength =
-    currentEvent?.kind === 'message' ? currentEvent.message.text.length : 0
+  // 타이핑 길이는 원문이 아니라 표시 문자열(toDisplayText) 기준 — 본문 렌더와 같은
+  // 텍스트를 써야 charsVisible 진행률·완료 시점이 화면과 일치한다.
+  const currentMessageLength = useMemo(
+    () => (currentEvent?.kind === 'message' ? toDisplayText(currentEvent.message.text).length : 0),
+    [currentEvent]
+  )
   const elapsedInCurrent = Math.max(0, elapsedMs - currentMessageStartMs)
   const charsVisible = Math.floor(
     (elapsedInCurrent / currentMessageDurationMs) * currentMessageLength
@@ -382,7 +396,9 @@ export function ReplayView({ session, onBack }: ReplayViewProps) {
               }
               const msg = event.message
               const isUser = msg.role === 'user'
-              const cleaned = cleanClaudeText(msg.text).text
+              // 리플레이 본문 — 항상 마스킹. currentMessageLength 와 동일한
+              // toDisplayText 를 써서 타이핑 진행/캐럿 종료 시점이 본문과 일치한다.
+              const cleaned = toDisplayText(msg.text)
               const isTypingTarget =
                 isCurrentTypingTarget && currentEventIndex === i && !isUser
               const showCaret = isTypingTarget && charsVisible < cleaned.length

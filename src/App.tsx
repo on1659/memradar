@@ -4,6 +4,7 @@ import { Dashboard, type DashboardFilters } from './components/Dashboard'
 import { SessionView } from './components/SessionView'
 import { SearchView } from './components/search/SearchView'
 import { WrappedView } from './components/wrapped/WrappedView'
+import { PersonaQuizView } from './components/PersonaQuizView'
 import { ReplayView } from './components/replay/ReplayView'
 import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
@@ -27,6 +28,7 @@ type View =
   | { type: 'search' }
   | { type: 'wrapped' }
   | { type: 'personality' }
+  | { type: 'persona' }
 
 function viewFromHash(hash: string, sessions: Session[]): View | null {
   if (!hash || hash === '#') return null
@@ -36,6 +38,7 @@ function viewFromHash(hash: string, sessions: Session[]): View | null {
   if (rawHash === 'search') return { type: 'search' }
   if (rawHash === 'wrapped') return { type: 'wrapped' }
   if (rawHash === 'personality') return { type: 'personality' }
+  if (rawHash === 'persona') return { type: 'persona' }
 
   if (rawHash.startsWith('session/')) {
     const sessionId = decodeURIComponent(rawHash.slice('session/'.length))
@@ -167,6 +170,8 @@ function App() {
         setView({ type: 'wrapped' })
       } else if (state.viewType === 'personality') {
         setView({ type: 'personality' })
+      } else if (state.viewType === 'persona') {
+        setView({ type: 'persona' })
       } else {
         setView({ type: 'dashboard' })
       }
@@ -273,6 +278,15 @@ function App() {
     )
   }
 
+  if (view.type === 'persona') {
+    return (
+      <PersonaQuizView
+        sessions={sessions}
+        onClose={() => navigate({ type: 'dashboard' })}
+      />
+    )
+  }
+
   if (view.type === 'personality') {
     return (
       <Dashboard
@@ -281,6 +295,7 @@ function App() {
         onOpenWrapped={() => navigate({ type: 'wrapped' })}
         onOpenPersonality={() => navigate({ type: 'personality' })}
         onOpenDashboard={() => navigate({ type: 'dashboard' })}
+        onOpenPersonaQuiz={() => navigate({ type: 'persona' })}
         sectionMode="personality"
         themeProps={themeProps}
       />
@@ -306,6 +321,7 @@ function App() {
       onOpenWrapped={() => navigate({ type: 'wrapped' })}
       onOpenPersonality={() => navigate({ type: 'personality' })}
       onOpenDashboard={() => navigate({ type: 'dashboard' })}
+      onOpenPersonaQuiz={() => navigate({ type: 'persona' })}
       onReload={isServerMode ? handleReload : undefined}
       themeProps={themeProps}
       restoreScrollY={savedScrollY.current}

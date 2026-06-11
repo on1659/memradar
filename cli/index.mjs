@@ -6,6 +6,7 @@ import os from 'node:os'
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { exec, spawn } from 'node:child_process'
+import { maskSecrets } from './lib/secretMask.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'))
@@ -53,7 +54,11 @@ async function handleUpdate(latest) {
   process.exit(0)
 }
 
-const updateCheckPromise = process.env.MEMRADAR_SKIP_UPDATE_CHECK === '1'
+const noUpdateCheck =
+  process.argv.includes('--no-update-check') ||
+  process.env.MEMRADAR_SKIP_UPDATE_CHECK === '1'
+
+const updateCheckPromise = noUpdateCheck
   ? Promise.resolve(null)
   : checkForUpdate()
 
@@ -565,7 +570,7 @@ function detectAndParse(content, fileName, options) {
   return null
 }
 
-// ─── Server mode (default) ───────────────────────────────────────────
+// ─── Server mode (--server) ──────────────────────────────────────────
 
 if (!isStaticMode) {
   const MIME_TYPES = {
@@ -778,7 +783,7 @@ if (!isStaticMode) {
     server.close(() => process.exit(0))
   })
 } else {
-  // ─── Static HTML mode (--static) ────────────────────────────────────
+  // ─── Static HTML mode (default) ─────────────────────────────────────
 
   await handleUpdate(await updateCheckPromise)
 
@@ -809,7 +814,13 @@ if (!isStaticMode) {
     try {
       const content = fs.readFileSync(file.filePath, 'utf-8')
       const session = detectAndParse(content, path.basename(file.filePath))
-      if (session) sessions.push(session)
+      if (session) {
+        // 시크릿 마스킹 — 직렬화(임베드) 경계. 원본 .jsonl 은 불변, 메모리 객체만 변형.
+        // 정적 HTML 에는 원문 시크릿이 아예 없어 공유 안전 (리빌 불가가 의도).
+        // 서버 모드 API 는 무변경 — loopback 응답은 클라이언트 렌더에서 마스킹된다.
+        session.messages = session.messages.map((m) => (m.text ? { ...m, text: maskSecrets(m.text).masked } : m))
+        sessions.push(session)
+      }
     } catch {
       // Skip unreadable files.
     }
@@ -896,6 +907,9 @@ if (!isStaticMode) {
   if (skipped > 0) {
     console.log(`  Note:      ${skipped} session(s) too large to serialize — body omitted`)
   }
+  console.log()
+  console.log(`  ⚠ 이 HTML 파일에는 세션 대화 전문이 포함돼 있어요.`)
+  console.log(`     다른 사람과 공유하기 전에 민감한 내용이 없는지 확인하세요.`)
   const HUGE_OUTPUT_THRESHOLD = 200 * 1024 * 1024
   const isHuge = sizeBytes > HUGE_OUTPUT_THRESHOLD
   if (isHuge) {

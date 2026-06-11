@@ -19,6 +19,8 @@ import { useI18n } from '../i18n'
 import { parseJsonl } from '../parser'
 import { ToolCallView, type ExpandSignal } from './tools/ToolCallView'
 import { SYSTEM_ICONS } from '../icons'
+import { maskSecrets, useSecretMask } from '../lib/secretMask'
+import { SecretMaskToggle } from './SecretMaskToggle'
 
 interface SessionViewProps {
   session: Session
@@ -72,7 +74,8 @@ function toPlainText(text: string): string {
 
 function SessionTitle({ text, index }: { text: string; index?: number }) {
   const [expanded, setExpanded] = useState(false)
-  const title = toPlainText(text) || '빈 대화'
+  // 프리뷰 표면 — 항상 마스킹, 리빌 토글 없음 (본문에서 토글 가능)
+  const title = maskSecrets(toPlainText(text)).masked || '빈 대화'
   const isLong = title.length > 80
 
   return (
@@ -101,6 +104,10 @@ function SessionTitle({ text, index }: { text: string; index?: number }) {
 
 function MessageContent({ text, isUser }: { text: string; isUser: boolean }) {
   const { text: cleaned, interrupted } = cleanClaudeText(text)
+  // 시크릿 마스킹 — 표시 경계 적용. 리빌 토글로 원문(cleaned) 확인 가능.
+  // 정적 HTML 모드는 임베드 시점에 이미 마스킹돼 hits 0 → 토글 자체가 안 뜬다.
+  const { masked, hitCount } = useSecretMask(cleaned)
+  const [revealed, setRevealed] = useState(false)
 
   return (
     <div className={`text-sm leading-7 break-words ${isUser ? 'text-text-bright' : 'text-text'}`}>
@@ -110,8 +117,9 @@ function MessageContent({ text, isUser }: { text: string; isUser: boolean }) {
         </span>
       )}
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {cleaned}
+        {revealed ? cleaned : masked}
       </ReactMarkdown>
+      <SecretMaskToggle hitCount={hitCount} revealed={revealed} onToggle={() => setRevealed((v) => !v)} />
     </div>
   )
 

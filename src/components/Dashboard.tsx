@@ -6,6 +6,7 @@ import {
   Calendar,
   CircleHelp,
   MessageSquare,
+  SlidersHorizontal,
   Timer,
   TrendingUp,
 } from 'lucide-react'
@@ -15,9 +16,12 @@ import type { Session, SessionSource, Stats } from '../types'
 import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
-import { analyzeUsageTopCategories, type UsageCategoryScore } from '../lib/usageProfile'
+import { analyzeUsageTopCategories, USAGE_CATEGORIES, type UsageCategoryScore } from '../lib/usageProfile'
+import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
+import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
+import { maskSecrets } from '../lib/secretMask'
 import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
@@ -40,6 +44,7 @@ interface DashboardProps {
   onOpenWrapped?: () => void
   onOpenPersonality?: () => void
   onOpenDashboard?: () => void
+  onOpenPersonaQuiz?: () => void
   onReload?: () => void
   sectionMode?: 'dashboard' | 'personality'
   restoreScrollY?: number
@@ -787,6 +792,7 @@ export function Dashboard({
   onOpenWrapped,
   onOpenPersonality,
   onOpenDashboard,
+  onOpenPersonaQuiz,
   onReload,
   sectionMode = 'dashboard',
   restoreScrollY,
@@ -961,8 +967,13 @@ export function Dashboard({
     () => Object.entries(stats.modelsUsed).sort((a, b) => b[1] - a[1]),
     [stats]
   )
-  const topUsageCategories = useMemo(() => analyzeUsageTopCategories(sessions, 8), [sessions])
+  const personaQuiz = useMemo(() => loadPersonaQuiz(), [])
+  const topUsageCategories = useMemo(() => {
+    const auto = analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length)
+    return applyCalibrationOverUniverse(auto, personaQuiz?.finalDistribution, USAGE_CATEGORIES).slice(0, 8)
+  }, [sessions, personaQuiz])
   const topUsageCategory = topUsageCategories[0] ?? null
+  const hasCalibration = personaQuiz != null
 
   const topLanguages = useMemo(() => analyzeLanguages(sessions), [sessions])
 
@@ -993,6 +1004,10 @@ export function Dashboard({
   const aiRoleTooltipDescription = isKorean
     ? DASHBOARD_USAGE_CARD_HELP
     : 'Shows which roles your AI most often took based on recurring request patterns in your messages. Rough estimate based on keywords, not a precise classification.'
+  const personaQuizLabel = hasCalibration
+    ? (isKorean ? '다시 진단' : 'Retake quiz')
+    : (isKorean ? '내 페르소나 진단' : 'Diagnose persona')
+  const calibratedBadgeLabel = isKorean ? '보정됨' : 'Calibrated'
 
   const longestStreak = useMemo(() => {
     let longest = 0
@@ -1120,7 +1135,8 @@ export function Dashboard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="mb-1 truncate text-sm font-medium text-text-bright">
-            {cleanClaudeText(session.messages[0]?.text ?? '').text.slice(0, 80) || untitledSessionLabel}
+            {/* 프리뷰 표면 — 항상 마스킹. slice 전에 마스킹해야 잘린 시크릿 조각이 안 샌다 */}
+            {maskSecrets(cleanClaudeText(session.messages[0]?.text ?? '').text).masked.slice(0, 80) || untitledSessionLabel}
           </div>
           <div className="mb-1 truncate text-[11px] text-text/38">
             {sessionNameLabel} · {sessionDisplayName}
@@ -1309,17 +1325,34 @@ export function Dashboard({
               >
                 <CircleHelp className="h-3.5 w-3.5" />
               </DashboardHoverTooltip>
+              {hasCalibration && (
+                <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
+                  {calibratedBadgeLabel}
+                </span>
+              )}
             </div>
-            {handleSectionSwitch && (
-              <button
-                type="button"
-                onClick={handleSectionSwitch}
-                className="flex h-8 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
-              >
-                <ArrowLeftRight className="h-4 w-4" />
-                <span>{sectionSwitchLabel}</span>
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {onOpenPersonaQuiz && (
+                <button
+                  type="button"
+                  onClick={onOpenPersonaQuiz}
+                  className="flex h-8 items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:border-accent/55 hover:bg-accent/20"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>{personaQuizLabel}</span>
+                </button>
+              )}
+              {handleSectionSwitch && (
+                <button
+                  type="button"
+                  onClick={handleSectionSwitch}
+                  className="flex h-8 items-center gap-2 rounded-xl border border-border/70 bg-bg-card/70 px-3 text-sm font-medium text-text transition-colors hover:bg-bg-hover hover:text-text-bright"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span>{sectionSwitchLabel}</span>
+                </button>
+              )}
+            </div>
           </div>
           <p className="mb-3 text-sm text-text/50">{aiRoleSummary}</p>
           {topUsageCategories.length > 0 ? (

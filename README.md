@@ -20,7 +20,7 @@ Claude Code와 Codex 세션 로그를 로컬에서 시각화·회고하는 웹 �
 npx memradar@latest
 ```
 
-로컬 세션 폴더를 자동으로 스캔하고 기본 브라우저로 대시보드가 열린다. 기기 밖으로 데이터가 나가지 않는다.
+로컬 세션 폴더를 자동으로 스캔하고 기본 브라우저로 대시보드가 열린다. 세션 데이터는 기기 밖으로 나가지 않는다.
 
 ### 직접 파일 업로드
 
@@ -126,6 +126,7 @@ npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크 다른 기기
 npx memradar@latest                          # 단일 HTML 파일 생성 후 브라우저 열기 (기본)
 npx memradar@latest --server                 # 로컬 서버 모드 (localhost 만)
 npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크의 다른 기기에서도 접근
+npx memradar@latest --no-update-check        # 시작 시 npm 최신 버전 확인 생략
 ```
 
 > ⚠️ `--host 0.0.0.0` 또는 LAN IP 지정 시 같은 네트워크의 다른 기기가 세션 로그를 볼 수 있습니다. 공용 와이파이 등 신뢰하지 않는 네트워크에서는 사용을 피하세요. 안전한 우회 경로는 SSH 포트 포워딩(`ssh -L 3939:localhost:3939 ...`) 또는 Tailscale 같은 VPN 권장.
@@ -140,6 +141,7 @@ npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크의 다른 기
 | `MEMRADAR_HOST` | `127.0.0.1` | 서버 바인딩 인터페이스 (`--host` 와 동일) |
 | `MEMRADAR_OUTPUT_HTML` | OS 임시 디렉터리 | `--static` 모드 HTML 저장 경로 |
 | `MEMRADAR_NO_OPEN` | `0` | `1`로 설정 시 브라우저 자동 열기 비활성화 |
+| `MEMRADAR_SKIP_UPDATE_CHECK` | `0` | `1`로 설정 시 시작 시 npm 최신 버전 확인 생략 (`--no-update-check`와 동일) |
 
 ---
 
@@ -219,11 +221,14 @@ React 19 · TypeScript · Vite 8 · Tailwind CSS v4 · Framer Motion · Lucide I
 
 ## Privacy
 
-Memradar는 **어떤 데이터도 외부로 전송하지 않는다.**
+Memradar는 **세션 데이터를 외부로 전송하지 않는다.**
 
 - 세션 로그는 로컬 머신에서만 읽히고, `localhost` 서버 또는 브라우저 안에서만 처리된다.
-- 외부 API 호출, 서버 업로드, 텔레메트리, 분석 수집 일체 없음.
-- 네트워크 연결이 없어도 동작한다 (`--static` 모드의 Google Fonts 제외).
+- 서버 업로드, 텔레메트리, 분석 수집 일체 없음.
+- 외부 요청은 두 가지뿐이며, 둘 다 세션 데이터를 싣지 않는다:
+  - 시작 시 npm registry에 최신 버전을 1회 조회. 새 버전이 있으면 npx로 내려받아 자동 재실행한다. `--no-update-check` 플래그 또는 `MEMRADAR_SKIP_UPDATE_CHECK=1`로 끄면 이 동작이 통째로 비활성화된다.
+  - 웹폰트 로드 — Google Fonts(서버·정적 모드), jsDelivr Pretendard(서버 모드). 표준 폰트 요청이며, 오프라인이면 시스템 폰트로 폴백한다.
+- 네트워크 연결이 없어도 동작한다 (버전 조회 실패는 조용히 무시).
 - 소스 코드를 직접 확인: [`cli/index.mjs`](./cli/index.mjs)
 
 ---

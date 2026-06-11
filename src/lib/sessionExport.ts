@@ -10,6 +10,8 @@
  *   - toolCalls 있으면 도구명 + 입력 + 결과 상세 (서버 모드 + heavy parse 결과)
  *   - toolCalls 없고 toolUses 만 있으면 도구명 chip 폴백 (static 모드)
  * - cleanClaudeText 를 입구에서 항상 적용 (시스템 태그 누출 방지)
+ * - maskSecrets 를 직렬화 경계에서 항상 적용 — export 산출물(.md/.html/클립보드)에는
+ *   원문 시크릿이 없다. `[REDACTED:kind]` 고정, 리빌 없음.
  * - 신규 deps 금지: 마크다운→HTML 은 react-dom/server + ReactMarkdown 사용
  */
 import { createElement, type ReactElement } from 'react'
@@ -19,6 +21,7 @@ import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage, ToolCall, ToolResult } from '../types'
 import { shortModelName } from './modelNames'
 import { cleanClaudeText } from './cleanClaudeText'
+import { maskSecrets } from './secretMask'
 
 // ─── 공통 유틸 ───────────────────────────────────────────────────────────────
 
@@ -45,7 +48,8 @@ function toPlainTitle(text: string): string {
 function getSessionTitle(session: Session, messages: ParsedMessage[]): string {
   const first = messages[0]?.text ?? session.messages[0]?.text ?? ''
   const cleaned = cleanClaudeText(first).text
-  const title = toPlainTitle(cleaned)
+  // 제목은 export 헤더/<title> 에 그대로 실린다 — 직렬화 경계 마스킹
+  const title = maskSecrets(toPlainTitle(cleaned)).masked
   return title || '빈 대화'
 }
 
@@ -122,7 +126,8 @@ export function summarizeToolCall(call: ToolCall): string {
   const i = call.input
   switch (call.name) {
     case 'Bash': {
-      const cmd = getString(i, 'command')
+      // summary 는 <details> 헤더로 export 에 항상 노출 — slice 전에 마스킹
+      const cmd = maskSecrets(getString(i, 'command')).masked
       return cmd.length > 60 ? cmd.slice(0, 60) + '…' : cmd
     }
     case 'Edit':
@@ -133,8 +138,9 @@ export function summarizeToolCall(call: ToolCall): string {
     }
     case 'Grep':
     case 'Glob': {
-      const pattern = getString(i, 'pattern')
-      const glob = getString(i, 'glob')
+      // pattern/glob 도 사용자 입력 — Bash 와 동일하게 summary 노출 전 마스킹
+      const pattern = maskSecrets(getString(i, 'pattern')).masked
+      const glob = maskSecrets(getString(i, 'glob')).masked
       return pattern + (glob ? ` (${glob})` : '')
     }
     case 'TodoWrite': {
@@ -143,11 +149,11 @@ export function summarizeToolCall(call: ToolCall): string {
       return ''
     }
     default: {
-      // 첫 번째 문자열 값을 찾아 60자 트림
+      // 첫 번째 문자열 값을 찾아 60자 트림 (마스킹 후 trim/slice — 잘린 시크릿 방지)
       for (const key of Object.keys(i)) {
         const v = i[key]
         if (typeof v === 'string' && v) {
-          const trimmed = v.replace(/\s+/g, ' ').trim()
+          const trimmed = maskSecrets(v).masked.replace(/\s+/g, ' ').trim()
           return trimmed.length > 60 ? trimmed.slice(0, 60) + '…' : trimmed
         }
       }
@@ -174,8 +180,8 @@ interface ToolInputSerialized {
  */
 export function formatToolInput(call: ToolCall): ToolInputSerialized {
   if (call.name === 'Bash') {
-    const command = getString(call.input, 'command')
-    const description = getString(call.input, 'description')
+    const command = maskSecrets(getString(call.input, 'command')).masked
+    const description = maskSecrets(getString(call.input, 'description')).masked
     return {
       lang: 'bash',
       content: command,
@@ -188,15 +194,16 @@ export function formatToolInput(call: ToolCall): ToolInputSerialized {
   } catch {
     content = '(직렬화 실패)'
   }
-  return { lang: 'json', content }
+  return { lang: 'json', content: maskSecrets(content).masked }
 }
 
 /**
  * 도구 결과 본문 추출. result 가 없으면 '(결과 없음)' 자리표시 반환.
+ * 도구 결과는 env 출력 등 시크릿 최고위험 표면 — 항상 마스킹해 반환.
  */
 export function formatToolResult(result: ToolResult | undefined): string {
   if (!result) return '(결과 없음)'
-  return result.content ?? ''
+  return maskSecrets(result.content ?? '').masked
 }
 
 // ─── 메시지 직렬화 ──────────────────────────────────────────────────────────
@@ -230,7 +237,7 @@ function toExportMessages(messages: ParsedMessage[]): ExportMessage[] {
     out.push({
       role: m.role,
       timestamp: m.timestamp,
-      cleaned: text.trim(),
+      cleaned: maskSecrets(text).masked.trim(),
       interrupted,
       toolCalls: m.toolCalls,
       toolUses: m.toolUses,
@@ -258,7 +265,8 @@ export function buildMessageMarkdown(msg: ParsedMessage, source: Session['source
   const time = formatTime(msg.timestamp)
   const heading = time ? `## ${label} · ${time}` : `## ${label}`
   const interruptedLine = interrupted ? '> ⚠️ 중단됨\n\n' : ''
-  const body = text.trim()
+  // toExportMessages 를 안 거치는 경로(메시지 단위 복사)도 여기서 마스킹된다
+  const body = maskSecrets(text).masked.trim()
   const toolBlock = renderToolCallsMarkdown(msg)
   const parts = [heading, '', `${interruptedLine}${body}`]
   if (toolBlock) parts.push('', toolBlock)

@@ -47,3 +47,11 @@ tmp/
 .gstack/
 .tmp-dummy-sessions/
 .tmp-memradar-test.html
+
+# 테스트 픽스처(합성 더미)는 광역 `logs` 패턴에서 재포함
+# — 디렉터리 자체를 먼저 재포함해야 내용 negation 이 동작한다 (`!dir/**` 단독으론 불가)
+!tests/fixtures/logs/
+!tests/fixtures/logs/**
+
+# 시크릿 스캔 리포트(scan:secrets 산출물) — 운영 보안 산출물, 커밋 금지 (심층 방어)
+docs/secret-scan-report-*.json

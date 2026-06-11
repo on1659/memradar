@@ -85,14 +85,17 @@ Memradar 는 브라우저에서 AI 코딩 세션 로그를 분석합니다.
 
 ## CLI 레퍼런스 (`npx memradar`)
 
-CLI 엔트리는 `cli/index.mjs` (ESM). `package.json` 의 `bin.memradar = ./cli/index.mjs` 로 등록된다. 기본 동작은 로컬 HTTP 서버를 띄우고 브라우저를 자동으로 연 뒤 `dist/` 정적 번들과 `/api/sessions`, `/api/session-content`, `/api/skills` 엔드포인트를 서빙한다. 스캔 대상은 `~/.claude/projects/` 및 (존재 시) `~/.codex/sessions/`.
+CLI 엔트리는 `cli/index.mjs` (ESM). `package.json` 의 `bin.memradar = ./cli/index.mjs` 로 등록된다. 기본 동작은 세션 JSON 이 임베드된 단일 HTML 파일을 생성해 기본 브라우저로 여는 것이다. `--server` 플래그를 주면 로컬 HTTP 서버를 띄우고 `dist/` 정적 번들과 `/api/sessions`, `/api/session-content`, `/api/skills` 엔드포인트를 서빙한다. 스캔 대상은 `~/.claude/projects/` 및 (존재 시) `~/.codex/sessions/`.
 
 ### 플래그
 
 | 플래그 | 동작 |
 |---|---|
 | `--version`, `-v` | 설치된 memradar 버전을 출력하고 종료 |
-| `--static` | 서버를 띄우지 않고 세션 JSON 이 임베드된 단일 HTML 파일을 export |
+| `--static` | 서버를 띄우지 않고 세션 JSON 이 임베드된 단일 HTML 파일을 export (기본 동작과 동일 — 명시용) |
+| `--server` | 로컬 HTTP 서버 모드로 실행 (`localhost:3939`) |
+| `--host <addr>` | 서버 바인딩 인터페이스 지정 (기본 `127.0.0.1`, `0.0.0.0` 지정 시 LAN 노출) |
+| `--no-update-check` | 시작 시 npm 최신 버전 확인 생략 |
 
 ### 환경 변수
 
@@ -103,21 +106,39 @@ CLI 엔트리는 `cli/index.mjs` (ESM). `package.json` 의 `bin.memradar = ./cli
 | `MEMRADAR_OUTPUT_HTML` | `<os.tmpdir>/memradar.html` | `--static` 모드 HTML 출력 경로 |
 | `MEMRADAR_PROJECTS_DIR` | `~/.claude/projects` | Claude 세션 스캔 루트 |
 | `MEMRADAR_CODEX_DIR` | `~/.codex/sessions` | Codex 세션 스캔 루트 (선택) |
+| `MEMRADAR_SKIP_UPDATE_CHECK` | (미설정) | `1` 로 설정 시 시작 시 npm 최신 버전 확인 생략 (`--no-update-check` 와 동일) |
 
 ---
 
 ## npm 배포
 
-CLI(`memradar` 패키지)는 GitHub Actions 의 `release.yml` 워크플로가 담당한다. `v*` 태그 푸시 → 하네스 통과 → `npm publish --provenance --access public` 흐름으로 자동화돼 있다.
+CLI(`memradar` 패키지)의 **실제 릴리스 경로는 로컬 `npm publish`** 다.
 
-수동 배포가 필요한 경우:
+저장소에 `.github/workflows/release.yml`(`v*` 태그 푸시 → 하네스 → `npm publish --provenance --access public`)이 들어 있긴 하지만, **현재 비활성 상태**다 — 저장소 Actions 정책이 "소유자 actions만 허용"으로 잠겨 `actions/checkout` 등 표준 액션이 차단돼 checkout 단계부터 실패하고, `NPM_TOKEN` repo secret 도 미등록이다. 따라서 `v*` 태그를 푸시해도 CI 자동 publish 는 일어나지 않는다. (CI 복구는 Settings → Actions 정책 변경 + `NPM_TOKEN` secret 등록이 필요한 별도 작업.)
+
+### 로컬 publish 절차 (권장)
+
+릴리스는 `release` 스킬(`.claude/skills/release/SKILL.md`)이 프리플라이트·버전 bump·테스트·publish·태그 push 를 한 번에 처리한다. 핵심 흐름:
 
 ```bash
-npm version patch          # 0.1.x → 0.1.(x+1)
-git push --follow-tags
+npm version patch          # 0.x.y → 0.x.(y+1)  (commit + tag 생성)
+npm publish --access public
+git push origin master --follow-tags   # commit + tag 동시 push
 ```
 
-태그가 푸시되면 CI 가 자동으로 테스트 후 npm 에 공개한다.
+### npm 인증 (안전 패턴 — 토큰 평문 유출 방지)
+
+`npm publish` 에는 npm 자동화 토큰이 필요하다. **토큰을 `.npmrc` 에 평문으로 쓰거나 명령에 인라인하면 안 된다** (과거 릴리스에서 토큰이 셸 명령으로 세션 로그에 평문 유출된 사고가 있었다). 대신:
+
+1. `.npmrc`(이미 `.gitignore` 됨)에는 **보간 형식 한 줄만** 기록한다 (npm 10.9.4+ 가 `${VAR}` 보간 지원):
+
+   ```
+   //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+   ```
+
+2. 실제 토큰은 **자기 터미널에서 환경변수로 직접 주입**한다 — `$env:NPM_TOKEN='...'`(PowerShell) / `export NPM_TOKEN=...`(bash). 토큰 값을 어떤 명령 인자로도 넘기지 않는다 (Claude 도구 호출에 토큰 미전달).
+
+npm 발행 계정은 `radar92` 이며 2FA 가 걸려 있어 publish 권한을 가진 granular automation token 이 필요하다. 자세한 안전 절차·금지 명령은 `.claude/skills/release/SKILL.md` "## npm 인증 (안전 패턴)" 을 따른다.
 
 ---
 
