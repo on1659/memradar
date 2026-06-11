@@ -1,15 +1,20 @@
 # 성장 섹션 설계 문서
 
-> **상태: ⬜ 미구현 (Phase 2 계획)** — memradar v0.2.12 기준 (2026-04-19)
+> **상태: ✅ 구현 완료** — 2026-06-11 (브랜치 `feat/eval-sharpness`)
 >
-> 이 문서는 **설계 스펙**이다. 실제 코드에는 아직 반영되어 있지 않다.
+> - `src/types.ts` — `GrowthStats` 인터페이스 + `Stats.growth` 필드
+> - `src/parser.ts` — `toMonthKey`, `stripMarkup`, `countWords`, `isStructured`, `RETRY_MARKERS`, `buildGrowth`, `BUILTIN_COMMANDS` export 승격
+> - `src/components/growth/` — `GrowthComplexity` / `GrowthRetry` / `GrowthSkillCurve` / `GrowthCoaching`
+> - `src/index.css` — `.dashboard-growth-grid` + 카드 클래스
+> - 테스트: `tests/growth.test.mts` (30) + `tests/prompt-coaching.test.mts` (21), `test:harness` 체인 편입
 >
-> - `src/types.ts` 의 `Stats` 인터페이스에 `growth` 필드 **없음**
-> - `src/parser.ts` 에 `toMonthKey`, `stripMarkup`, `countWords`, `isStructured`, `buildGrowth` **없음**
-> - `src/components/growth/` 디렉터리 **없음**
-> - `src/index.css` 에 `.dashboard-growth-grid` **없음**
+> **구현 시 스펙 대비 확장/보강** (스펙 본문은 원안 유지, 차이는 여기에만 기록):
 >
-> 구현 착수 시 아래 "사전 확인" 체크리스트부터 돌리고, `src/parser.ts` 의 `BUILTIN_COMMANDS`(현재 module-local `const`)를 `export` 로 승격시켜야 한다.
+> 1. **프롬프트 코칭 카드 추가** — 성장 3장 아래 전폭(`grid-column: 1 / -1`) 4번째 카드. `src/lib/promptCoaching.ts` 의 `buildPromptCoaching(growth)` 순수 함수가 5개 룰(high-retry / long-unstructured / short-prompts / low-skill-variety / improving)을 **조건 충족 시에만** 발화시켜 최대 3개 표시. 카피는 실측 수치 삽입 필수, 보편 조언 금지 (바넘 방지 — `lessons/personality-eval.md` L-1). 임계값은 전부 named const + "잠정값" 주석. 사용자 프롬프트 원문은 UI에 인용하지 않음 (수치·정정 마커 사전 단어만 노출).
+> 2. **서버 모드 잘림 마커 제거** — `cli/index.mjs` `applyTextCap` 의 `…[잘림 — 세션 클릭 시 전체 보기]` 마커가 단어 집계를 오염시키므로 `stripMarkup` 첫 단계에서 제거 (`CLI_TRUNCATION_MARKER` 상수 + cli 리터럴 드리프트 가드 테스트).
+> 3. **SVG 왜곡 보정** — `preserveAspectRatio="none"` 스트레치로 인한 비등방 왜곡을 라인 `vectorEffect="non-scaling-stroke"` + 데이터 점은 % 좌표 HTML 오버레이로 해결.
+> 4. **정정 마커 매칭** — 긴 마커 우선 정렬로 짧은 마커가 긴 마커를 흡수하지 않게 보강.
+> 5. **코칭 발화 정책 (2026-06-12 확정)** — 유효 월이 1개뿐이어도 발화 조건(메시지 ≥ 5 + 실측 수치) 충족 시 코칭을 표시한다. 발화 조건 자체가 근거를 요구하므로 무근거 코칭이 나갈 수 없고, 첫 달 사용자도 가치를 보는 쪽을 택함. 보수화(유효 월 ≥ 2)는 임계값 실측 보정 시 재검토.
 
 ---
 

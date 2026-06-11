@@ -56,3 +56,10 @@
 - **함정**: `Object.freeze(obj)`는 최상위 프로퍼티만 동결한다. 중첩 배열·객체는 가변인 채로 남아 "read-only 공개"라는 문서 주장과 런타임이 어긋난다. 게다가 export 상수가 다른 모듈의 라이브 객체를 *참조*만 하면, 소비처의 mutate가 원본(엔진 데이터 등)을 오염시킨다.
 - **회피**: 중첩 구조를 read-only로 공개할 때는 (1) 깊은 복사로 원본 참조를 끊고, (2) 중첩 배열·객체까지 재귀적으로 `Object.freeze`하고, (3) 타입도 `readonly`/`Readonly<>`로 깊이까지 표현해 문서·타입·런타임을 일치시킨다.
 - **연관 파일/함수**: `src/lib/usageProfile.ts:CATEGORY_SIGNALS`
+
+## L-7: 반응형 SVG 차트에 `preserveAspectRatio="none"`을 쓰면 도형이 비등방 왜곡된다
+
+- **언제 만났나**: 2026-06-11, 성장 섹션 차트 — 320×140 viewBox를 ~530px 카드로 스트레치하자 데이터 점 circle(r=5)이 약 17×10px 타원이 되고 stroke 굵기도 축마다 달라짐. Reviewer 단계에서 발견(major)
+- **함정**: `preserveAspectRatio="none"`은 SVG 좌표계를 컨테이너에 비등방 스케일하므로, 폭이 가변인 카드 안에서는 원·점·텍스트·stroke가 전부 찌그러진다. 좁은 viewBox로 그려놓고 데스크탑에서만 확인하면 모바일/태블릿에서 왜곡 정도가 달라져 더 늦게 발견된다.
+- **회피**: 라인/폴리라인에는 `vectorEffect="non-scaling-stroke"`를 주고, 점 마커·툴팁 히트 영역처럼 형태가 유지돼야 하는 요소는 SVG 밖 % 좌표 HTML 오버레이(absolute positioning)로 분리한다. 패턴 구현 예: `src/components/growth/GrowthSkillCurve.tsx`, `GrowthComplexity.tsx`.
+- **연관 파일/함수**: `src/components/growth/GrowthSkillCurve.tsx`, `src/components/growth/GrowthComplexity.tsx`

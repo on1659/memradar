@@ -262,6 +262,20 @@ body {
   min-height: 13rem;
 }
 
+/* 성장 섹션 — 4열 그리드 1 / 1 / 2 + 코칭 전폭 (docs/GROWTH-SECTION-SPEC.md §레이아웃) */
+.dashboard-growth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--dashboard-gap);
+  margin-bottom: 2rem;
+}
+
+/* 코칭 카드는 모든 브레이크포인트에서 전폭 */
+.dashboard-growth-card-coaching {
+  grid-column: 1 / -1;
+}
+
 .dashboard-card {
   display: flex;
   min-width: 0;
@@ -670,6 +684,14 @@ body {
   .dashboard-analytics-card-session-length {
     grid-column: span 1;
   }
+
+  .dashboard-growth-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-growth-card-curve {
+    grid-column: 1 / span 2;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -726,6 +748,22 @@ body {
   }
 
   .dashboard-analytics-card-words {
+    grid-column: 3 / span 2;
+  }
+
+  .dashboard-growth-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-growth-card-complexity {
+    grid-column: 1 / span 1;
+  }
+
+  .dashboard-growth-card-retry {
+    grid-column: 2 / span 1;
+  }
+
+  .dashboard-growth-card-curve {
     grid-column: 3 / span 2;
   }
 }

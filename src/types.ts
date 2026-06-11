@@ -79,6 +79,25 @@ export interface Session {
   messageCount: { user: number; assistant: number }
 }
 
+export interface GrowthStats {
+  monthlyComplexity: { month: string; avgWords: number; count: number }[]
+  skillCurve: {
+    month: string
+    score: number              // 0~1 (source-aware 평균)
+    structured: number         // proxy A — 구조화 비율 (0~1)
+    avgWords: number           // proxy B raw — 평균 단어 수
+    uniqueSkills: number       // proxy C raw — slash command 종 수 (Claude 전용)
+    hasClaudeSession: boolean
+    count: number
+  }[]
+  retryStats: {
+    totalFollowups: number
+    retryCount: number
+    retryRate: number          // 0~1
+    topMarkers: [string, number][]
+  }
+}
+
 export interface Stats {
   totalSessions: number
   totalMessages: number
@@ -97,4 +116,5 @@ export interface Stats {
   busiestDay: string
   dailyTokens: Record<string, number>
   busiestTokenDay: string
+  growth: GrowthStats
 }

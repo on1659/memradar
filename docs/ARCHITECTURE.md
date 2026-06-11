@@ -45,7 +45,8 @@ src/
 │   ├── modelNames.ts       # 모델명 정규화
 │   ├── tokenPricing.ts     # 모델별 가격 데이터 + 테마 인식형 소스 색상
 │   ├── cleanClaudeText.ts  # Claude Code .jsonl 노이즈 제거 (XML 태그·브래킷 어노테이션)
-│   └── sessionExport.ts    # 세션 export·복사 (Markdown · 자체완결 HTML 채팅/문서 톤 · 다운로드 헬퍼)
+│   ├── sessionExport.ts    # 세션 export·복사 (Markdown · 자체완결 HTML 채팅/문서 톤 · 다운로드 헬퍼)
+│   └── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/

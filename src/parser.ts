@@ -214,7 +214,7 @@ const STOP_WORDS = new Set([
   '근데', '그리고', '그래서', '하지만', '그런데', '그러면', '아니면',
 ])
 
-const BUILTIN_COMMANDS = new Set([
+export const BUILTIN_COMMANDS = new Set([
   'exit', 'clear', 'help', 'model', 'fast', 'login', 'logout',
   'compact', 'resume', 'continue', 'config', 'status', 'cost',
   'doctor', 'init', 'memory', 'bug', 'release-notes', 'terminal-setup',
@@ -223,6 +223,173 @@ const BUILTIN_COMMANDS = new Set([
   'allowed-tools', 'pr-comments', 'review', 'think', 'output-style',
   'export', 'import', 'feedback',
 ])
+
+// ── 성장 섹션 (docs/GROWTH-SECTION-SPEC.md) ───────────────────────────────
+
+/** cli/index.mjs applyTextCap 이 덧붙이는 잘림 마커 — 단어 집계 오염 방지를 위해 stripMarkup 에서 제거 */
+export const CLI_TRUNCATION_MARKER = '…[잘림 — 세션 클릭 시 전체 보기]'
+
+/** 월별 버킷 키 — UTC ISO 기준 (기존 dailyActivity 의 toISOString().slice(0,10) 규칙과 동일 축) */
+export function toMonthKey(ts: string | undefined): string | null {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 7)   // "YYYY-MM"
+}
+
+/** 코드/태그/URL/잘림 마커 오염 제거 — 그대로 split 하면 로그 붙여넣은 달이 "성장"으로 오인됨 */
+export function stripMarkup(text: string): string {
+  return text
+    .split(CLI_TRUNCATION_MARKER).join(' ')  // 서버 모드 4000자 캡 마커
+    .replace(/```[\s\S]*?```/g, ' ')    // 코드 펜스
+    .replace(/`[^`]*`/g, ' ')            // 인라인 코드
+    .replace(/<[^>]+>/g, ' ')            // XML/HTML 태그
+    .replace(/https?:\/\/\S+/g, ' ')     // URL
+}
+
+export function countWords(text: string): number {
+  const m = stripMarkup(text).match(/[a-z가-힣]+/gi)
+  return m ? m.length : 0
+}
+
+/** proxy A — 서로 다른 구조 마커 2종 이상일 때만 structured (불릿 한 줄짜리 오탐 방지) */
+export function isStructured(text: string): boolean {
+  const head = stripMarkup(text).slice(0, 500)
+  const markers = [
+    /(^|\n)\s*#{1,3}\s/.test(head),              // 헤딩
+    /(^|\n)\s*[-*]\s+\S/.test(head),             // 불릿
+    /(^|\n)\s*\d+\.\s+\S/.test(head),            // 번호
+    /(^|\n)\s*(역할|role|당신은|you are)/i.test(head),  // 역할 지정
+  ]
+  return markers.filter(Boolean).length >= 2     // 2종 이상 섞였을 때만
+}
+
+/** 정정 마커 사전 (스펙 §카드 2) — 첫 30자 내, stripMarkup 적용 후 매칭 */
+export const RETRY_MARKERS = [
+  '다시', '아니', '그게 아니라', '그거 말고', '수정',
+  '아 잠깐', '잠깐만', '말고', '틀렸',
+  'no wait', 'actually',
+]
+
+// 긴 마커 우선 매칭 — "그거 말고"가 "말고"로, "그게 아니라"가 "아니"로 흡수되지 않게
+const RETRY_MARKERS_BY_LENGTH = [...RETRY_MARKERS].sort((a, b) => b.length - a.length)
+
+function matchRetryMarker(text: string): string | null {
+  const head = stripMarkup(text).trim().toLowerCase().slice(0, 30)
+  for (const marker of RETRY_MARKERS_BY_LENGTH) {
+    if (head.includes(marker)) return marker
+  }
+  return null
+}
+
+const MIN_MONTH_SAMPLES = 5          // 유효 월 최소 user 메시지 수 — 저샘플 월 제외 (스펙 §유효 버킷)
+const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
+const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value))
+}
+
+const SKILL_COMMAND_RE = /<command-name>\/([^<\s]+)<\/command-name>/g
+
+export function buildGrowth(sessions: Session[]): Stats['growth'] {
+  interface MonthBucket {
+    totalWords: number
+    count: number
+    structuredCount: number
+    skills: Set<string>
+    hasClaudeSession: boolean
+  }
+  const buckets = new Map<string, MonthBucket>()
+  let totalFollowups = 0
+  let retryCount = 0
+  const markerCounts: Record<string, number> = {}
+
+  for (const session of sessions) {
+    // 세션 경계 안전성 — 이전 세션이 assistant 로 끝나도 다음 세션 첫 user 가 follow-up 으로 오인되지 않게
+    let prevRole: 'user' | 'assistant' | null = null
+
+    for (const msg of session.messages) {
+      if (msg.role === 'user') {
+        const month = toMonthKey(msg.timestamp)
+        if (month) {
+          let bucket = buckets.get(month)
+          if (!bucket) {
+            bucket = { totalWords: 0, count: 0, structuredCount: 0, skills: new Set(), hasClaudeSession: false }
+            buckets.set(month, bucket)
+          }
+          bucket.totalWords += countWords(msg.text)
+          bucket.count++
+          if (isStructured(msg.text)) bucket.structuredCount++
+          if (session.source === 'claude') {
+            bucket.hasClaudeSession = true
+            // <command-name> 태그는 Claude 세션에만 존재 — proxy C 는 Claude 전용 (raw text 기준, stripMarkup 전)
+            for (const match of msg.text.matchAll(SKILL_COMMAND_RE)) {
+              const name = match[1]
+              if (BUILTIN_COMMANDS.has(name)) continue
+              bucket.skills.add(name)
+            }
+          }
+        }
+
+        if (prevRole === 'assistant') {
+          totalFollowups++
+          const marker = matchRetryMarker(msg.text)
+          if (marker) {
+            retryCount++
+            markerCounts[marker] = (markerCounts[marker] || 0) + 1
+          }
+        }
+      }
+      prevRole = msg.role
+    }
+  }
+
+  const validMonths = [...buckets.entries()]
+    .filter(([, bucket]) => bucket.count >= MIN_MONTH_SAMPLES)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+
+  const monthlyComplexity = validMonths.map(([month, bucket]) => ({
+    month,
+    avgWords: bucket.totalWords / bucket.count,
+    count: bucket.count,
+  }))
+
+  const skillCurve = validMonths.map(([month, bucket]) => {
+    const avgWords = bucket.totalWords / bucket.count
+    const structured = bucket.structuredCount / bucket.count        // proxy A (0~1)
+    const normalizedB = clamp01(avgWords / AVG_WORDS_NORMALIZER)    // proxy B
+    const normalizedC = clamp01(bucket.skills.size / UNIQUE_SKILLS_NORMALIZER)  // proxy C
+    // source-aware 평균 — Codex-only 월은 C 제외 (곡선 0 붕괴 방지)
+    const score = bucket.hasClaudeSession
+      ? (structured + normalizedB + normalizedC) / 3
+      : (structured + normalizedB) / 2
+    return {
+      month,
+      score,
+      structured,
+      avgWords,
+      uniqueSkills: bucket.skills.size,
+      hasClaudeSession: bucket.hasClaudeSession,
+      count: bucket.count,
+    }
+  })
+
+  const topMarkers = Object.entries(markerCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3) as [string, number][]
+
+  return {
+    monthlyComplexity,
+    skillCurve,
+    retryStats: {
+      totalFollowups,
+      retryCount,
+      retryRate: totalFollowups > 0 ? retryCount / totalFollowups : 0,
+      topMarkers,
+    },
+  }
+}
 
 export function computeStats(sessions: Session[]): Stats {
   const hourlyActivity = new Array(24).fill(0)
@@ -343,5 +510,6 @@ export function computeStats(sessions: Session[]): Stats {
     busiestDay,
     dailyTokens,
     busiestTokenDay,
+    growth: buildGrowth(sessions),
   }
 }

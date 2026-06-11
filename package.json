@@ -31,7 +31,7 @@
     "preview": "vite preview",
     "test:cli": "node tests/harness-cli.mjs",
     "test:e2e": "playwright test",
-    "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:persona && npm run test:secretmask && npm run test:scansecrets && npm run test:e2e",
+    "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:persona && npm run test:growth && npm run test:coaching && npm run test:secretmask && npm run test:scansecrets && npm run test:e2e",
     "test": "npm run test:harness",
     "test:eval": "npx tsx scripts/test-eval-and-report.mts",
     "validate:eval": "npx tsx scripts/validate-eval-samples.mts",
@@ -39,6 +39,8 @@
     "sharpness:eval": "npx tsx scripts/eval-sharpness.mts",
     "test:sharpness": "npx tsx tests/eval-sharpness.test.mts",
     "test:persona": "npx tsx tests/persona-quiz.test.mts",
+    "test:growth": "npx tsx tests/growth.test.mts",
+    "test:coaching": "npx tsx tests/prompt-coaching.test.mts",
     "test:secretmask": "npx tsx tests/secret-mask.test.mts",
     "test:scansecrets": "npx tsx tests/scan-secrets.test.mts",
     "scan:secrets": "npx tsx scripts/scan-secrets.mts"

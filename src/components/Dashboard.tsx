@@ -5,7 +5,10 @@ import {
   BarChart3,
   Calendar,
   CircleHelp,
+  Lightbulb,
+  LineChart,
   MessageSquare,
+  RotateCcw,
   SlidersHorizontal,
   Timer,
   TrendingUp,
@@ -23,6 +26,10 @@ import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { maskSecrets } from '../lib/secretMask'
 import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
+import { GrowthCoaching } from './growth/GrowthCoaching'
+import { GrowthComplexity } from './growth/GrowthComplexity'
+import { GrowthRetry } from './growth/GrowthRetry'
+import { GrowthSkillCurve } from './growth/GrowthSkillCurve'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { MemradarTopBar } from './MemradarTopBar'
@@ -1641,6 +1648,42 @@ export function Dashboard({
             wordsUser={stats.topWordsUser}
             wordsAssistant={stats.topWordsAssistant}
           />
+        </div>
+      </div>
+
+      <div className="dashboard-growth-grid">
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-growth-card-complexity">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <TrendingUp className="h-4 w-4 text-violet" />
+            {isKorean ? '질문 복잡도' : 'Prompt Complexity'}
+          </h2>
+          <GrowthComplexity data={stats.growth.monthlyComplexity} />
+        </div>
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-growth-card-retry">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <RotateCcw className="h-4 w-4 text-violet" />
+            {isKorean ? '재질문 빈도' : 'Retry Rate'}
+          </h2>
+          <GrowthRetry retryStats={stats.growth.retryStats} />
+        </div>
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-growth-card-curve">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <LineChart className="h-4 w-4 text-violet" />
+            {isKorean ? '프롬프트 숙련도 곡선' : 'Prompt Skill Curve'}
+          </h2>
+          <GrowthSkillCurve data={stats.growth.skillCurve} />
+        </div>
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-growth-card-coaching">
+          <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Lightbulb className="h-4 w-4 text-violet" />
+            {isKorean ? '프롬프트 코칭' : 'Prompt Coaching'}
+          </h2>
+          <p className="mb-3 text-[11px] text-text/45">
+            {isKorean
+              ? '키워드·길이 기반 추정이에요 — 정확한 진단은 아니에요.'
+              : 'Estimated from keywords and length — not a precise diagnosis.'}
+          </p>
+          <GrowthCoaching growth={stats.growth} />
         </div>
       </div>
 

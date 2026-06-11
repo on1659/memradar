@@ -67,7 +67,7 @@
 | 3.2 | AI 인사이트 | BYOK(Bring Your Own Key) 기반 세션 요약·패턴 분석 | ⬜ |
 | 3.3 | 공유 리포트 | 자체 포함 HTML 리포트 내보내기 | ⬜ |
 | 3.4 | File System Access API | 드래그 없이 폴더 연결 (Chromium 계열) | ⬜ |
-| 3.5 | 성장 지표 | 시간 경과에 따른 사용 변화·학습 곡선 섹션 | ⬜ |
+| 3.5 | 성장 지표 | 시간 경과에 따른 사용 변화·학습 곡선 섹션 + 증거 기반 프롬프트 코칭 카드 ([GROWTH-SECTION-SPEC.md](./GROWTH-SECTION-SPEC.md)) | ✅ |
 
 ---
 
