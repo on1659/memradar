@@ -64,12 +64,11 @@ test.describe('Dashboard loads', () => {
     await expect(aiTab).toHaveClass(/bg-accent/)
   })
 
-  test('busy day toggle remains interactive', async ({ page }) => {
-    const busyCard = page.locator('.dashboard-stats-grid .dashboard-card').nth(3)
-    const pinButton = busyCard.getByRole('button')
-    await expect(pinButton).toHaveAttribute('aria-pressed', 'false')
-    await pinButton.click()
-    await expect(pinButton).toHaveAttribute('aria-pressed', 'true')
+  test('story of the day card shows collecting empty state on sparse fixtures', async ({ page }) => {
+    // W2: 토큰 피크일 카드(고정 토글)가 그날 이야기 카드로 대체됨 — 픽스처는 활동 2일이라 빈상태
+    const storyCard = page.locator('.dashboard-stats-grid .dashboard-card').nth(3)
+    await expect(storyCard).toContainText(/그날 이야기|Story of the Day/)
+    await expect(storyCard).toContainText(/이야기를 모으는 중|Collecting your story/)
   })
 
   test('token cost tooltip appears on hover', async ({ page }) => {

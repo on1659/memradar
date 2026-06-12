@@ -60,37 +60,56 @@ export interface LanguageScore {
   count: number
 }
 
+/**
+ * per-message 언어 감지의 공유 하층 — 코드 펜스 id + 파일 확장자 매치명을
+ * 등장 순서·중복 보존으로 리턴한다. analyzeLanguages(건수 집계)와
+ * detectLanguageNames(고유 집합)가 같은 감지 로직을 쓰기 위한 분리 —
+ * Set 을 직접 쓰면 analyzeLanguages 의 per-match 집계 수치가 변하므로 배열 층을 둔다.
+ */
+function detectLanguageMatchNames(text: string): string[] {
+  const out: string[] = []
+
+  // Code fence languages
+  for (const match of text.matchAll(FENCE_RE)) {
+    const langName = fenceIdMap.get(match[1].toLowerCase())
+    if (langName) out.push(langName)
+  }
+
+  // File extensions in paths/filenames
+  for (const match of text.matchAll(FILE_EXT_RE)) {
+    const ext = '.' + match[1].toLowerCase()
+    // Normalize multi-char extensions
+    const normalized =
+      ext === '.yml' ? '.yaml' :
+      ext === '.htm' ? '.html' :
+      ext === '.cc' ? '.cpp' :
+      ext === '.mjs' || ext === '.cjs' ? '.js' :
+      ext === '.mts' || ext === '.cts' ? '.ts' :
+      ext === '.jsonc' ? '.json' :
+      ext === '.sass' || ext === '.less' ? '.scss' :
+      ext === '.bash' || ext === '.zsh' ? '.sh' :
+      ext === '.sc' ? '.scala' :
+      ext === '.exs' ? '.ex' :
+      ext
+    const langName = extMap.get(normalized) || extMap.get(ext)
+    if (langName) out.push(langName)
+  }
+
+  return out
+}
+
+/** per-message 고유 언어 이름 집합 — storyOfDay 작업 다양성(④) 항용. analyzeLanguages 와 동일 감지 로직 공유 */
+export function detectLanguageNames(text: string): Set<string> {
+  return new Set(detectLanguageMatchNames(text))
+}
+
 export function analyzeLanguages(sessions: Session[], limit = 10): LanguageScore[] {
   const scores: Record<string, number> = {}
 
   for (const session of sessions) {
     for (const msg of session.messages) {
-      const text = msg.text
-
-      // Code fence languages
-      for (const match of text.matchAll(FENCE_RE)) {
-        const langName = fenceIdMap.get(match[1].toLowerCase())
-        if (langName) scores[langName] = (scores[langName] || 0) + 1
-      }
-
-      // File extensions in paths/filenames
-      for (const match of text.matchAll(FILE_EXT_RE)) {
-        const ext = '.' + match[1].toLowerCase()
-        // Normalize multi-char extensions
-        const normalized =
-          ext === '.yml' ? '.yaml' :
-          ext === '.htm' ? '.html' :
-          ext === '.cc' ? '.cpp' :
-          ext === '.mjs' || ext === '.cjs' ? '.js' :
-          ext === '.mts' || ext === '.cts' ? '.ts' :
-          ext === '.jsonc' ? '.json' :
-          ext === '.sass' || ext === '.less' ? '.scss' :
-          ext === '.bash' || ext === '.zsh' ? '.sh' :
-          ext === '.sc' ? '.scala' :
-          ext === '.exs' ? '.ex' :
-          ext
-        const langName = extMap.get(normalized) || extMap.get(ext)
-        if (langName) scores[langName] = (scores[langName] || 0) + 1
+      for (const name of detectLanguageMatchNames(msg.text)) {
+        scores[name] = (scores[name] || 0) + 1
       }
     }
   }

@@ -71,6 +71,7 @@ function App() {
     sessionSort: 'date',
     dateFrom: '',
     dateTo: '',
+    storyDay: '',
   })
 
   const isServerMode = !window.__MEMRADAR_SESSIONS__

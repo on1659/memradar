@@ -1100,10 +1100,6 @@ button:active { transform: scale(0.98); }
   animation: dashboardButtonPulse 3.8s ease-in-out infinite;
 }
 
-.dashboard-button-attention-soft {
-  animation: dashboardButtonPulse 4.4s ease-in-out infinite;
-}
-
 .dashboard-button-attention-runner {
   position: absolute;
   top: 0;
@@ -1141,13 +1137,8 @@ button:active { transform: scale(0.98); }
   transform-origin: center;
 }
 
-.dashboard-button-attention-soft .dashboard-button-attention-icon {
-  animation-duration: 4.4s;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .dashboard-button-attention,
-  .dashboard-button-attention-soft,
   .dashboard-button-attention-runner,
   .dashboard-button-attention-icon,
   .loading-brand-spark,

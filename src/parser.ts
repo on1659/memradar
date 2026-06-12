@@ -297,7 +297,7 @@ export const RETRY_MARKERS = [
 // 긴 마커 우선 매칭 — "그거 말고"가 "말고"로, "그게 아니라"가 "아니"로 흡수되지 않게
 const RETRY_MARKERS_BY_LENGTH = [...RETRY_MARKERS].sort((a, b) => b.length - a.length)
 
-function matchRetryMarker(text: string): string | null {
+export function matchRetryMarker(text: string): string | null {
   const head = stripMarkup(text).trim().toLowerCase().slice(0, 30)
   for (const marker of RETRY_MARKERS_BY_LENGTH) {
     if (head.includes(marker)) return marker
@@ -314,6 +314,21 @@ function clamp01(value: number): number {
 }
 
 const SKILL_COMMAND_RE = /<command-name>\/([^<\s]+)<\/command-name>/g
+
+/**
+ * <command-name>/skill</command-name> 태그에서 빌트인 제외 스킬 이름 추출.
+ * 등장 순서·중복 보존 — Set 수집(buildGrowth)·횟수 집계(computeStats)·per-day 집계(storyOfDay)가 공유.
+ * raw text 기준 (stripMarkup 전) — 태그 자체가 매칭 대상이므로.
+ */
+export function extractSkillNames(text: string): string[] {
+  const out: string[] = []
+  for (const match of text.matchAll(SKILL_COMMAND_RE)) {
+    const name = match[1]
+    if (BUILTIN_COMMANDS.has(name)) continue
+    out.push(name)
+  }
+  return out
+}
 
 export function buildGrowth(sessions: Session[]): Stats['growth'] {
   interface MonthBucket {
@@ -347,11 +362,7 @@ export function buildGrowth(sessions: Session[]): Stats['growth'] {
           if (session.source === 'claude') {
             bucket.hasClaudeSession = true
             // <command-name> 태그는 Claude 세션에만 존재 — proxy C 는 Claude 전용 (raw text 기준, stripMarkup 전)
-            for (const match of msg.text.matchAll(SKILL_COMMAND_RE)) {
-              const name = match[1]
-              if (BUILTIN_COMMANDS.has(name)) continue
-              bucket.skills.add(name)
-            }
+            for (const name of extractSkillNames(msg.text)) bucket.skills.add(name)
           }
         }
 
@@ -456,10 +467,7 @@ export function computeStats(sessions: Session[]): Stats {
       }
 
       if (msg.role === 'user') {
-        const skillMatches = msg.text.matchAll(/<command-name>\/([^<\s]+)<\/command-name>/g)
-        for (const match of skillMatches) {
-          const name = match[1]
-          if (BUILTIN_COMMANDS.has(name)) continue
+        for (const name of extractSkillNames(msg.text)) {
           skillCount[name] = (skillCount[name] || 0) + 1
         }
       }

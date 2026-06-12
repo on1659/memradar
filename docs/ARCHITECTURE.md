@@ -47,7 +47,8 @@ src/
 │   ├── cleanClaudeText.ts  # Claude Code .jsonl 노이즈 제거 (XML 태그·브래킷 어노테이션)
 │   ├── sessionExport.ts    # 세션 export·복사 (Markdown · 자체완결 HTML 채팅/문서 톤 · 다운로드 헬퍼)
 │   ├── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
-│   └── codingRhythm.ts     # 코딩 리듬 — 로컬 날짜 키 per-day 집계 + 본인 분포 lift 기반 리듬 라벨 (6종, 약신호 시 null)
+│   ├── codingRhythm.ts     # 코딩 리듬 — 로컬 날짜 키 per-day 집계 + 본인 분포 lift 기반 리듬 라벨 (6종, 약신호 시 null)
+│   └── storyOfDay.ts       # 그날 이야기 — per-day 협업 집계(buildDailyCollab) + 서사 점수 최고일 선정 (4항 가중합·결측 재정규화·source-aware, parser 의 matchRetryMarker/extractSkillNames 재사용)
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/

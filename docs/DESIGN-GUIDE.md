@@ -869,7 +869,6 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 
 ```
 .dashboard-button-attention
-.dashboard-button-attention-soft
 .dashboard-button-attention-runner
 .dashboard-button-attention-icon
 .loading-brand-spark

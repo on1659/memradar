@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   BarChart3,
+  BookOpen,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -18,7 +19,7 @@ import {
 import { PERSONALITY_ICONS, ROLE_ICONS, ToolDefaultIcon, type RoleIconKey } from '../icons'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Session, SessionSource, Stats } from '../types'
-import { computeStats } from '../parser'
+import { computeStats, toLocalDayKey } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
 import { analyzeUsageTopCategories, USAGE_CATEGORIES, type UsageCategoryScore } from '../lib/usageProfile'
@@ -31,6 +32,13 @@ import {
   type RhythmLabelEvidence,
   type RhythmLabelId,
 } from '../lib/codingRhythm'
+import {
+  buildDailyCollab,
+  MIN_ACTIVE_DAYS_FOR_STORY,
+  MIN_USER_MESSAGES_PER_DAY,
+  scoreStoryDays,
+  type StoryOfDay,
+} from '../lib/storyOfDay'
 import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
 import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
@@ -54,6 +62,8 @@ export interface DashboardFilters {
   sessionSort: 'date' | 'date-asc' | 'tokens' | 'tokens-asc'
   dateFrom: string
   dateTo: string
+  /** 그날 이야기 카드 점프용 로컬 날짜 필터 ("YYYY-MM-DD", '' = 해제) */
+  storyDay: string
 }
 
 interface DashboardProps {
@@ -669,6 +679,42 @@ function rhythmNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean
   }
 }
 
+/**
+ * 그날 이야기 패턴 요약 1문장 — dominantTerm 별 분기, receipts 실측 수치만 삽입.
+ * hedged 어조 필수("~로 보여요"), 단정 금지. 원문 인용 금지 — 수치 + 사전 단어만 (rhythmNarrative 패턴).
+ */
+function storyNarrative(story: StoryOfDay, isKorean: boolean): string {
+  const r = story.receipts
+  switch (story.dominantTerm) {
+    case 'tokenAnomaly': {
+      // dominant 가 tokenAnomaly 면 dayAvgTokens > 0 (항 결측 시 dominant 불가) — 방어적 가드만
+      const ratio = r.dayAvgTokens > 0 ? (r.tokens / r.dayAvgTokens).toFixed(1) : '?'
+      return isKorean
+        ? `이날은 평소의 ${ratio}배 토큰을 쓴 집중일로 보여요`
+        : `Looks like a deep-focus day — about ${ratio}x your daily average tokens`
+    }
+    case 'sessionDensity':
+      return isKorean
+        ? `세션 ${r.sessionCount}개를 ${r.spanHours.toFixed(1)}시간에 걸쳐 이어간 날로 보여요`
+        : `Looks like a marathon day — ${r.sessionCount} sessions across about ${r.spanHours.toFixed(1)} hours`
+    case 'retryRecovery': {
+      const first = Math.round((r.retryRateFirst ?? 0) * 100)
+      const second = Math.round((r.retryRateSecond ?? 0) * 100)
+      return isKorean
+        ? `재질문률이 ${first}%→${second}%로 줄어든, 막힘이 풀린 날로 보여요 (n=${r.followUpCount})`
+        : `Looks like a breakthrough day — retry rate dropped from ${first}% to ${second}% (n=${r.followUpCount})`
+    }
+    case 'variety':
+      return isKorean
+        ? r.hasClaudeSession && r.skillCount > 0
+          ? `스킬 ${r.skillCount}종·언어 ${r.languageCount}종을 오간 다작의 날로 보여요`
+          : `언어 ${r.languageCount}종을 오간 다작의 날로 보여요`
+        : r.hasClaudeSession && r.skillCount > 0
+          ? `Looks like a variety day — ${r.skillCount} skills and ${r.languageCount} languages in one day`
+          : `Looks like a variety day — ${r.languageCount} languages in one day`
+  }
+}
+
 function LanguageBar({ languages }: { languages: LanguageScore[] }) {
   const [hoveredLanguage, setHoveredLanguage] = useState<{
     name: string
@@ -812,22 +858,24 @@ export function Dashboard({
   const [dateToLocal, setDateToLocal] = useState(filters?.dateTo ?? '')
   const [sessionSourceFilterLocal, setSessionSourceFilterLocal] = useState<'all' | 'claude' | 'codex'>(filters?.sessionSourceFilter ?? 'all')
   const [sessionSortLocal, setSessionSortLocal] = useState<'date' | 'date-asc' | 'tokens' | 'tokens-asc'>(filters?.sessionSort ?? 'date')
+  const [storyDayLocal, setStoryDayLocal] = useState(filters?.storyDay ?? '')
 
   const sessionFilter = sessionFilterLocal
   const dateFrom = dateFromLocal
   const dateTo = dateToLocal
   const sessionSourceFilter = sessionSourceFilterLocal
   const sessionSort = sessionSortLocal
+  const storyDay = storyDayLocal
 
-  const setSessionFilter = (v: string) => { setSessionFilterLocal(v); onFiltersChange?.({ sessionFilter: v, dateFrom, dateTo, sessionSourceFilter, sessionSort }) }
-  const setDateFrom = (v: string) => { setDateFromLocal(v); onFiltersChange?.({ sessionFilter, dateFrom: v, dateTo, sessionSourceFilter, sessionSort }) }
-  const setDateTo = (v: string) => { setDateToLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo: v, sessionSourceFilter, sessionSort }) }
-  const setSessionSourceFilter = (v: 'all' | 'claude' | 'codex') => { setSessionSourceFilterLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter: v, sessionSort }) }
-  const setSessionSort = (v: 'date' | 'date-asc' | 'tokens' | 'tokens-asc') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v }) }
+  const setSessionFilter = (v: string) => { setSessionFilterLocal(v); onFiltersChange?.({ sessionFilter: v, dateFrom, dateTo, sessionSourceFilter, sessionSort, storyDay }) }
+  const setDateFrom = (v: string) => { setDateFromLocal(v); onFiltersChange?.({ sessionFilter, dateFrom: v, dateTo, sessionSourceFilter, sessionSort, storyDay }) }
+  const setDateTo = (v: string) => { setDateToLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo: v, sessionSourceFilter, sessionSort, storyDay }) }
+  const setSessionSourceFilter = (v: 'all' | 'claude' | 'codex') => { setSessionSourceFilterLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter: v, sessionSort, storyDay }) }
+  const setSessionSort = (v: 'date' | 'date-asc' | 'tokens' | 'tokens-asc') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v, storyDay }) }
+  const setStoryDay = (v: string) => { setStoryDayLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort, storyDay: v }) }
 
-  const [showLowestTokenDay, setShowLowestTokenDay] = useState(false)
-  const [tokenDayPinned, setTokenDayPinned] = useState(false)
   const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
+  const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
 
@@ -845,6 +893,22 @@ export function Dashboard({
     [sessionSort, sessions]
   )
 
+  // 세션별 로컬 일 키 집합 — 그날 이야기 날짜 필터용 사전 계산 (자정 넘는 세션도 그날 메시지가 있으면 매칭)
+  const sessionDayKeys = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const session of sessions) {
+      const days = new Set<string>()
+      for (const message of session.messages) {
+        if (!message.timestamp) continue
+        const date = new Date(message.timestamp)
+        if (Number.isNaN(date.getTime())) continue
+        days.add(toLocalDayKey(date))
+      }
+      map.set(session.id, days)
+    }
+    return map
+  }, [sessions])
+
   const filteredSessions = useMemo(() => {
     const query = sessionFilter.toLowerCase()
     const fromTs = dateFrom ? new Date(dateFrom).getTime() : null
@@ -857,13 +921,15 @@ export function Dashboard({
       if (fromTs !== null && new Date(session.startTime).getTime() < fromTs) return false
       if (toTs !== null && new Date(session.startTime).getTime() > toTs) return false
 
+      if (storyDay && !sessionDayKeys.get(session.id)?.has(storyDay)) return false
+
       if (!sessionFilter.trim()) return true
       return (
         cleanClaudeText(session.messages[0]?.text ?? '').text.toLowerCase().includes(query) ||
         session.messages.some((message) => message.text.toLowerCase().includes(query))
       )
     })
-  }, [sessionFilter, sessionSourceFilter, dateFrom, dateTo, sortedSessions])
+  }, [sessionFilter, sessionSourceFilter, dateFrom, dateTo, storyDay, sessionDayKeys, sortedSessions])
 
   const sessionDateBounds = useMemo(() => {
     if (sessions.length === 0) return { min: '', max: '' }
@@ -972,14 +1038,18 @@ export function Dashboard({
 
   const topLanguages = useMemo(() => analyzeLanguages(sessions), [sessions])
 
-  const busiestTokenDay = stats.busiestTokenDay
-  const busiestTokenDayAmount = busiestTokenDay ? stats.dailyTokens[busiestTokenDay] || 0 : 0
-  const leastTokenDay = useMemo(() => {
-    const entries = Object.entries(stats.dailyTokens).filter(([, value]) => value > 0)
-    if (entries.length === 0) return ''
-    return entries.sort((a, b) => a[1] - b[1])[0][0]
-  }, [stats.dailyTokens])
-  const leastTokenDayAmount = leastTokenDay ? stats.dailyTokens[leastTokenDay] || 0 : 0
+  // 그날 이야기 — stats.dailyTokens(UTC 키)는 재사용 금지, buildDailyCollab 이 로컬 키로 재집계 (설계 공통 데이터 정책 1·2항)
+  const dailyCollab = useMemo(() => buildDailyCollab(sessions), [sessions])
+  const storyResult = useMemo(() => scoreStoryDays(dailyCollab), [dailyCollab])
+  const story = storyResult.best
+  const sessionListRef = useRef<HTMLDivElement | null>(null)
+  const handleStoryJump = (dayKey: string) => {
+    setStoryDay(dayKey)
+    // 필터 반영 렌더 후 스크롤 (SessionView highlight 스크롤 패턴)
+    window.setTimeout(() => {
+      sessionListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }
   const axisOrder = ['style', 'scope', 'rhythm'] as const
   const axisColors = {
     style: 'var(--color-accent)',
@@ -1025,23 +1095,6 @@ export function Dashboard({
 
     return () => window.clearInterval(timer)
   }, [topUsageCategories.length])
-
-  useEffect(() => {
-    if (tokenDayPinned) return
-    if (!busiestTokenDay || !leastTokenDay || busiestTokenDay === leastTokenDay) return
-
-    const timer = window.setInterval(() => {
-      setShowLowestTokenDay((prev) => !prev)
-    }, 10000)
-
-    return () => window.clearInterval(timer)
-  }, [busiestTokenDay, leastTokenDay, tokenDayPinned])
-
-  const activeTokenDay = showLowestTokenDay ? leastTokenDay : busiestTokenDay
-  const activeTokenDayAmount = showLowestTokenDay ? leastTokenDayAmount : busiestTokenDayAmount
-  const activeTokenDayLabel = showLowestTokenDay
-    ? (isKorean ? '가장 토큰 적게 사용한 날' : 'Lowest token day')
-    : (isKorean ? '가장 토큰 많이 사용한 날' : 'Highest token day')
 
   function renderSessionRow(session: Session, index: number) {
     const sessionSourceColor = sourceColor(session.source)
@@ -1430,36 +1483,96 @@ export function Dashboard({
         </div>
 
         <div className="dashboard-card">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {showLowestTokenDay ? (
-                <Calendar className="h-4 w-4 text-rose" />
-              ) : (
-                <TrendingUp className="h-4 w-4 text-amber" />
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-amber" />
+            <span className="text-sm text-text">{isKorean ? '그날 이야기' : 'Story of the Day'}</span>
+          </div>
+          {story !== null ? (
+            <>
+              <div className="text-2xl font-bold text-text-bright">{story.dayKey}</div>
+              <p className="mt-1 text-xs leading-relaxed text-text/70">
+                {storyNarrative(story, isKorean)}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {/* 명시적 버튼 — 카드 전체 div 클릭 금지 (접근성) */}
+                <button
+                  type="button"
+                  onClick={() => handleStoryJump(story.dayKey)}
+                  className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent transition-colors hover:border-accent/55 hover:bg-accent/20"
+                >
+                  {isKorean ? '이날 세션 보기' : 'View sessions'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStoryReceiptsOpen((prev) => !prev)}
+                  aria-expanded={storyReceiptsOpen}
+                  className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
+                >
+                  <span>{isKorean ? '세부 수치' : 'Details'}</span>
+                  {storyReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+              </div>
+              {storyReceiptsOpen && (
+                <div className="mt-3 space-y-1.5 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3 text-xs text-text/70">
+                  <div>
+                    {isKorean
+                      ? `세션 ${story.receipts.sessionCount}개 · 시간 범위 ${story.receipts.spanHours.toFixed(1)}시간`
+                      : `${story.receipts.sessionCount} sessions · ${story.receipts.spanHours.toFixed(1)}h span`}
+                  </div>
+                  <div>
+                    {isKorean
+                      ? `토큰 ${formatTokens(story.receipts.tokens)}`
+                      : `${formatTokens(story.receipts.tokens)} tokens`}
+                    {story.receipts.dayAvgTokens > 0 && (
+                      <span className="text-text/45">
+                        {isKorean
+                          ? ` (일평균의 ${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}배)`
+                          : ` (${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}x daily avg)`}
+                      </span>
+                    )}
+                  </div>
+                  {/* 결측 항(③ follow-up 미달)은 행 자체 생략 — 비율은 분모 n= 필수 */}
+                  {story.receipts.retryRateFirst !== null && story.receipts.retryRateSecond !== null && (
+                    <div>
+                      {isKorean
+                        ? `재질문 ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`
+                        : `Retries ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`}
+                    </div>
+                  )}
+                  <div>
+                    {/* 스킬 서브항은 Claude 세션 있는 날만 (source-aware) — 없는 날은 언어만 */}
+                    {story.receipts.hasClaudeSession && (
+                      <span>{isKorean ? `스킬 ${story.receipts.skillCount}종 · ` : `${story.receipts.skillCount} skills · `}</span>
+                    )}
+                    {isKorean
+                      ? `언어 ${story.receipts.languageCount}종 · user 메시지 ${story.receipts.userMessageCount}건`
+                      : `${story.receipts.languageCount} languages · ${story.receipts.userMessageCount} user messages`}
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-text/40">
+                    <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
+                    <DashboardHoverTooltip
+                      align="left"
+                      description={isKorean
+                        ? '일 단위 수치(그날 이야기·캘린더·요일 분포)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+                        : 'Daily numbers (story of the day, calendar, weekday distribution) use your local date; monthly stats (growth section) use UTC.'}
+                    >
+                      <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
+                    </DashboardHoverTooltip>
+                  </div>
+                </div>
               )}
-              <span key={`${activeTokenDay}-label`} className="dashboard-cycle-drop text-sm text-text">
-                {activeTokenDayLabel}
-              </span>
-            </div>
-            <button
-              type="button"
-              aria-pressed={tokenDayPinned}
-              onClick={() => setTokenDayPinned((prev) => !prev)}
-              className={`rounded-full border px-2.5 py-1 text-[10px] transition-all ${
-                tokenDayPinned
-                  ? 'translate-y-px border-accent/50 bg-accent/12 text-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]'
-                  : 'dashboard-button-attention-soft border-border/70 bg-bg text-text/55 hover:border-accent/25 hover:text-text-bright'
-              }`}
-            >
-              {isKorean ? '고정' : 'Pin'}
-            </button>
-          </div>
-          <div key={`${activeTokenDay}-date`} className="dashboard-cycle-drop text-2xl font-bold text-text-bright">
-            {activeTokenDay || '-'}
-          </div>
-          <div key={`${activeTokenDay}-count`} className="dashboard-cycle-drop mt-1 text-xs text-text/60">
-            {activeTokenDay ? formatTokens(activeTokenDayAmount) + (isKorean ? ' 토큰' : ' tokens') : ''}
-          </div>
+            </>
+          ) : (
+            <p className="text-sm text-text/40">
+              {storyResult.activeDayCount < MIN_ACTIVE_DAYS_FOR_STORY
+                ? (isKorean
+                  ? `이야기를 모으는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_STORY}일이 되면 그날의 이야기를 골라요 (지금 ${storyResult.activeDayCount}일)`
+                  : `Collecting your story — a day gets picked at ${MIN_ACTIVE_DAYS_FOR_STORY} active days (${storyResult.activeDayCount} so far)`)
+                : (isKorean
+                  ? `아직 이야기로 꼽을 만큼 대화가 몰린 날이 없어요 — 하루 user 메시지 ${MIN_USER_MESSAGES_PER_DAY}건 이상인 날이 생기면 골라요`
+                  : `No single day has enough conversation for a story yet — it takes ${MIN_USER_MESSAGES_PER_DAY}+ user messages in one day`)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1649,7 +1762,7 @@ export function Dashboard({
       </div>
 
 
-      <div className="dashboard-card dashboard-card-flush animate-in">
+      <div ref={sessionListRef} className="dashboard-card dashboard-card-flush animate-in">
         <div className="border-b border-border p-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-bright">{sessionListTitle}</h2>
@@ -1756,10 +1869,20 @@ export function Dashboard({
             {(dateFrom || dateTo) && (
               <button
                 type="button"
-                onClick={() => { setDateFrom(''); setDateTo('') }}
+                onClick={() => { setDateFrom(''); setDateTo(''); setStoryDay('') }}
                 className="rounded-full border border-border px-2 py-0.5 text-[11px] text-text/50 transition-colors hover:border-rose/40 hover:text-rose/70"
               >
                 초기화
+              </button>
+            )}
+            {storyDay && (
+              <button
+                type="button"
+                onClick={() => setStoryDay('')}
+                aria-label={isKorean ? '그날 이야기 날짜 필터 해제' : 'Clear story day filter'}
+                className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent transition-colors hover:border-rose/40 hover:text-rose/70"
+              >
+                {storyDay} ✕
               </button>
             )}
           </div>
