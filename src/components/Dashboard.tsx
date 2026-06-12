@@ -1014,7 +1014,7 @@ export function Dashboard({
   const activityDensityTitle = isKorean ? '활동 밀도' : 'Activity density'
   const activeDayLabel = isKorean ? '활동일' : 'Active days'
   const observedDayLabel = isKorean ? '관측' : 'Observed'
-  const dayUnitLabel = isKorean ? '일' : 'days'
+  const dayUnitLabel = isKorean ? '일' : ' days'
 
   useEffect(() => {
     if (topUsageCategories.length === 0) return
@@ -1485,8 +1485,8 @@ export function Dashboard({
                   ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
                   : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
                 : (isKorean
-                  ? `아직 두드러진 리듬은 안 보여요 — 어느 패턴도 본인 기준선을 크게 벗어나지 않아요 (활동 ${rhythm.activeDayCount}일)`
-                  : `No standout rhythm yet — no pattern deviates much from your own baseline (${rhythm.activeDayCount} active days)`)}
+                  ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
+                  : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
             </p>
           )}
 
