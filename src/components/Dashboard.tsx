@@ -762,8 +762,11 @@ function fingerprintSignalLabel(id: FingerprintSignalId, isKorean: boolean): str
  * 원문 인용 금지 — 수치 + 사전 단어만 (rhythmNarrative 패턴).
  */
 function fingerprintNarrative(signal: FingerprintSignal, isKorean: boolean): string {
-  // FINGERPRINT_LIFT_CAP 이상이면 분모 0 (기준선 없음) — 배수 표기 대신 서술로 우회
-  const lift = signal.lift >= FINGERPRINT_LIFT_CAP ? null : signal.lift.toFixed(1)
+  // "기준선 없음" 서술 우회는 분모가 실제 0일 때만 — 분모 > 0 인데 CAP 에 닿은 경우(극소 기대치)는
+  // 기준선이 존재하므로 "99+"배로 표기 (영수증 liftLabel 과 동일 구분 — 서사가 영수증보다 덜 정직해지지 않게)
+  const lift = signal.lift >= FINGERPRINT_LIFT_CAP
+    ? (signal.denominator <= 0 ? null : '99+')
+    : signal.lift.toFixed(1)
   switch (signal.id) {
     case 'weekend-focus':
       if (lift === null) {
@@ -779,7 +782,7 @@ function fingerprintNarrative(signal: FingerprintSignal, isKorean: boolean): str
         ? `최근 ${STRUCTURED_RECENT_WINDOW_DAYS}일 구조화 프롬프트가 ${fmtSignedPp(signal.delta ?? 0, true)} 달라진 것으로 보여요 (최근 ${fmtPct0(signal.numerator)} n=${signal.n.toLocaleString()} vs 이전 ${fmtPct0(signal.denominator)} n=${(signal.n2 ?? 0).toLocaleString()})`
         : `Structured prompts look to have shifted ${fmtSignedPp(signal.delta ?? 0, false)} over the last ${STRUCTURED_RECENT_WINDOW_DAYS} days (recent ${fmtPct0(signal.numerator)} n=${signal.n.toLocaleString()} vs prior ${fmtPct0(signal.denominator)} n=${(signal.n2 ?? 0).toLocaleString()})`
     case 'plan-after-correction':
-      // 분모 = 같은 2메시지 창(자신+직후)의 우연 기대 1−(1−p)² — collabFingerprint.ts ③ 주석 참고
+      // 분모 = 이벤트별 창 크기 가중 우연 기대 (2창 1−(1−p)², 1창 p) — collabFingerprint.ts ③ 주석 참고
       if (lift === null) {
         return isKorean
           ? `정정 직후에 유독 계획 요청이 몰려 있어요 (정정 후 ${fmtPct0(signal.numerator)}, 우연 기대는 거의 0 — n=정정 ${signal.n}건)`

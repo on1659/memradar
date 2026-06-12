@@ -312,6 +312,28 @@ test('③ 분모 정합 — 분자 창(자신+직후 2메시지)과 같은 창�
   assert.ok(Math.abs(signal.lift - 1 / 0.75) < 1e-12)
 })
 
+test('③ 이벤트별 창 가중 — 세션 마지막 정정(직후 없음)은 1메시지 창 기대 p, 혼합 시 가중 평균', () => {
+  // p 형성용: plan 1 / user 5 (아래 정정 메시지 포함) → p = 1/5
+  const sBase = makeSession('claude', [
+    kstMsg('user', PLAN_TEXT, '2026-06-01', 9, 0),
+    kstMsg('user', PLAIN_TEXT, '2026-06-01', 9, 5),
+  ])
+  // 2메시지 창 이벤트 (직후 있음)
+  const sTwoWindow = makeSession('claude', [
+    kstMsg('user', RETRY_TEXT, '2026-06-01', 10, 0),
+    kstMsg('user', PLAIN_TEXT, '2026-06-01', 10, 5),
+  ])
+  // 1메시지 창 이벤트 (정정이 세션 마지막 user — 직후 없음)
+  const sTerminal = makeSession('claude', [kstMsg('user', RETRY_TEXT, '2026-06-01', 11, 0)])
+  const signal = sig(fpOf([sBase, sTwoWindow, sTerminal]), 'plan-after-correction')
+  const p = 1 / 5
+  const expected = ((1 - (1 - p) ** 2) + p) / 2 // 2창 1건 + 1창 1건 가중 평균
+  assert.strictEqual(signal.n, 2)
+  assert.ok(Math.abs(signal.denominator - expected) < 1e-12)
+  // 항상 1−(1−p)² 를 쓰면 1창 이벤트의 기대가 부풀어 lift 가 과소 — 그 값과 달라야 한다
+  assert.ok(Math.abs(signal.denominator - (1 - (1 - p) ** 2)) > 1e-6)
+})
+
 test('정정 메시지 자신에 plan 마커 — 이벤트 1 + 분자 1', () => {
   const s = makeSession('claude', [kstMsg('user', '아니 계획부터 다시 잡자', '2026-06-01', 10)])
   const signal = sig(fpOf([s]), 'plan-after-correction')

@@ -107,8 +107,9 @@ export function selectTopSignals(signals: FingerprintSignal[]): FingerprintSigna
   const order = new Map(FINGERPRINT_SIGNAL_ORDER.map((id, index) => [id, index]))
   return signals
     .filter((signal) => signal.viable && signal.lift >= MIN_FINGERPRINT_LIFT)
-    // ② 는 delta(%p) 최소폭도 함께 요구 — 저베이스 비율비 단독 진입 차단 (delta null 인 신호는 비대상)
-    .filter((signal) => signal.delta === null || Math.abs(signal.delta) >= MIN_STRUCTURED_SHIFT_DELTA)
+    // ② 는 delta(%p) 최소폭도 함께 요구 — 저베이스 비율비 단독 진입 차단 (delta null 인 신호는 비대상).
+    // v1 은 증가 방향만 "두드러짐" (rankScore 주석과 동일 결정) — 양수 delta 만 통과.
+    .filter((signal) => signal.delta === null || signal.delta >= MIN_STRUCTURED_SHIFT_DELTA)
     .sort((a, b) => b.rankScore - a.rankScore || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
     .slice(0, FINGERPRINT_TOP_COUNT)
 }
@@ -202,6 +203,7 @@ export function buildCollabFingerprint(
   let totalUserMessages = 0
   let planMessages = 0
   let correctionEvents = 0
+  let correctionEventsWithNext = 0
   let planAfterCorrection = 0
   for (const session of sessions) {
     const userTexts: string[] = []
@@ -214,15 +216,21 @@ export function buildCollabFingerprint(
       if (isPlan[i]) planMessages++
       if (matchRetryMarker(userTexts[i]) !== null) {
         correctionEvents++
-        if (isPlan[i] || (i + 1 < isPlan.length && isPlan[i + 1])) planAfterCorrection++
+        const hasNext = i + 1 < isPlan.length
+        if (hasNext) correctionEventsWithNext++
+        if (isPlan[i] || (hasNext && isPlan[i + 1])) planAfterCorrection++
       }
     }
   }
   const planBaseRate = totalUserMessages > 0 ? planMessages / totalUserMessages : 0
-  // 분모 = 분자와 같은 "2메시지 창(자신+직후)"의 우연 기대 1−(1−p)².
-  // per-message 비율 p 를 그대로 분모로 쓰면 독립 null 에서도 lift ≈ 2 가 되는 구조적 편향
-  // (창 2 vs 창 1 — 정정과 무관한 사용자 전원이 "두드러짐"으로 승격되는 동질화 리스크).
-  const planWindowExpectation = 1 - (1 - planBaseRate) ** 2
+  // 분모 = 분자와 같은 창의 우연 기대. per-message 비율 p 를 그대로 분모로 쓰면 독립 null 에서도
+  // lift ≈ 2 가 되는 구조적 편향 (창 2 vs 창 1 — 전원이 "두드러짐"으로 승격되는 동질화 리스크).
+  // 창 크기는 이벤트마다 다르다 — 정정이 세션 마지막 user 메시지면 "직후"가 없어 1메시지 창:
+  // 기대치도 이벤트별 창 크기 가중 평균으로 (2창 이벤트 1−(1−p)², 1창 이벤트 p).
+  const planWindowExpectation = correctionEvents > 0
+    ? (correctionEventsWithNext * (1 - (1 - planBaseRate) ** 2)
+      + (correctionEvents - correctionEventsWithNext) * planBaseRate) / correctionEvents
+    : 0
   const planAfterRate = correctionEvents > 0 ? planAfterCorrection / correctionEvents : 0
   const planLift = capLift(planAfterRate, planWindowExpectation)
   const planAfterCorrectionSignal: FingerprintSignal = {
