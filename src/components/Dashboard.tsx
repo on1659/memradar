@@ -873,6 +873,18 @@ export function Dashboard({
   const setSessionSourceFilter = (v: 'all' | 'claude' | 'codex') => { setSessionSourceFilterLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter: v, sessionSort, storyDay }) }
   const setSessionSort = (v: 'date' | 'date-asc' | 'tokens' | 'tokens-asc') => { setSessionSortLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort: v, storyDay }) }
   const setStoryDay = (v: string) => { setStoryDayLocal(v); onFiltersChange?.({ sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort, storyDay: v }) }
+  // 여러 필터를 한 번에 바꿀 때는 setter 연쇄 호출 금지 — 각 setter가 stale closure 값으로
+  // onFiltersChange 를 emit 하므로 마지막 emit 이 앞선 변경을 되돌린다. 단일 emit 헬퍼 사용.
+  const applyFilters = (next: Partial<DashboardFilters>) => {
+    const merged: DashboardFilters = { sessionFilter, dateFrom, dateTo, sessionSourceFilter, sessionSort, storyDay, ...next }
+    setSessionFilterLocal(merged.sessionFilter)
+    setDateFromLocal(merged.dateFrom)
+    setDateToLocal(merged.dateTo)
+    setSessionSourceFilterLocal(merged.sessionSourceFilter)
+    setSessionSortLocal(merged.sessionSort)
+    setStoryDayLocal(merged.storyDay)
+    onFiltersChange?.(merged)
+  }
 
   const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
   const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
@@ -1044,7 +1056,9 @@ export function Dashboard({
   const story = storyResult.best
   const sessionListRef = useRef<HTMLDivElement | null>(null)
   const handleStoryJump = (dayKey: string) => {
-    setStoryDay(dayKey)
+    // "이날 세션 보기"의 약속은 그날 세션이 실제로 보이는 것 — 충돌 가능한 필터(텍스트·소스·날짜범위)는
+    // 함께 해제한다 (날짜범위는 session.startTime 축이라 자정 걸친 세션을 숨길 수 있음). 정렬은 유지.
+    applyFilters({ sessionFilter: '', dateFrom: '', dateTo: '', sessionSourceFilter: 'all', storyDay: dayKey })
     // 필터 반영 렌더 후 스크롤 (SessionView highlight 스크롤 패턴)
     window.setTimeout(() => {
       sessionListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -1526,8 +1540,8 @@ export function Dashboard({
                     {story.receipts.dayAvgTokens > 0 && (
                       <span className="text-text/45">
                         {isKorean
-                          ? ` (일평균의 ${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}배)`
-                          : ` (${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}x daily avg)`}
+                          ? ` (일평균의 ${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}배, n=활동 ${storyResult.activeDayCount}일)`
+                          : ` (${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}x daily avg, n=${storyResult.activeDayCount} days)`}
                       </span>
                     )}
                   </div>
@@ -1869,7 +1883,7 @@ export function Dashboard({
             {(dateFrom || dateTo) && (
               <button
                 type="button"
-                onClick={() => { setDateFrom(''); setDateTo(''); setStoryDay('') }}
+                onClick={() => applyFilters({ dateFrom: '', dateTo: '', storyDay: '' })}
                 className="rounded-full border border-border px-2 py-0.5 text-[11px] text-text/50 transition-colors hover:border-rose/40 hover:text-rose/70"
               >
                 초기화
