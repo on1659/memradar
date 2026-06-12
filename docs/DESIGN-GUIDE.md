@@ -134,7 +134,7 @@ Wrapped 를 진입하면 `.wrapped-surface` 클래스가 씌워지며 CSS 변수
 
 ### 3.3 레이아웃 토큰
 
-현재 `:root` 에 전역 레이아웃 변수는 없고, 활동 그리드 폭은 `.dashboard-activity-grid` 클래스 안에서 직접 `minmax(...)` 로 지정된다 (`src/index.css:209` 부근, 반응형 오버라이드는 `620` 줄 아래). 새 레이아웃 변수를 공용화할 필요가 생기면 §3.1 간격 토큰과 같은 규칙으로 `:root` 에 추가한다.
+현재 `:root` 에 전역 레이아웃 변수는 없다. 활동 그리드(`.dashboard-activity-grid`)는 "코딩 리듬" 카드 1장만 담는 전폭 단일 컬럼이라 브레이크포인트 오버라이드가 없고, 다른 그리드(stats·analytics·growth)의 반응형 컬럼 분할은 `src/index.css` 의 `@media` 블록에서 지정된다. 새 레이아웃 변수를 공용화할 필요가 생기면 §3.1 간격 토큰과 같은 규칙으로 `:root` 에 추가한다.
 
 ### 3.4 Z-index 레이어
 

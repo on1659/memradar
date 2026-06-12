@@ -25,7 +25,7 @@ Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(
 - **날짜**: date-fns 4
 - **애니메이션**: Framer Motion 12.38
 - **이미지 캡처**: html-to-image 1.11
-- **테스트**: Playwright (`test:e2e`) + `test:cli` + `test:harness`(lint→build→cli→e2e)
+- **테스트**: Playwright (`test:e2e`) + `test:cli` + 단위 테스트(`tests/*.test.mts` — growth·coding-rhythm·persona·coaching·secretmask 등) + `test:harness`(lint→build→cli→단위→e2e)
 - **배포**: Vercel (`vercel.json` = `{buildCommand:"npm run build", outputDirectory:"dist", framework:"vite"}`)
 
 ## 현재 디렉터리 구조
@@ -46,7 +46,8 @@ src/
 │   ├── tokenPricing.ts     # 모델별 가격 데이터 + 테마 인식형 소스 색상
 │   ├── cleanClaudeText.ts  # Claude Code .jsonl 노이즈 제거 (XML 태그·브래킷 어노테이션)
 │   ├── sessionExport.ts    # 세션 export·복사 (Markdown · 자체완결 HTML 채팅/문서 톤 · 다운로드 헬퍼)
-│   └── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
+│   ├── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
+│   └── codingRhythm.ts     # 코딩 리듬 — 로컬 날짜 키 per-day 집계 + 본인 분포 lift 기반 리듬 라벨 (6종, 약신호 시 null)
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/
@@ -57,7 +58,7 @@ src/
 │   ├── PersonalityView.tsx # (Dashboard 에 병합되어 내부 섹션으로 사용)
 │   ├── ErrorBoundary.tsx
 │   ├── ThemeSwitcher.tsx
-│   ├── Heatmap.tsx
+│   ├── Heatmap.tsx         # 컴팩트 캘린더 — 로컬 날짜 키(localDailyCounts) 축. 대시보드 활동 구역은 "코딩 리듬" 카드 1장(캘린더+리듬 서사+접힘 영수증)으로 통합됨 (구 히트맵·streak·밀도·요일 4장 대체)
 │   ├── HourChart.tsx
 │   ├── WordCloud.tsx
 │   ├── TopSkills.tsx

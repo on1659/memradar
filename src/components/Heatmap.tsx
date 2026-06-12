@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toLocalDayKey } from '../parser'
 
 interface HeatmapProps {
-  dailyActivity: Record<string, number>
+  /** 로컬 날짜 키(YYYY-MM-DD) → 메시지 수 — codingRhythm.localDailyCounts 와 같은 축 */
+  localDailyCounts: Record<string, number>
 }
 
 interface HeatmapCell {
@@ -15,15 +17,17 @@ interface MonthMarker {
   col: number
 }
 
-function toDayKey(date: Date) {
-  return date.toISOString().slice(0, 10)
+/** "YYYY-MM-DD" 로컬 키 → 로컬 자정 Date — new Date(string) UTC 파싱으로 하루 어긋나는 것 방지 */
+function parseLocalDayKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 
 function toMonthLabel(date: Date) {
   return `${date.getMonth() + 1}월`
 }
 
-export function Heatmap({ dailyActivity }: HeatmapProps) {
+export function Heatmap({ localDailyCounts }: HeatmapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -41,7 +45,7 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
   }, [])
 
   const { weeks, months, maxCount } = useMemo(() => {
-    const activeDates = Object.entries(dailyActivity)
+    const activeDates = Object.entries(localDailyCounts)
       .filter(([, count]) => count > 0)
       .map(([date]) => date)
       .sort()
@@ -49,8 +53,9 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const firstActive = activeDates[0] ? new Date(activeDates[0]) : new Date(today)
-    firstActive.setHours(0, 0, 0, 0)
+    // 키도 커서도 로컬 자정 축 — 기존엔 로컬 자정 커서에 UTC 키(toISOString)가 섞여
+    // 카운트/요일 축이 하루 어긋났다 (의도된 수정)
+    const firstActive = activeDates[0] ? parseLocalDayKey(activeDates[0]) : new Date(today)
 
     const builtWeeks: HeatmapCell[][] = []
     let currentWeek: HeatmapCell[] = []
@@ -58,8 +63,8 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
 
     const cursor = new Date(firstActive)
     while (cursor <= today) {
-      const key = toDayKey(cursor)
-      const count = dailyActivity[key] || 0
+      const key = toLocalDayKey(cursor)
+      const count = localDailyCounts[key] || 0
       peak = Math.max(peak, count)
       currentWeek.push({
         date: key,
@@ -87,7 +92,7 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
       if (!marker) return
 
       rawMonths.push({
-        label: toMonthLabel(new Date(marker.date)),
+        label: toMonthLabel(parseLocalDayKey(marker.date)),
         col: index,
       })
       lastMonthKey = marker.date.slice(0, 7)
@@ -104,7 +109,7 @@ export function Heatmap({ dailyActivity }: HeatmapProps) {
       months: filteredMonths,
       maxCount: peak,
     }
-  }, [dailyActivity])
+  }, [localDailyCounts])
 
   const labelWidth = 24
   const gap = 4

@@ -4,6 +4,8 @@ import {
   ArrowLeftRight,
   BarChart3,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   CircleHelp,
   Lightbulb,
   LineChart,
@@ -20,6 +22,15 @@ import { computeStats } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
 import { analyzeUsageTopCategories, USAGE_CATEGORIES, type UsageCategoryScore } from '../lib/usageProfile'
+import {
+  buildCodingRhythm,
+  BURST_TOP_DAY_FRACTION,
+  collectUserTimestamps,
+  MIN_ACTIVE_DAYS_FOR_RHYTHM,
+  RHYTHM_LIFT_CAP,
+  type RhythmLabelEvidence,
+  type RhythmLabelId,
+} from '../lib/codingRhythm'
 import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
 import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
@@ -615,69 +626,47 @@ function DashboardAxisBar({
   )
 }
 
-function DayOfWeekPatternPanel({
-  values,
-  mode,
-  total,
-  pinned,
-  onTogglePinned,
-}: {
-  values: number[]
-  mode: 'count' | 'ratio'
-  total: number
-  pinned: boolean
-  onTogglePinned: () => void
-}) {
-  const max = Math.max(...values, 1)
-  const bestDay = values.indexOf(Math.max(...values))
-
-  return (
-    <div className="dashboard-card-body-compact dashboard-pattern-panel space-y-1.5">
-      <div className="dashboard-pattern-panel-header flex justify-end pr-0.5">
-        <button
-          type="button"
-          aria-pressed={pinned}
-          onClick={onTogglePinned}
-          className={`rounded-full border px-2.5 py-1 text-[10px] transition-all ${
-            pinned
-              ? 'translate-y-px border-accent/50 bg-accent/12 text-accent shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]'
-              : 'border-border/70 bg-bg text-text/55 hover:border-accent/25 hover:text-text-bright'
-          }`}
-        >
-          고정
-        </button>
-      </div>
-      {DAY_OF_WEEK_LABELS.map((label, index) => {
-        const count = values[index]
-        const ratio = total > 0 ? (count / total) * 100 : 0
-        const width = Math.round((count / max) * 100)
-        const valueLabel = mode === 'count'
-          ? count.toLocaleString()
-          : `${ratio.toFixed(1)}%`
-
-        return (
-          <div
-            key={`${label}-${mode}`}
-            className="dashboard-cycle-drop dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5"
-            style={{ animationDelay: `${index * 55}ms` }}
-          >
-            <span className={`w-3 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/50'}`}>
-              {label}
-            </span>
-            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-              <div
-                className={`dashboard-pattern-bar h-full rounded-full ${index === bestDay ? 'bg-accent/70' : 'bg-accent/30'}`}
-                style={{ width: `${width}%` }}
-              />
-            </div>
-            <span className={`w-10 text-right text-[10px] ${index === bestDay ? 'font-bold text-accent' : 'text-text/40'}`}>
-              {valueLabel}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
+/**
+ * 코딩 리듬 한 줄 서사 — evidence 의 실측 수치(lift 배수·비율·n=)만 삽입.
+ * hedged 어조 필수("~형으로 보여요"), 단정("당신은 ~다") 금지 (설계 문서 단정 판정 금지 제약).
+ * 사용자 프롬프트 원문 인용 금지 — 라벨 사전 단어 + 수치만 (GrowthCoaching insightCopy 패턴).
+ */
+function rhythmNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean: boolean): string {
+  const lift = ev.lift >= RHYTHM_LIFT_CAP ? null : ev.lift.toFixed(1)
+  const pct = Math.round(ev.share * 100)
+  switch (label) {
+    case 'night-surge':
+      return isKorean
+        ? `심야형으로 보여요 — 22~02시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
+        : `Looks like a night-surge pattern — 22:00–02:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'early-bird':
+      return isKorean
+        ? `아침형으로 보여요 — 05~09시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
+        : `Looks like an early-bird pattern — 05:00–09:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'weekend-builder':
+      return lift === null
+        ? isKorean
+          ? `주말 빌더형으로 보여요 — 메시지의 ${pct}%가 주말에 몰려 있고 주중 활동은 거의 없어요 (관측 ${ev.n}일)`
+          : `Looks like a weekend-builder pattern — ${pct}% of messages land on weekends with almost no weekday activity (${ev.n} days observed)`
+        : isKorean
+          ? `주말 빌더형으로 보여요 — 주말 하루 평균이 주중의 ${lift}배예요 (관측 ${ev.n}일)`
+          : `Looks like a weekend-builder pattern — weekend daily average runs ${lift}x your weekday average (${ev.n} days observed)`
+    case 'weekday-steady':
+      return isKorean
+        ? `평일 정시형으로 보여요 — 주중 09~18시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
+        : `Looks like a weekday 9-to-6 pattern — weekday 09:00–18:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'burst-sprinter': {
+      // 잠정값 상수에서 도출 — "상위 20%" 하드코딩 시 BURST_TOP_DAY_FRACTION 변경에 카피가 드리프트
+      const topPct = Math.round(BURST_TOP_DAY_FRACTION * 100)
+      return isKorean
+        ? `몰아치기형으로 보여요 — 상위 ${topPct}% 활동일에 메시지의 ${pct}%가 몰려 있어요 (활동 ${ev.n}일)`
+        : `Looks like a burst-sprinter pattern — the top ${topPct}% of active days hold ${pct}% of your messages (${ev.n} active days)`
+    }
+    case 'daily-steady':
+      return isKorean
+        ? `꾸준형으로 보여요 — 관측일의 ${pct}%에 활동이 있고 일별 편차도 낮아요 (관측 ${ev.n}일)`
+        : `Looks like a daily-steady pattern — activity on ${pct}% of observed days with low day-to-day variance (${ev.n} days observed)`
+  }
 }
 
 function LanguageBar({ languages }: { languages: LanguageScore[] }) {
@@ -838,8 +827,7 @@ export function Dashboard({
 
   const [showLowestTokenDay, setShowLowestTokenDay] = useState(false)
   const [tokenDayPinned, setTokenDayPinned] = useState(false)
-  const [dayPatternMode, setDayPatternMode] = useState<'count' | 'ratio'>('count')
-  const [dayPatternPinned, setDayPatternPinned] = useState(false)
+  const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
 
@@ -1016,80 +1004,17 @@ export function Dashboard({
     : (isKorean ? '내 페르소나 진단' : 'Diagnose persona')
   const calibratedBadgeLabel = isKorean ? '보정됨' : 'Calibrated'
 
-  const longestStreak = useMemo(() => {
-    let longest = 0
-    let streak = 0
-
-    const dates = Object.keys(stats.dailyActivity).sort()
-    if (dates.length > 0) {
-      streak = 0
-      const start = new Date(dates[0])
-      const end = new Date(dates[dates.length - 1])
-      const walker = new Date(start)
-
-      while (walker <= end) {
-        const key = walker.toISOString().slice(0, 10)
-        if ((stats.dailyActivity[key] || 0) > 0) {
-          streak++
-          if (streak > longest) longest = streak
-        } else {
-          streak = 0
-        }
-        walker.setDate(walker.getDate() + 1)
-      }
-    }
-
-    return longest
-  }, [stats])
-
-  const dayOfWeekActivity = useMemo(() => {
-    const days = [0, 0, 0, 0, 0, 0, 0]
-
-    for (const [date, count] of Object.entries(stats.dailyActivity)) {
-      const day = new Date(date).getDay()
-      days[day] += count
-    }
-
-    return days
-  }, [stats])
-
-  const dayPatternTotal = useMemo(
-    () => dayOfWeekActivity.reduce((sum, value) => sum + value, 0),
-    [dayOfWeekActivity]
+  // 코딩 리듬 — 일 단위 집계는 로컬 날짜 키 (stats.dailyActivity 의 UTC dayKey 와 다른 축)
+  const rhythm = useMemo(() => buildCodingRhythm(collectUserTimestamps(sessions)), [sessions])
+  const rhythmWeekdayMax = Math.max(...rhythm.weekdayDistribution.map((entry) => entry.count), 1)
+  const rhythmBestWeekday = rhythm.weekdayDistribution.reduce(
+    (best, entry, index) => (entry.count > rhythm.weekdayDistribution[best].count ? index : best),
+    0
   )
-  const activeDayKeys = useMemo(
-    () => Object.entries(stats.dailyActivity)
-      .filter(([, value]) => value > 0)
-      .map(([date]) => date)
-      .sort(),
-    [stats.dailyActivity]
-  )
-  const activeDayCount = activeDayKeys.length
-  const observedDayCount = useMemo(() => {
-    if (activeDayKeys.length === 0) return 0
-
-    const start = new Date(activeDayKeys[0])
-    const end = new Date(activeDayKeys[activeDayKeys.length - 1])
-    start.setHours(0, 0, 0, 0)
-    end.setHours(0, 0, 0, 0)
-
-    return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1)
-  }, [activeDayKeys])
-  const activityDensityRatio = observedDayCount > 0 ? Math.round((activeDayCount / observedDayCount) * 100) : 0
   const activityDensityTitle = isKorean ? '활동 밀도' : 'Activity density'
   const activeDayLabel = isKorean ? '활동일' : 'Active days'
   const observedDayLabel = isKorean ? '관측' : 'Observed'
   const dayUnitLabel = isKorean ? '일' : 'days'
-
-  useEffect(() => {
-    if (dayPatternPinned) return
-
-    const timer = window.setInterval(() => {
-      setDayPatternMode((prev) => prev === 'count' ? 'ratio' : 'count')
-    }, 10000)
-
-    return () => window.clearInterval(timer)
-  }, [dayPatternPinned])
 
   useEffect(() => {
     if (topUsageCategories.length === 0) return
@@ -1539,62 +1464,98 @@ export function Dashboard({
       </div>
 
       <div className="dashboard-activity-grid animate-in">
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-activity-card-heatmap">
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-            <TrendingUp className="h-3.5 w-3.5 text-green" />
-            활동 히트맵
+        <div className="dashboard-card dashboard-card-tight">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Calendar className="h-4 w-4 text-green" />
+            {isKorean ? '코딩 리듬' : 'Coding Rhythm'}
           </h2>
+
           <div className="dashboard-heatmap-body">
-            <Heatmap dailyActivity={stats.dailyActivity} />
+            <Heatmap localDailyCounts={rhythm.localDailyCounts} />
           </div>
-        </div>
 
-        <div className="dashboard-side-stack">
-          <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-side-card-primary">
-            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-              <Timer className="h-3.5 w-3.5 text-amber" />
-              연속 기록
-            </h3>
-            <div className="dashboard-card-body-compact dashboard-streak-body dashboard-streak-body-single">
-              <div>
-                <div className="mb-0.5 text-[10px] text-text/50">최장 연속</div>
-                <div className="text-2xl font-bold text-accent">
-                  {longestStreak}
-                  <span className="ml-1 text-xs font-normal text-text/50">일</span>
+          {rhythm.label !== null && rhythm.labelEvidence !== null ? (
+            <p className="mt-3 text-sm font-medium text-text-bright">
+              {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-text/40">
+              {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
+                ? (isKorean
+                  ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
+                  : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
+                : (isKorean
+                  ? `아직 두드러진 리듬은 안 보여요 — 어느 패턴도 본인 기준선을 크게 벗어나지 않아요 (활동 ${rhythm.activeDayCount}일)`
+                  : `No standout rhythm yet — no pattern deviates much from your own baseline (${rhythm.activeDayCount} active days)`)}
+            </p>
+          )}
+
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setRhythmReceiptsOpen((prev) => !prev)}
+              aria-expanded={rhythmReceiptsOpen}
+              className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
+            >
+              <span>{isKorean ? '세부 수치' : 'Details'}</span>
+              {rhythmReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+
+            {rhythmReceiptsOpen && (
+              <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3">
+                <div>
+                  <div className="mb-1.5 text-[10px] text-text/50">
+                    {isKorean ? '요일 분포' : 'Weekday distribution'}
+                  </div>
+                  <div className="space-y-1">
+                    {DAY_OF_WEEK_LABELS.map((label, index) => {
+                      const entry = rhythm.weekdayDistribution[index]
+                      const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
+                      const isBest = index === rhythmBestWeekday && entry.count > 0
+                      return (
+                        <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
+                          <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
+                            {label}
+                          </span>
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                          <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
+                            {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
+                  <span>
+                    {activityDensityTitle} {Math.round(rhythm.densityRatio * 100)}%
+                    {' '}({activeDayLabel} {rhythm.activeDayCount}{dayUnitLabel} / {observedDayLabel} {rhythm.observedDayCount}{dayUnitLabel})
+                  </span>
+                  <span>
+                    {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-[10px] text-text/40">
+                  <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
+                  <DashboardHoverTooltip
+                    align="left"
+                    description={isKorean
+                      ? '일 단위 수치(캘린더·요일 분포·연속 기록)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+                      : 'Daily numbers (calendar, weekday distribution, streak) use your local date; monthly stats (growth section) use UTC.'}
+                  >
+                    <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
+                  </DashboardHoverTooltip>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-
-          <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-side-card-secondary">
-            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-              <BarChart3 className="h-3.5 w-3.5 text-accent" />
-              {activityDensityTitle}
-            </h3>
-            <div className="dashboard-card-body-compact dashboard-density-body">
-              <div className="dashboard-density-panel">
-                <div className="dashboard-density-ratio font-bold text-text-bright">{activityDensityRatio}%</div>
-                <div className="dashboard-density-divider" />
-                <div className="dashboard-density-caption">
-                  {activeDayLabel} {activeDayCount}{dayUnitLabel} / {observedDayLabel} {observedDayCount}{dayUnitLabel}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="dashboard-card dashboard-card-compact dashboard-card-tight dashboard-side-card dashboard-activity-card-pattern">
-          <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-bright">
-            <Calendar className="h-3.5 w-3.5 text-cyan" />
-            요일별 패턴
-          </h3>
-          <DayOfWeekPatternPanel
-            values={dayOfWeekActivity}
-            mode={dayPatternMode}
-            total={dayPatternTotal}
-            pinned={dayPatternPinned}
-            onTogglePinned={() => setDayPatternPinned((prev) => !prev)}
-          />
         </div>
       </div>
 

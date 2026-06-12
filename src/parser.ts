@@ -237,6 +237,29 @@ export function toMonthKey(ts: string | undefined): string | null {
   return d.toISOString().slice(0, 7)   // "YYYY-MM"
 }
 
+/**
+ * 일(day) 버킷 키 — 로컬 날짜 기준 "YYYY-MM-DD".
+ *
+ * 신규 per-day 집계(코딩 리듬 카드 등)가 쓰는 축. 기존 dayKey(UTC toISOString)는
+ * KST 사용자의 00~09시 활동이 전날로 귀속되므로, 신규 일 단위 경로는 이 키를 쓴다.
+ * 월 버킷(toMonthKey)은 성장 섹션 소관이라 UTC 축 유지 — 일/월 기준 차이는 UI 각주로 명시.
+ *
+ * offsetMinutes: 테스트가 머신 타임존에 의존하지 않게 하는 주입구 (예: KST = 540).
+ * 지정 시 해당 오프셋만큼 시프트한 시각의 UTC getter 로 키를 만들고,
+ * 미지정 시 머신 로컬 시간대(getFullYear/getMonth/getDate) 기준.
+ */
+export function toLocalDayKey(date: Date, offsetMinutes?: number): string {
+  if (offsetMinutes !== undefined) {
+    const shifted = new Date(date.getTime() + offsetMinutes * 60_000)
+    const m = String(shifted.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(shifted.getUTCDate()).padStart(2, '0')
+    return `${shifted.getUTCFullYear()}-${m}-${d}`
+  }
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
+}
+
 /** 코드/태그/URL/잘림 마커 오염 제거 — 그대로 split 하면 로그 붙여넣은 달이 "성장"으로 오인됨 */
 export function stripMarkup(text: string): string {
   return text
