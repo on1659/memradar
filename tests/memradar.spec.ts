@@ -101,6 +101,22 @@ test.describe('Dashboard loads', () => {
     await expect(page.locator('.divide-y.divide-border > button').first()).toBeVisible()
   })
 
+  test('card PNG export downloads and restores receipts collapsed state', async ({ page }) => {
+    // W4: 카드 단독 PNG export — 픽스처(활동 2일)에서 데이터가 있는 카드는 코딩 리듬.
+    // 픽셀 비교는 금지(플래키) — 다운로드 성공 + 파일명 + 영수증 접힘 복원만 단언.
+    const rhythmCard = page.locator('.dashboard-activity-grid .dashboard-card').first()
+    const receiptsToggle = rhythmCard.locator('button[aria-expanded]')
+    await expect(receiptsToggle).toHaveAttribute('aria-expanded', 'false')
+
+    const downloadPromise = page.waitForEvent('download')
+    await rhythmCard.locator('[data-card-export="rhythm"]').click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('memradar-coding-rhythm.png')
+
+    // export 가 영수증을 강제 펼침했더라도 끝나면 원래 접힘 상태로 복원돼야 한다
+    await expect(receiptsToggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
   test('replay opens from session and responds to controls', async ({ page }) => {
     await page.locator('.divide-y.divide-border > button').filter({ hasText: 'Strict harness smoke test' }).click()
     await page.locator('[data-replay-open]').click()

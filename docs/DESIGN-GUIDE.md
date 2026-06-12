@@ -853,6 +853,16 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 2. 아니면 클립보드에 PNG 복사 (`ClipboardItem({ 'image/png': blob })`) → Threads 탭 오픈 → 사용자가 `Ctrl/⌘+V` 로 붙여넣기.
 3. 클립보드도 실패 시 PNG 다운로드 폴백.
 
+**카드 단독 export 규격** (`src/lib/cardImageExport.ts` — 대시보드 신규 카드 3장: 코딩 리듬·그날 이야기·AI 협업 지문):
+
+- 캡처: `toPng(node, { pixelRatio: 2, cacheBust: true, filter })` — Share Card 와 동일 배율. ShareSlide 규격과 **의도적 중복**(wrapped/ 수정 금지 영역) — 한쪽 규격 변경 시 동기화 필수.
+- 배경: `backgroundColor` 미지정 — 카드 자체 배경(`bg-bg-card`, 현재 테마의 computed 값)이 그대로 찍히고 라운드 코너 바깥은 투명 PNG. 의식적 결정.
+- 제외 필터: `data-export-exclude` 속성이 붙은 요소는 PNG 에 찍히지 않는다. 영수증 액션 행 전체(세션 점프 버튼·"세부 수치" 토글 pill·export 버튼)에 행 단위로 부여 — 인터랙티브 컨트롤은 정적 공유 이미지에서 제외.
+- 마스킹: 캡처 직전 텍스트 노드 전수 스캔 → `maskSecrets` hit 노드만 임시 치환 → 캡처 → finally 원복 (defense-in-depth — 신규 카드는 수치+사전 단어만 렌더라 정상 경로 no-op).
+- 영수증: export 시 접힌 "세부 수치"를 `flushSync` 로 강제 펼침 후 캡처하고, 끝나면 이전 접힘 상태로 복원.
+- 파일명 관례: `memradar-coding-rhythm.png` / `memradar-story-{YYYY-MM-DD}.png` (로컬 일 키) / `memradar-collab-fingerprint.png`. 기존 `memradar-code-report.png` 규격은 불변.
+- export 버튼: "세부 수치" 토글과 같은 행의 중립 pill (lucide `Download` h-3 w-3 + "PNG" 라벨 + aria-label "PNG로 저장"/"Save as PNG"). 빈상태 카드에서는 미렌더.
+
 ---
 
 ## 9. 접근성

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import {
   ArrowLeftRight,
   BarChart3,
@@ -8,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleHelp,
+  Download,
   Fingerprint,
   Lightbulb,
   LineChart,
@@ -55,6 +57,7 @@ import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { maskSecrets } from '../lib/secretMask'
+import { exportCardPng } from '../lib/cardImageExport'
 import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { GrowthCoaching } from './growth/GrowthCoaching'
 import { GrowthComplexity } from './growth/GrowthComplexity'
@@ -541,6 +544,110 @@ function DashboardHoverTooltip({
         </span>
       </span>
     </span>
+  )
+}
+
+/**
+ * 영수증(receipts) 접힘 패턴 — 신규 카드 3장(코딩 리듬·그날 이야기·AI 협업 지문) 공통.
+ * "세부 수치"/"Details" 토글 pill + 접힘 패널 + "일 단위는 로컬 날짜 기준" 푸터를 렌더한다.
+ *
+ * - controlled: open 상태는 Dashboard 가 유지한다 — PNG export 시 영수증 강제 펼침
+ *   (flushSync) 후 원복해야 하므로 내부 상태로 가둘 수 없다.
+ * - spacing: 'tight' = space-y-1.5 + text-xs text-text/70 (이야기·지문 텍스트 행),
+ *   'loose' = space-y-3 (리듬 — 요일 분포 블록 리듬).
+ * - dateBasisTooltip: 푸터 CircleHelp 툴팁 문구만 카드별로 상이 — 주입식.
+ * - leading/trailing: 토글 pill 과 같은 행에 놓일 액션 슬롯 (이야기 카드의 "이날 세션
+ *   보기" 점프 버튼 = leading, PNG export 버튼 = trailing). 마크업 공통화를 위한
+ *   최소 확장이며 기존 문구/className/aria-expanded 계약은 그대로 보존한다.
+ * - DashboardHoverTooltip 의존 때문에 같은 파일 내 추출 (기존 헬퍼 관례).
+ */
+function ReceiptsDisclosure({
+  open,
+  onToggle,
+  isKorean,
+  spacing = 'tight',
+  dateBasisTooltip,
+  containerClassName = 'mt-3',
+  leading,
+  trailing,
+  children,
+}: {
+  open: boolean
+  onToggle: () => void
+  isKorean: boolean
+  spacing?: 'tight' | 'loose'
+  dateBasisTooltip: string
+  containerClassName?: string
+  leading?: ReactNode
+  trailing?: ReactNode
+  children: ReactNode
+}) {
+  const panelClassName = spacing === 'tight'
+    ? 'mt-3 space-y-1.5 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3 text-xs text-text/70'
+    : 'mt-3 space-y-3 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3'
+
+  return (
+    <div className={containerClassName}>
+      {/* 액션 행 전체를 PNG 캡처에서 제외 — leading(세션 점프)·토글 pill·trailing(export 버튼)
+          모두 인터랙티브 컨트롤이라 정적 공유 이미지에 의미가 없다 (DESIGN-GUIDE §8.5). */}
+      <div className="flex flex-wrap items-center gap-2" data-export-exclude="true">
+        {leading}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
+        >
+          <span>{isKorean ? '세부 수치' : 'Details'}</span>
+          {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+        {trailing}
+      </div>
+
+      {open && (
+        <div className={panelClassName}>
+          {children}
+          <div className="flex items-center gap-1 text-[10px] text-text/40">
+            <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
+            <DashboardHoverTooltip align="left" description={dateBasisTooltip}>
+              <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
+            </DashboardHoverTooltip>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 카드 단독 PNG export 버튼 — 중립 pill ("세부 수치" 토글과 동일 톤).
+ * data-export-exclude 로 캡처 산출물에서 자기 자신을 제외한다 (cardImageExport filter).
+ * 빈상태 카드에서는 호출부가 렌더하지 않는다 — 의미 없는 빈 캡처 방지.
+ */
+function CardExportButton({
+  cardId,
+  onClick,
+  busy,
+  isKorean,
+}: {
+  cardId: 'rhythm' | 'story' | 'fingerprint'
+  onClick: () => void
+  busy: boolean
+  isKorean: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      data-export-exclude="true"
+      data-card-export={cardId}
+      aria-label={isKorean ? 'PNG로 저장' : 'Save as PNG'}
+      className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Download className="h-3 w-3" aria-hidden="true" />
+      <span>PNG</span>
+    </button>
   )
 }
 
@@ -1051,6 +1158,36 @@ export function Dashboard({
   const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
   const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
   const [fingerprintReceiptsOpen, setFingerprintReceiptsOpen] = useState(false)
+
+  // 카드 PNG export — busy 는 공용 1개 (동시 클릭 방지 + 캡처 중 텍스트 노드 임시 치환과
+  // 리렌더 경합 창 최소화). 카드 root ref 는 캡처 대상 노드.
+  const [cardExportBusy, setCardExportBusy] = useState(false)
+  const rhythmCardRef = useRef<HTMLDivElement | null>(null)
+  const storyCardRef = useRef<HTMLDivElement | null>(null)
+  const fingerprintCardRef = useRef<HTMLDivElement | null>(null)
+
+  const handleCardExport = async (
+    cardRef: RefObject<HTMLDivElement | null>,
+    fileName: string,
+    receiptsOpen: boolean,
+    setReceiptsOpen: (open: boolean) => void,
+  ) => {
+    const node = cardRef.current
+    if (!node || cardExportBusy) return
+    setCardExportBusy(true)
+    try {
+      // 영수증 강제 펼침 — 접힌 세부 수치도 PNG 에 포함. flushSync 로 DOM 반영 후 캡처.
+      flushSync(() => setReceiptsOpen(true))
+      await exportCardPng(node, fileName)
+    } catch {
+      // 실패 시 사용자 노출은 버튼 재활성화(finally)로 충분 — 카드 공간 제약상
+      // ShareSlide 식 상태 메시지는 싣지 않는다 (이더 지시서 재량 범위).
+    } finally {
+      // export 전 접힘 상태 복원 + busy 해제
+      setReceiptsOpen(receiptsOpen)
+      setCardExportBusy(false)
+    }
+  }
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
 
@@ -1127,7 +1264,10 @@ export function Dashboard({
   useEffect(() => {
     if (sourceSessions[tokenSource].length > 0) return
     if (sourceSessions.claude.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- correct stale selection when the chosen source becomes empty
+      // set-state-in-effect 의도적 사용 — 선택된 소스가 비면 stale 선택을 보정.
+      // (카드 export 의 flushSync 사용으로 컴파일러 기반 react-hooks 린트가 이 컴포넌트
+      //  분석을 건너뛰어, 기존 eslint-disable 지시문이 unused 가 되어 제거함. 룰이
+      //  다시 보고되면 동일 사유로 disable 지시문을 복원할 것.)
       setTokenSource('claude')
       return
     }
@@ -1559,7 +1699,7 @@ export function Dashboard({
             "AI에게 무엇을 시키나(요청 주제)" / 지문 = "AI와 어떻게 협업하나(상호작용 행동)".
             성격 카드의 'rhythm' 축 ≠ 지문 신호 — 어휘 분리 (collabFingerprint.ts 모듈 주석).
             전폭 2행 배치 (span 4) — 성격/도넛 카드 레이아웃은 무변경. */}
-        <div className="dashboard-overview-card-fingerprint rounded-[26px] border border-border bg-bg-card p-5">
+        <div ref={fingerprintCardRef} className="dashboard-overview-card-fingerprint rounded-[26px] border border-border bg-bg-card p-5">
           <div className="mb-1 flex min-w-0 items-center gap-2">
             <Fingerprint className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
             <h2 className="truncate text-lg font-bold text-text-bright">{fingerprintTitle}</h2>
@@ -1586,41 +1726,34 @@ export function Dashboard({
             <p className="text-sm text-text/40">{fingerprintEmptyCopy}</p>
           )}
 
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => setFingerprintReceiptsOpen((prev) => !prev)}
-              aria-expanded={fingerprintReceiptsOpen}
-              className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
-            >
-              <span>{isKorean ? '세부 수치' : 'Details'}</span>
-              {fingerprintReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-
-            {fingerprintReceiptsOpen && (
-              <div className="mt-3 space-y-1.5 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3 text-xs text-text/70">
-                {/* viable 미달 신호도 측정 현황을 그대로 표기 — 숨기지 않음 (반증가능 원칙). 수집 중 빈상태에서도 표시 */}
-                {fingerprint.signals.map((signal) => (
-                  <div key={signal.id}>
-                    <span className="font-medium text-text-bright/85">{fingerprintSignalLabel(signal.id, isKorean)}</span>
-                    <span className="text-text/45"> — </span>
-                    {fingerprintReceiptLine(signal, isKorean)}
-                  </div>
-                ))}
-                <div className="flex items-center gap-1 text-[10px] text-text/40">
-                  <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
-                  <DashboardHoverTooltip
-                    align="left"
-                    description={isKorean
-                      ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
-                      : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
-                  >
-                    <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
-                  </DashboardHoverTooltip>
-                </div>
+          <ReceiptsDisclosure
+            open={fingerprintReceiptsOpen}
+            onToggle={() => setFingerprintReceiptsOpen((prev) => !prev)}
+            isKorean={isKorean}
+            dateBasisTooltip={isKorean
+              ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+              : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
+            trailing={
+              // 빈상태(성립 신호 < 2)에서는 export 버튼 미렌더
+              fingerprint.viableCount >= MIN_FINGERPRINT_TOP_SIGNALS ? (
+                <CardExportButton
+                  cardId="fingerprint"
+                  busy={cardExportBusy}
+                  isKorean={isKorean}
+                  onClick={() => handleCardExport(fingerprintCardRef, 'memradar-collab-fingerprint.png', fingerprintReceiptsOpen, setFingerprintReceiptsOpen)}
+                />
+              ) : undefined
+            }
+          >
+            {/* viable 미달 신호도 측정 현황을 그대로 표기 — 숨기지 않음 (반증가능 원칙). 수집 중 빈상태에서도 표시 */}
+            {fingerprint.signals.map((signal) => (
+              <div key={signal.id}>
+                <span className="font-medium text-text-bright/85">{fingerprintSignalLabel(signal.id, isKorean)}</span>
+                <span className="text-text/45"> — </span>
+                {fingerprintReceiptLine(signal, isKorean)}
               </div>
-            )}
-          </div>
+            ))}
+          </ReceiptsDisclosure>
         </div>
       </div>
 
@@ -1750,7 +1883,7 @@ export function Dashboard({
           <div className="mt-1 text-xs text-text/60">일 평균 {dailyAvg}개 메시지</div>
         </div>
 
-        <div className="dashboard-card">
+        <div ref={storyCardRef} className="dashboard-card">
           <div className="mb-3 flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-amber" />
             <span className="text-sm text-text">{isKorean ? '그날 이야기' : 'Story of the Day'}</span>
@@ -1761,74 +1894,68 @@ export function Dashboard({
               <p className="mt-1 text-xs leading-relaxed text-text/70">
                 {storyNarrative(story, isKorean)}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {/* 명시적 버튼 — 카드 전체 div 클릭 금지 (접근성) */}
-                <button
-                  type="button"
-                  onClick={() => handleStoryJump(story.dayKey)}
-                  className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent transition-colors hover:border-accent/55 hover:bg-accent/20"
-                >
-                  {isKorean ? '이날 세션 보기' : 'View sessions'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStoryReceiptsOpen((prev) => !prev)}
-                  aria-expanded={storyReceiptsOpen}
-                  className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
-                >
-                  <span>{isKorean ? '세부 수치' : 'Details'}</span>
-                  {storyReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-              </div>
-              {storyReceiptsOpen && (
-                <div className="mt-3 space-y-1.5 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3 text-xs text-text/70">
-                  <div>
-                    {isKorean
-                      ? `세션 ${story.receipts.sessionCount}개 · 시간 범위 ${story.receipts.spanHours.toFixed(1)}시간`
-                      : `${story.receipts.sessionCount} sessions · ${story.receipts.spanHours.toFixed(1)}h span`}
-                  </div>
-                  <div>
-                    {isKorean
-                      ? `토큰 ${formatTokens(story.receipts.tokens)}`
-                      : `${formatTokens(story.receipts.tokens)} tokens`}
-                    {story.receipts.dayAvgTokens > 0 && (
-                      <span className="text-text/45">
-                        {isKorean
-                          ? ` (일평균의 ${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}배, n=활동 ${storyResult.activeDayCount}일)`
-                          : ` (${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}x daily avg, n=${storyResult.activeDayCount} days)`}
-                      </span>
-                    )}
-                  </div>
-                  {/* 결측 항(③ follow-up 미달)은 행 자체 생략 — 비율은 분모 n= 필수 */}
-                  {story.receipts.retryRateFirst !== null && story.receipts.retryRateSecond !== null && (
-                    <div>
-                      {isKorean
-                        ? `재질문 ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`
-                        : `Retries ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`}
-                    </div>
-                  )}
-                  <div>
-                    {/* 스킬 서브항은 Claude 세션 있는 날만 (source-aware) — 없는 날은 언어만 */}
-                    {story.receipts.hasClaudeSession && (
-                      <span>{isKorean ? `스킬 ${story.receipts.skillCount}종 · ` : `${story.receipts.skillCount} skills · `}</span>
-                    )}
-                    {isKorean
-                      ? `언어 ${story.receipts.languageCount}종 · user 메시지 ${story.receipts.userMessageCount}건`
-                      : `${story.receipts.languageCount} languages · ${story.receipts.userMessageCount} user messages`}
-                  </div>
-                  <div className="flex items-center gap-1 text-[10px] text-text/40">
-                    <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
-                    <DashboardHoverTooltip
-                      align="left"
-                      description={isKorean
-                        ? '일 단위 수치(그날 이야기·캘린더·요일 분포)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
-                        : 'Daily numbers (story of the day, calendar, weekday distribution) use your local date; monthly stats (growth section) use UTC.'}
-                    >
-                      <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
-                    </DashboardHoverTooltip>
-                  </div>
+              <ReceiptsDisclosure
+                open={storyReceiptsOpen}
+                onToggle={() => setStoryReceiptsOpen((prev) => !prev)}
+                isKorean={isKorean}
+                containerClassName="mt-2"
+                dateBasisTooltip={isKorean
+                  ? '일 단위 수치(그날 이야기·캘린더·요일 분포)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+                  : 'Daily numbers (story of the day, calendar, weekday distribution) use your local date; monthly stats (growth section) use UTC.'}
+                leading={
+                  /* 명시적 버튼 — 카드 전체 div 클릭 금지 (접근성) */
+                  <button
+                    type="button"
+                    onClick={() => handleStoryJump(story.dayKey)}
+                    className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent transition-colors hover:border-accent/55 hover:bg-accent/20"
+                  >
+                    {isKorean ? '이날 세션 보기' : 'View sessions'}
+                  </button>
+                }
+                trailing={
+                  <CardExportButton
+                    cardId="story"
+                    busy={cardExportBusy}
+                    isKorean={isKorean}
+                    onClick={() => handleCardExport(storyCardRef, `memradar-story-${story.dayKey}.png`, storyReceiptsOpen, setStoryReceiptsOpen)}
+                  />
+                }
+              >
+                <div>
+                  {isKorean
+                    ? `세션 ${story.receipts.sessionCount}개 · 시간 범위 ${story.receipts.spanHours.toFixed(1)}시간`
+                    : `${story.receipts.sessionCount} sessions · ${story.receipts.spanHours.toFixed(1)}h span`}
                 </div>
-              )}
+                <div>
+                  {isKorean
+                    ? `토큰 ${formatTokens(story.receipts.tokens)}`
+                    : `${formatTokens(story.receipts.tokens)} tokens`}
+                  {story.receipts.dayAvgTokens > 0 && (
+                    <span className="text-text/45">
+                      {isKorean
+                        ? ` (일평균의 ${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}배, n=활동 ${storyResult.activeDayCount}일)`
+                        : ` (${(story.receipts.tokens / story.receipts.dayAvgTokens).toFixed(1)}x daily avg, n=${storyResult.activeDayCount} days)`}
+                    </span>
+                  )}
+                </div>
+                {/* 결측 항(③ follow-up 미달)은 행 자체 생략 — 비율은 분모 n= 필수 */}
+                {story.receipts.retryRateFirst !== null && story.receipts.retryRateSecond !== null && (
+                  <div>
+                    {isKorean
+                      ? `재질문 ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`
+                      : `Retries ${Math.round(story.receipts.retryRateFirst * 100)}%→${Math.round(story.receipts.retryRateSecond * 100)}% (n=${story.receipts.followUpCount})`}
+                  </div>
+                )}
+                <div>
+                  {/* 스킬 서브항은 Claude 세션 있는 날만 (source-aware) — 없는 날은 언어만 */}
+                  {story.receipts.hasClaudeSession && (
+                    <span>{isKorean ? `스킬 ${story.receipts.skillCount}종 · ` : `${story.receipts.skillCount} skills · `}</span>
+                  )}
+                  {isKorean
+                    ? `언어 ${story.receipts.languageCount}종 · user 메시지 ${story.receipts.userMessageCount}건`
+                    : `${story.receipts.languageCount} languages · ${story.receipts.userMessageCount} user messages`}
+                </div>
+              </ReceiptsDisclosure>
             </>
           ) : (
             <p className="text-sm text-text/40">
@@ -1845,7 +1972,7 @@ export function Dashboard({
       </div>
 
       <div className="dashboard-activity-grid animate-in">
-        <div className="dashboard-card dashboard-card-tight">
+        <div ref={rhythmCardRef} className="dashboard-card dashboard-card-tight">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <Calendar className="h-4 w-4 text-green" />
             {isKorean ? '코딩 리듬' : 'Coding Rhythm'}
@@ -1871,72 +1998,65 @@ export function Dashboard({
             </p>
           )}
 
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => setRhythmReceiptsOpen((prev) => !prev)}
-              aria-expanded={rhythmReceiptsOpen}
-              className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
-            >
-              <span>{isKorean ? '세부 수치' : 'Details'}</span>
-              {rhythmReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-
-            {rhythmReceiptsOpen && (
-              <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3">
-                <div>
-                  <div className="mb-1.5 text-[10px] text-text/50">
-                    {isKorean ? '요일 분포' : 'Weekday distribution'}
-                  </div>
-                  <div className="space-y-1">
-                    {DAY_OF_WEEK_LABELS.map((label, index) => {
-                      const entry = rhythm.weekdayDistribution[index]
-                      const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
-                      const isBest = index === rhythmBestWeekday && entry.count > 0
-                      return (
-                        <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
-                          <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
-                            {label}
-                          </span>
-                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-                            <div
-                              className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
-                              style={{ width: `${width}%` }}
-                            />
-                          </div>
-                          <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
-                            {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
-                  <span>
-                    {activityDensityTitle} {Math.round(rhythm.densityRatio * 100)}%
-                    {' '}({activeDayLabel} {rhythm.activeDayCount}{dayUnitLabel} / {observedDayLabel} {rhythm.observedDayCount}{dayUnitLabel})
-                  </span>
-                  <span>
-                    {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1 text-[10px] text-text/40">
-                  <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
-                  <DashboardHoverTooltip
-                    align="left"
-                    description={isKorean
-                      ? '일 단위 수치(캘린더·요일 분포·연속 기록)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
-                      : 'Daily numbers (calendar, weekday distribution, streak) use your local date; monthly stats (growth section) use UTC.'}
-                  >
-                    <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
-                  </DashboardHoverTooltip>
-                </div>
+          <ReceiptsDisclosure
+            open={rhythmReceiptsOpen}
+            onToggle={() => setRhythmReceiptsOpen((prev) => !prev)}
+            isKorean={isKorean}
+            spacing="loose"
+            dateBasisTooltip={isKorean
+              ? '일 단위 수치(캘린더·요일 분포·연속 기록)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+              : 'Daily numbers (calendar, weekday distribution, streak) use your local date; monthly stats (growth section) use UTC.'}
+            trailing={
+              // 활동일 0이면 캡처할 내용이 없으므로 미렌더 (빈상태 가드 일관성)
+              rhythm.activeDayCount > 0 ? (
+                <CardExportButton
+                  cardId="rhythm"
+                  busy={cardExportBusy}
+                  isKorean={isKorean}
+                  onClick={() => handleCardExport(rhythmCardRef, 'memradar-coding-rhythm.png', rhythmReceiptsOpen, setRhythmReceiptsOpen)}
+                />
+              ) : undefined
+            }
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] text-text/50">
+                {isKorean ? '요일 분포' : 'Weekday distribution'}
               </div>
-            )}
-          </div>
+              <div className="space-y-1">
+                {DAY_OF_WEEK_LABELS.map((label, index) => {
+                  const entry = rhythm.weekdayDistribution[index]
+                  const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
+                  const isBest = index === rhythmBestWeekday && entry.count > 0
+                  return (
+                    <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
+                      <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
+                        {label}
+                      </span>
+                      <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+                        <div
+                          className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
+                        {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
+              <span>
+                {activityDensityTitle} {Math.round(rhythm.densityRatio * 100)}%
+                {' '}({activeDayLabel} {rhythm.activeDayCount}{dayUnitLabel} / {observedDayLabel} {rhythm.observedDayCount}{dayUnitLabel})
+              </span>
+              <span>
+                {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
+              </span>
+            </div>
+          </ReceiptsDisclosure>
         </div>
       </div>
 
