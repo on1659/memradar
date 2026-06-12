@@ -305,6 +305,41 @@ export function matchRetryMarker(text: string): string | null {
   return null
 }
 
+/**
+ * 계획 요청 마커 사전 (W3 카드 3 — 지문 신호 plan-after-correction) — 전부 잠정값.
+ *
+ * RETRY_MARKERS 와 달리 **구(phrase) 단위만** 수록한다 — "계획"·"방향"·"plan" 같은
+ * 단일 일반어는 보고/설명 문장("이 계획이 맞는지", "explain the plan")에 흔해 변별력이 없다.
+ * 변별력 미달로 판정되면 신호 자체를 드롭한다 (goal Open Questions — 카드는 viable 신호 ≥ 2 로 성립).
+ */
+export const PLAN_MARKERS = [ // 잠정값 — 실측 보정 전
+  '계획부터', '계획 세워', '계획을 먼저', '계획 먼저',
+  '어떻게 할지', '어떻게 접근', '방향부터', '방향 잡', '설계부터', '진행하기 전에',
+  'plan first', 'make a plan', "let's plan", 'before you start', 'step by step', 'approach first',
+]
+
+/** 잠정값 — 계획 요청은 메시지 끝에 자주 와서 RETRY(head 30)보다 넓게 스캔한다 */
+export const PLAN_MARKER_SCAN_CHARS = 200
+
+// 영어 마커는 단어 경계 검사 — includes 만 쓰면 "floorplan first" 류가 "plan first" 로 오탐.
+// 한국어 마커는 조사·어미 결합("방향 잡고"·"계획부터요")을 허용해야 하므로 includes 유지.
+// 마커 간 포함 관계가 없어 RETRY 의 길이 내림차순 정렬은 불필요 — 사전 순서가 리턴 우선순위.
+const PLAN_MARKERS_COMPILED: { marker: string; re: RegExp | null }[] = PLAN_MARKERS.map((marker) => ({
+  marker,
+  re: /^[a-z' ]+$/.test(marker)
+    ? new RegExp(`(?:^|[^a-z])${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^a-z]|$)`)
+    : null,
+}))
+
+/** stripMarkup → trim → lower → head PLAN_MARKER_SCAN_CHARS 에서 매칭 마커 리턴 (matchRetryMarker 패턴) */
+export function matchPlanMarker(text: string): string | null {
+  const head = stripMarkup(text).trim().toLowerCase().slice(0, PLAN_MARKER_SCAN_CHARS)
+  for (const { marker, re } of PLAN_MARKERS_COMPILED) {
+    if (re ? re.test(head) : head.includes(marker)) return marker
+  }
+  return null
+}
+
 const MIN_MONTH_SAMPLES = 5          // 유효 월 최소 user 메시지 수 — 저샘플 월 제외 (스펙 §유효 버킷)
 const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
 const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)

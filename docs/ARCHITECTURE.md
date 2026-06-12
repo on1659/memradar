@@ -25,7 +25,7 @@ Memradar의 기술 결정·디렉터리 구조·데이터 흐름 문서. 현재(
 - **날짜**: date-fns 4
 - **애니메이션**: Framer Motion 12.38
 - **이미지 캡처**: html-to-image 1.11
-- **테스트**: Playwright (`test:e2e`) + `test:cli` + 단위 테스트(`tests/*.test.mts` — growth·coding-rhythm·persona·coaching·secretmask 등) + `test:harness`(lint→build→cli→단위→e2e)
+- **테스트**: Playwright (`test:e2e`) + `test:cli` + 단위 테스트(`tests/*.test.mts` — growth·coding-rhythm·story-of-day·collab-fingerprint·persona·coaching·secretmask 등) + `test:harness`(lint→build→cli→단위→e2e)
 - **배포**: Vercel (`vercel.json` = `{buildCommand:"npm run build", outputDirectory:"dist", framework:"vite"}`)
 
 ## 현재 디렉터리 구조
@@ -48,7 +48,8 @@ src/
 │   ├── sessionExport.ts    # 세션 export·복사 (Markdown · 자체완결 HTML 채팅/문서 톤 · 다운로드 헬퍼)
 │   ├── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
 │   ├── codingRhythm.ts     # 코딩 리듬 — 로컬 날짜 키 per-day 집계 + 본인 분포 lift 기반 리듬 라벨 (6종, 약신호 시 null)
-│   └── storyOfDay.ts       # 그날 이야기 — per-day 협업 집계(buildDailyCollab) + 서사 점수 최고일 선정 (4항 가중합·결측 재정규화·source-aware, parser 의 matchRetryMarker/extractSkillNames 재사용)
+│   ├── storyOfDay.ts       # 그날 이야기 — per-day 협업 집계(buildDailyCollab) + 서사 점수 최고일 선정 (4항 가중합·결측 재정규화·source-aware, parser 의 matchRetryMarker/extractSkillNames 재사용)
+│   └── collabFingerprint.ts # AI 협업 지문 — 상호작용 신호 5종(주말 집중·구조화 변화·정정 후 계획·심야 비중·긴 세션)의 본인 기준선 대비 lift, top 2~3 분포형 (dailyCollab·rhythm 주입형 — 카드 간 수치 드리프트 방지, parser 의 matchPlanMarker/matchRetryMarker 재사용)
 ├── theme/
 │   └── themePresets.ts     # 배경·accent 프리셋
 ├── components/

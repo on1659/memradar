@@ -604,6 +604,11 @@ body {
     grid-column: span 2;
   }
 
+  /* AI 협업 지문 카드만 전폭 2행째 (span 4) — 성격/도넛 카드의 span 2 규칙은 그대로 (시각 회귀 0) */
+  .dashboard-overview-grid > .dashboard-overview-card-fingerprint {
+    grid-column: span 4;
+  }
+
   .dashboard-stats-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }

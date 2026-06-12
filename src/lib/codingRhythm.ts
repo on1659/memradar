@@ -97,13 +97,17 @@ function toLocalParts(date: Date, offsetMinutes?: number): { weekday: number; ho
   return { weekday: date.getDay(), hour: date.getHours() }
 }
 
-/** "YYYY-MM-DD" 로컬 키 → 그 달력 날짜의 UTC 자정 ms — TZ 비의존 날짜 연산용 */
-function dayKeyToUtcMs(key: string): number {
+/**
+ * "YYYY-MM-DD" 로컬 키 → 그 달력 날짜의 UTC 자정 ms — TZ 비의존 날짜 연산용.
+ * collabFingerprint.ts 와 공유 (헬퍼 복제 방지 — export 승격, W3).
+ */
+export function dayKeyToUtcMs(key: string): number {
   const [y, m, d] = key.split('-').map(Number)
   return Date.UTC(y, m - 1, d)
 }
 
-const DAY_MS = 86_400_000
+/** 달력 하루(ms) — dayKeyToUtcMs 와 함께 날짜 연산에 사용 (collabFingerprint.ts 와 공유) */
+export const DAY_MS = 86_400_000
 
 interface RhythmSignal {
   id: RhythmLabelId

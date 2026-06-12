@@ -1,5 +1,5 @@
 import type { Session } from '../types'
-import { extractSkillNames, matchRetryMarker, toLocalDayKey } from '../parser'
+import { extractSkillNames, isStructured, matchRetryMarker, toLocalDayKey } from '../parser'
 import { detectLanguageNames } from './languageProfile'
 
 /**
@@ -67,6 +67,8 @@ export interface DailyCollab {
   /** 로컬 날짜 키 "YYYY-MM-DD" */
   dayKey: string
   userMessageCount: number
+  /** isStructured 매칭 user 메시지 수 — 지문 카드(W3) structured-shift 신호 재료 (가산 필드) */
+  structuredCount: number
   /** 그날 메시지가 1건이라도 있는 세션 수 */
   sessionCount: number
   /** input + output + cachedInput — computeStats 의 msgTokenTotal 공식과 동일 */
@@ -102,6 +104,7 @@ export function buildDailyCollab(
       day = {
         dayKey: key,
         userMessageCount: 0,
+        structuredCount: 0,
         sessionCount: 0,
         tokens: 0,
         firstTs: Number.POSITIVE_INFINITY,
@@ -145,6 +148,7 @@ export function buildDailyCollab(
 
         if (msg.role === 'user') {
           day.userMessageCount++
+          if (isStructured(msg.text)) day.structuredCount++
           if (session.source === 'claude') {
             // <command-name> 태그는 Claude 세션에만 존재 — 스킬은 Claude 전용 (buildGrowth proxy C 패턴)
             for (const name of extractSkillNames(msg.text)) day.skills.add(name)

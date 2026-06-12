@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleHelp,
+  Fingerprint,
   Lightbulb,
   LineChart,
   MessageSquare,
@@ -39,6 +40,16 @@ import {
   scoreStoryDays,
   type StoryOfDay,
 } from '../lib/storyOfDay'
+import {
+  buildCollabFingerprint,
+  FINGERPRINT_LIFT_CAP,
+  LONG_SESSION_MIN_TURNS,
+  MIN_FINGERPRINT_SIGNAL_N,
+  MIN_FINGERPRINT_TOP_SIGNALS,
+  STRUCTURED_RECENT_WINDOW_DAYS,
+  type FingerprintSignal,
+  type FingerprintSignalId,
+} from '../lib/collabFingerprint'
 import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
 import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
@@ -715,6 +726,154 @@ function storyNarrative(story: StoryOfDay, isKorean: boolean): string {
   }
 }
 
+// ── AI 협업 지문 카드 헬퍼 ────────────────────────────────────────────────────
+// 카드 경계: 성격 카드 = "어떤 사람인가(작업 스타일)" / AI 역할 도넛 = "AI에게 무엇을 시키나(요청 주제)"
+// / 지문 = "AI와 어떻게 협업하나(상호작용 행동)". 성격 카드의 'rhythm' 축과 지문 신호는 별개 개념 —
+// 카피 어휘도 분리한다 ("리듬/유형" 대신 "패턴/경향" 계열만, collabFingerprint.ts 모듈 주석 참조).
+
+/** 잠정값 — 실측 보정 전 (지문 미니 lift 바 풀스케일 — 이 배수 이상은 100% 폭, UI 전용) */
+const FINGERPRINT_BAR_MAX_LIFT = 3
+
+// 분수(0~1) → 표시 문자열 변환은 이 헬퍼 3종만 사용 (lessons/_common.md L-5 — 인라인 ×100 반복 금지)
+const fmtPct0 = (fraction: number) => `${Math.round(fraction * 100)}%`
+const fmtPct1 = (fraction: number) => `${(fraction * 100).toFixed(1)}%`
+const fmtSignedPp = (fraction: number, isKorean: boolean) => {
+  const pp = Math.round(fraction * 100)
+  return `${pp >= 0 ? '+' : ''}${pp}${isKorean ? '%p' : 'pp'}`
+}
+
+function fingerprintSignalLabel(id: FingerprintSignalId, isKorean: boolean): string {
+  switch (id) {
+    case 'weekend-focus':
+      return isKorean ? '주말 집중' : 'Weekend focus'
+    case 'structured-shift':
+      return isKorean ? '구조화 프롬프트 변화' : 'Structured-prompt shift'
+    case 'plan-after-correction':
+      return isKorean ? '정정 후 계획 요청' : 'Plan-first after corrections'
+    case 'late-night-share':
+      return isKorean ? '심야 비중' : 'Late-night share'
+    case 'long-session-preference':
+      return isKorean ? '긴 세션 선호' : 'Long-session preference'
+  }
+}
+
+/**
+ * 지문 신호 한 줄 서사 — 실측 수치 + n= 만 삽입, hedge 어조("~로 보여요/~는 편이에요"), 단정 금지.
+ * 원문 인용 금지 — 수치 + 사전 단어만 (rhythmNarrative 패턴).
+ */
+function fingerprintNarrative(signal: FingerprintSignal, isKorean: boolean): string {
+  // FINGERPRINT_LIFT_CAP 이상이면 분모 0 (기준선 없음) — 배수 표기 대신 서술로 우회
+  const lift = signal.lift >= FINGERPRINT_LIFT_CAP ? null : signal.lift.toFixed(1)
+  switch (signal.id) {
+    case 'weekend-focus':
+      if (lift === null) {
+        return isKorean
+          ? `세션이 주말에만 모여 있어요 — 주중엔 거의 없어요 (주말 일평균 ${signal.numerator.toFixed(1)}개, n=관측 ${signal.n}일)`
+          : `Sessions cluster on weekends only — almost none on weekdays (weekend daily avg ${signal.numerator.toFixed(1)}, n=${signal.n} days observed)`
+      }
+      return isKorean
+        ? `주말에 세션이 주중의 ${lift}배로 모여 있어요 (주말 일평균 ${signal.numerator.toFixed(1)} vs 주중 ${signal.denominator.toFixed(1)}, n=관측 ${signal.n}일)`
+        : `Weekend sessions run ${lift}x your weekday pace (daily avg ${signal.numerator.toFixed(1)} weekend vs ${signal.denominator.toFixed(1)} weekday, n=${signal.n} days observed)`
+    case 'structured-shift':
+      return isKorean
+        ? `최근 ${STRUCTURED_RECENT_WINDOW_DAYS}일 구조화 프롬프트가 ${fmtSignedPp(signal.delta ?? 0, true)} 달라진 것으로 보여요 (최근 ${fmtPct0(signal.numerator)} n=${signal.n.toLocaleString()} vs 이전 ${fmtPct0(signal.denominator)} n=${(signal.n2 ?? 0).toLocaleString()})`
+        : `Structured prompts look to have shifted ${fmtSignedPp(signal.delta ?? 0, false)} over the last ${STRUCTURED_RECENT_WINDOW_DAYS} days (recent ${fmtPct0(signal.numerator)} n=${signal.n.toLocaleString()} vs prior ${fmtPct0(signal.denominator)} n=${(signal.n2 ?? 0).toLocaleString()})`
+    case 'plan-after-correction':
+      // 분모 = 같은 2메시지 창(자신+직후)의 우연 기대 1−(1−p)² — collabFingerprint.ts ③ 주석 참고
+      if (lift === null) {
+        return isKorean
+          ? `정정 직후에 유독 계획 요청이 몰려 있어요 (정정 후 ${fmtPct0(signal.numerator)}, 우연 기대는 거의 0 — n=정정 ${signal.n}건)`
+          : `Plan requests cluster right after corrections (${fmtPct0(signal.numerator)} post-correction vs a near-zero chance rate, n=${signal.n} corrections)`
+      }
+      return isKorean
+        ? `정정 직후엔 계획부터 다시 잡는 경향이 보여요 — 우연 기대의 ${lift}배 (정정 후 ${fmtPct0(signal.numerator)} vs 우연 기대 ${fmtPct0(signal.denominator)}, n=정정 ${signal.n}건)`
+        : `After a correction you tend to ask for a plan first — ${lift}x the chance rate for the same window (${fmtPct0(signal.numerator)} post-correction vs ${fmtPct0(signal.denominator)} chance, n=${signal.n} corrections)`
+    case 'late-night-share':
+      // 코딩 리듬 카드의 night-surge 와 동일 수치 (rhythm 주입값 재사용) — 표현만 지문 어휘
+      return isKorean
+        ? `심야(22~02시) 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${fmtPct0(signal.numerator)}, n=${signal.n.toLocaleString()})`
+        : `Late-night (22:00–02:00) messages run ${lift}x the uniform expectation (${fmtPct0(signal.numerator)} of all, n=${signal.n.toLocaleString()})`
+    case 'long-session-preference':
+      if (lift === null) {
+        return isKorean
+          ? `긴 세션(${LONG_SESSION_MIN_TURNS}턴+) 비중이 본인 분포 기대치를 크게 웃돌아요 (실측 ${fmtPct1(signal.numerator)}, n=세션 ${signal.n}건)`
+          : `Long sessions (${LONG_SESSION_MIN_TURNS}+ turns) far exceed what your own length distribution would expect (actual ${fmtPct1(signal.numerator)}, n=${signal.n} sessions)`
+      }
+      return isKorean
+        ? `긴 세션(${LONG_SESSION_MIN_TURNS}턴+)을 본인 분포 기대치의 ${lift}배로 이어가는 편이에요 (실측 ${fmtPct1(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)}, n=세션 ${signal.n}건)`
+        : `Long sessions (${LONG_SESSION_MIN_TURNS}+ turns) run ${lift}x what your own length distribution would expect (actual ${fmtPct1(signal.numerator)} vs expected ${fmtPct1(signal.denominator)}, n=${signal.n} sessions)`
+  }
+}
+
+/** 영수증 수치부 — 신호별 분자/분모/lift/n 표기 (비율은 분모 n= 동반) */
+function fingerprintReceiptNumbers(signal: FingerprintSignal, isKorean: boolean): string {
+  // "기준선 없음"은 분모가 실제로 0일 때만 — 분모 > 0 인데 비율이 CAP 에 닿은 경우(⑤ 극소 기대치 등)는
+  // 기준선이 존재하므로 "99x+" 로 표기 (영수증 정직성 — 분모 수치와 라벨이 모순되지 않게)
+  const liftLabel = signal.lift >= FINGERPRINT_LIFT_CAP
+    ? (signal.denominator <= 0 ? (isKorean ? '기준선 없음' : 'no baseline') : '99x+')
+    : `${signal.lift.toFixed(1)}x`
+  switch (signal.id) {
+    case 'weekend-focus':
+      return isKorean
+        ? `주말 일평균 ${signal.numerator.toFixed(1)} vs 주중 ${signal.denominator.toFixed(1)} · ${liftLabel} (n=관측 ${signal.n}일)`
+        : `weekend daily avg ${signal.numerator.toFixed(1)} vs weekday ${signal.denominator.toFixed(1)} · ${liftLabel} (n=${signal.n} days observed)`
+    case 'structured-shift':
+      return isKorean
+        ? `최근 ${fmtPct0(signal.numerator)} (n=${signal.n.toLocaleString()}) vs 이전 ${fmtPct0(signal.denominator)} (n=${(signal.n2 ?? 0).toLocaleString()}) · ${fmtSignedPp(signal.delta ?? 0, true)}`
+        : `recent ${fmtPct0(signal.numerator)} (n=${signal.n.toLocaleString()}) vs prior ${fmtPct0(signal.denominator)} (n=${(signal.n2 ?? 0).toLocaleString()}) · ${fmtSignedPp(signal.delta ?? 0, false)}`
+    case 'plan-after-correction':
+      return isKorean
+        ? `정정 후 ${fmtPct0(signal.numerator)} vs 우연 기대 ${fmtPct0(signal.denominator)} · ${liftLabel} (n=정정 ${signal.n}건)`
+        : `post-correction ${fmtPct0(signal.numerator)} vs chance ${fmtPct0(signal.denominator)} · ${liftLabel} (n=${signal.n} corrections)`
+    case 'late-night-share':
+      return isKorean
+        ? `심야 비중 ${fmtPct0(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)} · ${liftLabel} (n=${signal.n.toLocaleString()})`
+        : `late-night share ${fmtPct0(signal.numerator)} vs expected ${fmtPct1(signal.denominator)} · ${liftLabel} (n=${signal.n.toLocaleString()})`
+    case 'long-session-preference':
+      return isKorean
+        ? `${LONG_SESSION_MIN_TURNS}턴+ 세션 ${fmtPct1(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)} · ${liftLabel} (n=세션 ${signal.n}건)`
+        : `${LONG_SESSION_MIN_TURNS}+ turn sessions ${fmtPct1(signal.numerator)} vs expected ${fmtPct1(signal.denominator)} · ${liftLabel} (n=${signal.n} sessions)`
+  }
+}
+
+/** 영수증 한 줄 — viable 미달이어도 측정값을 숨기지 않고 미달 사유를 병기 (반증가능 원칙) */
+function fingerprintReceiptLine(signal: FingerprintSignal, isKorean: boolean): string {
+  const numbers = fingerprintReceiptNumbers(signal, isKorean)
+  if (signal.viable) return numbers
+  const shortfall = signal.id === 'plan-after-correction' && signal.n >= MIN_FINGERPRINT_SIGNAL_N
+    ? (isKorean ? '기준선 없음 (계획 요청 마커 0건)' : 'no baseline (zero plan-marker messages)')
+    : signal.id === 'structured-shift'
+      ? (isKorean
+        ? `표본 부족 (최근 n=${signal.n} · 이전 n=${signal.n2 ?? 0} — 최소 각 ${MIN_FINGERPRINT_SIGNAL_N})`
+        : `insufficient sample (recent n=${signal.n} · prior n=${signal.n2 ?? 0} — needs ${MIN_FINGERPRINT_SIGNAL_N} each)`)
+      : (isKorean
+        ? `표본 부족 (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`
+        : `insufficient sample (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`)
+  return `${numbers} — ${shortfall}`
+}
+
+function FingerprintSignalRow({ signal, isKorean }: { signal: FingerprintSignal; isKorean: boolean }) {
+  const barWidth = Math.round(Math.min(signal.rankScore / FINGERPRINT_BAR_MAX_LIFT, 1) * 100)
+  const liftBadge = signal.id === 'structured-shift'
+    ? fmtSignedPp(signal.delta ?? 0, isKorean)
+    : signal.lift >= FINGERPRINT_LIFT_CAP
+      ? (signal.denominator <= 0 ? (isKorean ? '기준선 없음' : 'no baseline') : '99x+')
+      : `${signal.lift.toFixed(1)}x`
+  return (
+    <div className="rounded-xl border border-border/60 bg-bg-hover/30 px-3.5 py-2.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-text-bright">{fingerprintSignalLabel(signal.id, isKorean)}</span>
+        <span className="shrink-0 font-mono text-[10px] font-bold text-accent">{liftBadge}</span>
+      </div>
+      <p className="text-xs leading-relaxed text-text/70">{fingerprintNarrative(signal, isKorean)}</p>
+      {/* 미니 lift 바 — SVG 비등방 왜곡 이슈 회피, 단순 div 바 (lessons/_common.md L-7) */}
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5">
+        <div className="h-full rounded-full bg-accent/60" style={{ width: `${barWidth}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function LanguageBar({ languages }: { languages: LanguageScore[] }) {
   const [hoveredLanguage, setHoveredLanguage] = useState<{
     name: string
@@ -888,6 +1047,7 @@ export function Dashboard({
 
   const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
   const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
+  const [fingerprintReceiptsOpen, setFingerprintReceiptsOpen] = useState(false)
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
 
@@ -1099,6 +1259,29 @@ export function Dashboard({
   const activeDayLabel = isKorean ? '활동일' : 'Active days'
   const observedDayLabel = isKorean ? '관측' : 'Observed'
   const dayUnitLabel = isKorean ? '일' : ' days'
+
+  // AI 협업 지문 — dailyCollab(그날 이야기)·rhythm(코딩 리듬) 인스턴스를 그대로 주입 (카드 간 수치 드리프트 방지)
+  const fingerprint = useMemo(() => buildCollabFingerprint(sessions, dailyCollab, rhythm), [sessions, dailyCollab, rhythm])
+  const fingerprintTitle = isKorean ? 'AI 협업 지문' : 'AI Collaboration Fingerprint'
+  // 상시 추정 부제 — 프롬프트 코칭 카드 패턴 (바넘 회피: 단정 0건, 모든 주장에 수치 + n=)
+  const fingerprintSubtitle = isKorean
+    ? '본인 과거 기준선 대비 추정이에요 — 정확한 진단은 아니에요.'
+    : 'Estimated against your own past baseline — not a precise diagnosis.'
+  const fingerprintTooltipDescription = isKorean
+    ? '주말 집중·구조화 변화·정정 후 계획 요청·심야 비중·긴 세션 선호 5가지 상호작용 신호를 본인 과거 기준선과 비교해 두드러진 패턴 2~3개를 보여줘요. 성격 카드(작업 스타일)·AI 역할(요청 주제)과 달리 "AI와 어떻게 협업하나"를 봐요. 키워드·시간 분포 기반 추정이에요.'
+    : 'Compares five interaction signals (weekend focus, structured-prompt shift, plan-first after corrections, late-night share, long-session preference) against your own baseline and surfaces the 2–3 that stand out. Unlike the personality card (work style) or the AI-role donut (request topics), this asks "how do you collaborate with AI". Keyword and time-distribution based estimate.'
+  const fingerprintEmptyCopy = fingerprint.viableCount < MIN_FINGERPRINT_TOP_SIGNALS
+    ? (isKorean
+      ? `지문을 수집하는 중이에요 — 신호가 ${MIN_FINGERPRINT_TOP_SIGNALS}개 이상 모이면 보여드려요 (지금 ${fingerprint.viableCount}개)`
+      : `Collecting your fingerprint — it shows once ${MIN_FINGERPRINT_TOP_SIGNALS}+ signals are viable (${fingerprint.viableCount} so far)`)
+    : fingerprint.topSignals.length === 1
+      // 두드러진 신호가 1개 있는데 "기준선과 비슷한 범위"라고 말하면 영수증과 모순 (반증가능 원칙)
+      ? (isKorean
+        ? `두드러진 패턴이 1개뿐이에요 — 분포로 보여드리려면 ${MIN_FINGERPRINT_TOP_SIGNALS}개부터예요 (세부 수치에서 확인할 수 있어요)`
+        : `Only one pattern stands out — the distribution view starts at ${MIN_FINGERPRINT_TOP_SIGNALS} (see Details below)`)
+      : (isKorean
+        ? `아직 두드러진 패턴이 안 보여요 — 본인 기준선과 비슷한 범위예요 (성립 신호 ${fingerprint.viableCount}개)`
+        : `No standout pattern yet — everything sits near your own baseline (${fingerprint.viableCount} viable signals)`)
 
   useEffect(() => {
     if (topUsageCategories.length === 0) return
@@ -1367,6 +1550,74 @@ export function Dashboard({
             </div>
           )}
 
+        </div>
+
+        {/* AI 협업 지문 — 카드 경계: 성격 카드 = "어떤 사람인가(작업 스타일)" / AI 역할 도넛 =
+            "AI에게 무엇을 시키나(요청 주제)" / 지문 = "AI와 어떻게 협업하나(상호작용 행동)".
+            성격 카드의 'rhythm' 축 ≠ 지문 신호 — 어휘 분리 (collabFingerprint.ts 모듈 주석).
+            전폭 2행 배치 (span 4) — 성격/도넛 카드 레이아웃은 무변경. */}
+        <div className="dashboard-overview-card-fingerprint rounded-[26px] border border-border bg-bg-card p-5">
+          <div className="mb-1 flex min-w-0 items-center gap-2">
+            <Fingerprint className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+            <h2 className="truncate text-lg font-bold text-text-bright">{fingerprintTitle}</h2>
+            <DashboardHoverTooltip
+              title={fingerprintTitle}
+              description={fingerprintTooltipDescription}
+              align="left"
+              tooltipWidthClass="w-60"
+              buttonClassName="rounded-full p-0.5 text-text/35 transition-colors hover:text-text/70 focus:outline-none focus:ring-1 focus:ring-accent/40"
+            >
+              <CircleHelp className="h-3.5 w-3.5" />
+            </DashboardHoverTooltip>
+          </div>
+          {/* 상시 추정 부제 — 빈상태에서도 유지 (프롬프트 코칭 카드 패턴) */}
+          <p className="mb-3 text-[11px] text-text/45">{fingerprintSubtitle}</p>
+
+          {fingerprint.topSignals.length >= MIN_FINGERPRINT_TOP_SIGNALS ? (
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {fingerprint.topSignals.map((signal) => (
+                <FingerprintSignalRow key={signal.id} signal={signal} isKorean={isKorean} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text/40">{fingerprintEmptyCopy}</p>
+          )}
+
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setFingerprintReceiptsOpen((prev) => !prev)}
+              aria-expanded={fingerprintReceiptsOpen}
+              className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text"
+            >
+              <span>{isKorean ? '세부 수치' : 'Details'}</span>
+              {fingerprintReceiptsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+
+            {fingerprintReceiptsOpen && (
+              <div className="mt-3 space-y-1.5 rounded-xl border border-border/60 bg-bg-hover/40 px-3.5 py-3 text-xs text-text/70">
+                {/* viable 미달 신호도 측정 현황을 그대로 표기 — 숨기지 않음 (반증가능 원칙). 수집 중 빈상태에서도 표시 */}
+                {fingerprint.signals.map((signal) => (
+                  <div key={signal.id}>
+                    <span className="font-medium text-text-bright/85">{fingerprintSignalLabel(signal.id, isKorean)}</span>
+                    <span className="text-text/45"> — </span>
+                    {fingerprintReceiptLine(signal, isKorean)}
+                  </div>
+                ))}
+                <div className="flex items-center gap-1 text-[10px] text-text/40">
+                  <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
+                  <DashboardHoverTooltip
+                    align="left"
+                    description={isKorean
+                      ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+                      : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
+                  >
+                    <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
+                  </DashboardHoverTooltip>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
