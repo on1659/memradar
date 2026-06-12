@@ -1160,7 +1160,9 @@ export function Dashboard({
   const [fingerprintReceiptsOpen, setFingerprintReceiptsOpen] = useState(false)
 
   // 카드 PNG export — busy 는 공용 1개 (동시 클릭 방지 + 캡처 중 텍스트 노드 임시 치환과
-  // 리렌더 경합 창 최소화). 카드 root ref 는 캡처 대상 노드.
+  // 리렌더 경합 창 최소화). 캡처 중에는 3카드 영수증 토글도 무시 — 캡처 도중 패널이
+  // 닫히면 영수증 없는 PNG 가 나오고, finally 복원이 사용자 토글을 덮어쓴다.
+  // 카드 root ref 는 캡처 대상 노드.
   const [cardExportBusy, setCardExportBusy] = useState(false)
   const rhythmCardRef = useRef<HTMLDivElement | null>(null)
   const storyCardRef = useRef<HTMLDivElement | null>(null)
@@ -1728,7 +1730,7 @@ export function Dashboard({
 
           <ReceiptsDisclosure
             open={fingerprintReceiptsOpen}
-            onToggle={() => setFingerprintReceiptsOpen((prev) => !prev)}
+            onToggle={() => { if (cardExportBusy) return; setFingerprintReceiptsOpen((prev) => !prev) }}
             isKorean={isKorean}
             dateBasisTooltip={isKorean
               ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
@@ -1896,7 +1898,7 @@ export function Dashboard({
               </p>
               <ReceiptsDisclosure
                 open={storyReceiptsOpen}
-                onToggle={() => setStoryReceiptsOpen((prev) => !prev)}
+                onToggle={() => { if (cardExportBusy) return; setStoryReceiptsOpen((prev) => !prev) }}
                 isKorean={isKorean}
                 containerClassName="mt-2"
                 dateBasisTooltip={isKorean
@@ -2000,7 +2002,7 @@ export function Dashboard({
 
           <ReceiptsDisclosure
             open={rhythmReceiptsOpen}
-            onToggle={() => setRhythmReceiptsOpen((prev) => !prev)}
+            onToggle={() => { if (cardExportBusy) return; setRhythmReceiptsOpen((prev) => !prev) }}
             isKorean={isKorean}
             spacing="loose"
             dateBasisTooltip={isKorean

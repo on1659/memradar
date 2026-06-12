@@ -69,7 +69,14 @@ export async function exportCardPng(node: HTMLElement, fileName: string): Promis
     const link = document.createElement('a')
     link.href = dataUrl
     link.download = fileName
-    link.click()
+    // 문서에 부착 후 클릭 — 미부착 anchor 의 click() 은 브라우저별 다운로드 동작이
+    // 불안정할 수 있다 (Chromium 외 이식성).
+    document.body.appendChild(link)
+    try {
+      link.click()
+    } finally {
+      link.remove()
+    }
   } finally {
     for (const restore of restores) {
       restore.node.data = restore.original
