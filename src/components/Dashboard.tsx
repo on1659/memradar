@@ -1736,8 +1736,9 @@ export function Dashboard({
               ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
               : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
             trailing={
-              // 빈상태(성립 신호 < 2)에서는 export 버튼 미렌더
-              fingerprint.viableCount >= MIN_FINGERPRINT_TOP_SIGNALS ? (
+              // 빈상태에서는 export 버튼 미렌더 — 카드 본문과 동일 조건 (viableCount 가 2 이상이어도
+              // lift/delta 게이트로 topSignals 가 미달이면 본문은 빈상태라 export 도 함께 숨긴다)
+              fingerprint.topSignals.length >= MIN_FINGERPRINT_TOP_SIGNALS ? (
                 <CardExportButton
                   cardId="fingerprint"
                   busy={cardExportBusy}
