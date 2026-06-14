@@ -239,10 +239,10 @@ body {
   margin-bottom: 2rem;
 }
 
-/* 활동 그리드 3카드 높이 정렬 — 7행 요일 막대 + 캡션 기준 (analytics 카드 관례 참고) */
+/* 활동 그리드 3카드 높이 정렬 — 7행 요일 막대 + 시간대 24바 기준 */
 .dashboard-activity-card-calendar,
 .dashboard-activity-card-weekday,
-.dashboard-activity-card-rhythm {
+.dashboard-activity-card-hour {
   min-height: 16.5rem;
 }
 
@@ -251,12 +251,10 @@ body {
 }
 
 .dashboard-analytics-card-model,
-.dashboard-analytics-card-language {
+.dashboard-analytics-card-language,
+.dashboard-analytics-card-model-intensity,
+.dashboard-analytics-card-authorship {
   min-height: 12.5rem;
-}
-
-.dashboard-analytics-card-hour {
-  min-height: 13.25rem;
 }
 
 .dashboard-analytics-card-words {
@@ -571,22 +569,22 @@ body {
 }
 
 @media (min-width: 768px) {
-  /* 활동 그리드 중간 배치 — 캘린더 전폭(span 2), 요일·리듬 각 1열.
+  /* 활동 그리드 중간 배치 — 캘린더(좁은 1열, 최근 ~3개월 + 스크롤) + 요일 분포, 시간대별은 다음 행 전폭.
      768px 미만은 기본 단일 컬럼 세로 스택. */
   .dashboard-activity-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 260px minmax(0, 1fr);
   }
 
   .dashboard-activity-card-calendar {
-    grid-column: 1 / span 2;
+    grid-column: 1;
   }
 
   .dashboard-activity-card-weekday {
-    grid-column: 1 / span 1;
+    grid-column: 2;
   }
 
-  .dashboard-activity-card-rhythm {
-    grid-column: 2 / span 1;
+  .dashboard-activity-card-hour {
+    grid-column: 1 / span 2;
   }
 
   .dashboard-analytics-grid {
@@ -601,7 +599,14 @@ body {
     grid-column: 2;
   }
 
-  .dashboard-analytics-card-hour,
+  .dashboard-analytics-card-model-intensity {
+    grid-column: 1;
+  }
+
+  .dashboard-analytics-card-authorship {
+    grid-column: 2;
+  }
+
   .dashboard-analytics-card-words {
     grid-column: 1 / span 2;
   }
@@ -638,40 +643,31 @@ body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  /* 활동 그리드 — 활동 캘린더(span 2) · 요일 분포(1) · 코딩 리듬(1) 4열 배치.
-     "정보 하나당 칸 하나" 원칙 (2026-06-14 사용자 재결정, W1 통합의 부분 되돌림). */
+  /* 활동 그리드 — 활동 캘린더(좁은 고정폭, 최근 ~3개월 + 가로 스크롤) · 요일 분포 · 시간대별 활동.
+     "정보 하나당 칸 하나" 원칙 (코딩 리듬 인사이트 카드 폐지, 2026-06-14 재편).
+     캘린더는 1칸으로 압축 — 폭을 좁혀(280px) 최근 약 3개월만 노출되고 그 이전은 드래그/스크롤. */
   .dashboard-activity-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 280px minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .dashboard-activity-card-calendar {
-    grid-column: 1 / span 2;
+    grid-column: 1;
   }
 
   .dashboard-activity-card-weekday {
-    grid-column: 3 / span 1;
+    grid-column: 2;
   }
 
-  .dashboard-activity-card-rhythm {
-    grid-column: 4 / span 1;
+  .dashboard-activity-card-hour {
+    grid-column: 3;
   }
 
   .dashboard-analytics-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .dashboard-analytics-card-model {
-    grid-column: 1;
-  }
-
-  .dashboard-analytics-card-language {
-    grid-column: 2;
-  }
-
-  .dashboard-analytics-card-hour {
-    grid-column: 3 / span 2;
-  }
-
+  /* 분석 1행 — 스킬 · 세션 길이 · 자주 쓴 단어(span 2). DOM 순서가 먼저라 1행에 배치됨
+     (2026-06-14 사용자 요청으로 'AI 사용' 행과 상하 교체) */
   .dashboard-analytics-card-skills {
     grid-column: 1 / span 1;
   }
@@ -682,6 +678,23 @@ body {
 
   .dashboard-analytics-card-words {
     grid-column: 3 / span 2;
+  }
+
+  /* 분석 2행 — 모델 · 언어 · 모델별 강도 · 나vsAI 각 1칸 */
+  .dashboard-analytics-card-model {
+    grid-column: 1;
+  }
+
+  .dashboard-analytics-card-language {
+    grid-column: 2;
+  }
+
+  .dashboard-analytics-card-model-intensity {
+    grid-column: 3;
+  }
+
+  .dashboard-analytics-card-authorship {
+    grid-column: 4;
   }
 
   .dashboard-growth-grid {

@@ -2,7 +2,7 @@
 
 ## One-line Goal
 
-Replace the dashboard's two dead zones (4 overlapping activity cards, peak-token-day trivia card) with three lift-based "AI collaboration fingerprint" cards plus a shared receipts/PNG-export pattern, per the approved design doc.
+Replace the dashboard's two dead zones (4 overlapping activity cards, peak-token-day trivia card) with three lift-based "AI collaboration fingerprint" cards plus a shared receipts pattern, per the approved design doc. (2026-06-14 재편: PNG export 패턴은 제거됨 — W4 절 노트 참조.)
 
 ## Background / Motivation
 
@@ -41,8 +41,10 @@ Work items W1–W4 below are sequential implementation units. Each W is expected
 
 ### W4 — Receipts pattern + per-card PNG export
 
+> **2026-06-14 재편으로 PNG export 제거됨.** 카드 단독 PNG export(`src/lib/cardImageExport.ts` + `CardExportButton`)는 전면 삭제됐다 — `html-to-image`/`toPng` 는 `ShareSlide.tsx` 단독으로만 쓴다. 영수증(receipts) 접힘 패턴은 그날 이야기·AI 협업 지문 카드에 유지된다(코딩 리듬 인사이트 카드는 함께 폐지). 아래 항목 중 PNG/마스킹 가드 부분은 폐기된 설계로 읽을 것.
+
 - Shared pattern for the three new cards: claim sentence with inline measured numbers (ratios always with `n=` denominator), detail numbers collapsed (receipts).
-- Per-card single-PNG export button reusing the existing `html-to-image` path (`ShareSlide` `toPng`). Render through secret masking before capture (`maskSecrets` order per existing Dashboard pattern). Note: new cards display only aggregate numbers and dictionary words — never raw prompt text — so the masking surface stays zero; the masking pass on export is defense-in-depth.
+- ~~Per-card single-PNG export button reusing the existing `html-to-image` path (`ShareSlide` `toPng`). Render through secret masking before capture.~~ (2026-06-14 제거)
 
 ## Execution Notes
 
@@ -80,7 +82,7 @@ Each W runs the project's harness pipeline (triage → Scout → Coder → Revie
 - [ ] Codex-only fixture: no card collapses to zero/garbage (source-aware exclusions verified).
 - [ ] Minimum-sample guards: low-data fixtures hit each empty state ("rhythm label hidden", "story collecting", "fingerprint collecting").
 - [ ] All thresholds/weights are named consts annotated as provisional (`// 잠정값` convention per `docs/AI-ROLE-SCORING-REDESIGN.md` §2).
-- [ ] Per-card PNG export works for the three new cards; export path applies secret masking before render.
+- [x] ~~Per-card PNG export works for the three new cards; export path applies secret masking before render.~~ (2026-06-14 재편으로 PNG export 전면 제거 — AC 폐기)
 - [ ] No network calls, no `@anthropic-ai/sdk` import; all new logic is pure functions under `src/lib/` or `src/parser.ts` following existing patterns.
 - [ ] Existing `Stats` field signatures unchanged (additive only); `src/components/wrapped/` untouched; slide count stays 8.
 - [ ] `npm run test:harness` fully green, including new unit tests for `toLocalDayKey`, narrative score (combination + renormalization + guards), fingerprint lifts, and plan-request marker matching.

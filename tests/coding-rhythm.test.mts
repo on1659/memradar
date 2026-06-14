@@ -6,8 +6,8 @@
  * 실행: npx tsx tests/coding-rhythm.test.mts
  * 종료 코드: 모두 통과 → 0, 하나라도 실패 → 1
  *
- * 범위: toLocalDayKey, collectUserTimestamps, buildCodingRhythm
- * (docs/design/kim-feat-eval-sharpness-design-20260612-013324.md 카드 1 + 공통 데이터 정책)
+ * 범위: toLocalDayKey, collectUserTimestamps, buildCodingRhythm(집계)
+ * 라벨/2순위 판정은 2026-06-14 대시보드 재편으로 제거됨 (코딩 리듬 인사이트 카드 폐지).
  *
  * TZ 비의존: 모든 어설션은 offsetMinutes 주입 경로(KST=540 등)로 작성 —
  * 머신 타임존이 무엇이든 같은 결과가 나온다. 오프셋 미지정 동작은
@@ -18,13 +18,6 @@ import { toLocalDayKey } from '../src/parser.ts'
 import {
   buildCodingRhythm,
   collectUserTimestamps,
-  MIN_ACTIVE_DAYS_FOR_RHYTHM,
-  MIN_LABEL_LIFT,
-  NIGHT_BAND_HOURS,
-  RHYTHM_FACET,
-  RHYTHM_LIFT_CAP,
-  selectSecondarySignal,
-  type RhythmSignal,
 } from '../src/lib/codingRhythm.ts'
 import type { ParsedMessage, Session } from '../src/types.ts'
 
@@ -56,7 +49,7 @@ function kst(day: string, hour: number, minute = 0): Date {
   return new Date(`${day}T${hh}:${mm}:00+09:00`)
 }
 
-/** 지정한 KST 날짜들에 하루 perDay 개씩, 지정한 KST 시각들로 타임스탬프 생성 */
+/** 지정한 KST 날짜들에 지정한 KST 시각들로 타임스탬프 생성 */
 function persona(days: string[], hours: number[]): Date[] {
   const out: Date[] = []
   for (const day of days) {
@@ -185,211 +178,40 @@ test('요일 분포 — 주말 페르소나는 토/일에만, share 합 1', () =
   assert.ok(Math.abs(shareSum - 1) < 1e-9)
 })
 
-test('시간대 밴드 share — 심야 페르소나는 night=1', () => {
+test('시간대 밴드 share — 심야 페르소나는 night=1, early=0', () => {
   const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [23]), { offsetMinutes: KST })
   assert.strictEqual(rhythm.hourBandShares.night, 1)
   assert.strictEqual(rhythm.hourBandShares.early, 0)
 })
 
-test('타임스탬프 0건 — 크래시 없이 빈 결과 + label null', () => {
+test('시간대 밴드 share — 아침 페르소나는 early>0, office 일부 포함(09시)', () => {
+  // 05~09시 매일 → early share 1, office(09~18) 는 09시만 → 1/4
+  const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [6, 7, 8, 9]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.hourBandShares.early, 1)
+  assert.ok(Math.abs(rhythm.hourBandShares.office - 1 / 4) < 1e-9, `office=${rhythm.hourBandShares.office}`)
+})
+
+test('타임스탬프 0건 — 크래시 없이 빈 결과', () => {
   const rhythm = buildCodingRhythm([], { offsetMinutes: KST })
   assert.strictEqual(rhythm.totalMessages, 0)
   assert.strictEqual(rhythm.activeDayCount, 0)
+  assert.strictEqual(rhythm.observedDayCount, 0)
   assert.strictEqual(rhythm.densityRatio, 0)
-  assert.strictEqual(rhythm.label, null)
-  assert.strictEqual(rhythm.labelEvidence, null)
+  assert.strictEqual(rhythm.longestStreak, 0)
+  assert.strictEqual(rhythm.hourBandShares.night, 0)
+  assert.deepStrictEqual(rhythm.localDailyCounts, {})
+  assert.strictEqual(rhythm.weekdayDistribution.length, 7)
+  for (const entry of rhythm.weekdayDistribution) {
+    assert.strictEqual(entry.count, 0)
+    assert.strictEqual(entry.share, 0)
+  }
 })
 
-// === buildCodingRhythm — 라벨 판정 ==========================================
-console.log('\n[buildCodingRhythm 라벨]')
-
-test('라벨 다양성 — 심야 페르소나와 주말 페르소나는 서로 다른 라벨', () => {
-  // 심야: 주중 10일, 매일 23시대 3건 → night lift = 1 / (5/24) = 4.8
-  const night = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [23, 23, 23]), { offsetMinutes: KST })
-  // 주말: 토/일 8일, 낮 시간대 3건 → 주중 일평균 0 → weekend lift 캡
-  const weekend = buildCodingRhythm(persona(JUNE_WEEKENDS_8, [13, 14, 15]), { offsetMinutes: KST })
-
-  assert.strictEqual(night.label, 'night-surge')
-  assert.strictEqual(weekend.label, 'weekend-builder')
-  assert.notStrictEqual(night.label, weekend.label)
-})
-
-test('night-surge evidence — lift 4.8, share 1, n=메시지 수', () => {
-  const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [23, 23, 23]), { offsetMinutes: KST })
-  assert.ok(rhythm.labelEvidence)
-  assert.ok(Math.abs(rhythm.labelEvidence.lift - 24 / NIGHT_BAND_HOURS.size) < 1e-9, `lift=${rhythm.labelEvidence.lift}`)
-  assert.strictEqual(rhythm.labelEvidence.share, 1)
-  assert.strictEqual(rhythm.labelEvidence.n, 30)
-})
-
-test('weekend-builder 분모 0 — lift 가 캡 값으로 가드', () => {
-  const rhythm = buildCodingRhythm(persona(JUNE_WEEKENDS_8, [13, 14, 15]), { offsetMinutes: KST })
-  assert.ok(rhythm.labelEvidence)
-  assert.strictEqual(rhythm.labelEvidence.lift, RHYTHM_LIFT_CAP)
-})
-
-test('빈상태 가드 — 활동일 6일이면 label null, 수치 필드는 정상', () => {
-  const sixDays = JUNE_WEEKDAYS_10.slice(0, 6)
-  const rhythm = buildCodingRhythm(persona(sixDays, [23, 23, 23]), { offsetMinutes: KST })
-  assert.ok(rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM)
-  assert.strictEqual(rhythm.label, null)
-  assert.strictEqual(rhythm.labelEvidence, null)
-  // 라벨만 미표시 — 캘린더/영수증 수치는 그대로 산출돼야 한다
-  assert.strictEqual(rhythm.activeDayCount, 6)
-  assert.strictEqual(rhythm.totalMessages, 18)
-  assert.strictEqual(rhythm.hourBandShares.night, 1)
-  assert.ok(rhythm.longestStreak > 0)
-})
-
-test('약신호 하한 — 모든 신호가 MIN_LABEL_LIFT 미만이면 중립 라벨 대신 null', () => {
-  // 균등에 가까운 분포: 주중 8일 + 주말 3일 활동, 시간대 10/15/19/21시 분산.
-  // night·early 0, 주말 lift ≈1.13, 평일정시 lift ≈1.22(주말 lift 초과로 ineligible),
-  // 밀도 11/20=0.55 → steady lift 1.375, burst 는 밀도 상한 초과로 ineligible → 최대 1.375 < 1.5
-  const days = [
-    '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04',
-    '2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11',
-    '2026-06-06', '2026-06-07', '2026-06-20',
-  ]
-  const rhythm = buildCodingRhythm(persona(days, [10, 15, 19, 21]), { offsetMinutes: KST })
-  assert.ok(rhythm.activeDayCount >= MIN_ACTIVE_DAYS_FOR_RHYTHM, '전제: 활동일 가드는 통과해야 함')
-  assert.strictEqual(rhythm.label, null, `약신호인데 라벨이 붙음: ${rhythm.label}`)
-  assert.ok(MIN_LABEL_LIFT > 1, '하한은 기준선(1.0)보다 커야 의미가 있다')
-})
-
-test('early-bird — 주중 05~09시 페르소나', () => {
-  // early share 1 → lift 24/5 = 4.8. office 밴드(09~)는 6~8시 미포함 → weekday-steady 0
-  const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [6, 7, 8]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'early-bird')
-})
-
-test('weekday-steady — 주중 업무시간 페르소나 (주말 lift 0 으로 자격 충족)', () => {
-  // weekdayOfficeShare 1 / ((5/7)·(10/24)) ≈ 3.36 — night·early 0, 주말 lift 0 ≤ 상한
-  const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [10, 14, 16]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'weekday-steady')
-})
-
-test('burst-sprinter — 저밀도 + 상위 활동일 집중 (cv 높아 daily-steady 자격 탈락)', () => {
-  // 주중 8일 1건씩 + 06-01에 12건 추가 → 활동 8/관측 19 = 밀도 0.42 < 0.5,
-  // 상위 2일(=ceil(8×0.2)) 점유 14/20 = 0.7 → lift 3.5. 시각 19~20시는 어느 밴드에도 미포함
-  const sparseDays = ['2026-06-01', '2026-06-03', '2026-06-05', '2026-06-09', '2026-06-11', '2026-06-15', '2026-06-17', '2026-06-19']
-  const timestamps = sparseDays.map((day) => kst(day, 20, 30))
-  for (let i = 0; i < 12; i++) timestamps.push(kst('2026-06-01', 19, i))
-  const rhythm = buildCodingRhythm(timestamps, { offsetMinutes: KST })
-  assert.strictEqual(rhythm.densityRatio, 8 / 19)
-  assert.strictEqual(rhythm.label, 'burst-sprinter')
-  assert.ok(rhythm.labelEvidence)
-  assert.ok(Math.abs(rhythm.labelEvidence.share - 0.7) < 1e-9, `topShare=${rhythm.labelEvidence.share}`)
-})
-
-test('daily-steady — 매일 균일 활동 (주말 lift 1.0 으로 weekday-steady 자격 탈락)', () => {
-  // 06-01~14 매일 1건, 20시(밴드 밖) → 밀도 1.0/0.4 = 2.5, cv 0.
-  // 주말 일평균 = 주중 일평균 → weekend lift 1.0 > 0.8 → weekday-steady ineligible
-  const everyDay = Array.from({ length: 14 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`)
-  const rhythm = buildCodingRhythm(persona(everyDay, [20]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'daily-steady')
-  assert.ok(rhythm.labelEvidence)
-  assert.strictEqual(rhythm.labelEvidence.share, 1) // densityRatio raw 0~1
-})
-
-// === buildCodingRhythm — 2순위 라벨 판정 (가산) =============================
-console.log('\n[buildCodingRhythm 2순위]')
-
-// 06-01~14 매일 23시대 3건: night share 1 → 1순위 night-surge(time, lift 4.8),
-// 밀도 1.0/0.4=2.5 → daily-steady(density) 가 다른 축 최대 → 2순위.
-const EVERY_DAY_14 = Array.from({ length: 14 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`)
-
-test('2순위는 1순위와 다른 축에서 선택 — 심야(time) 1순위 + 꾸준(density) 2순위', () => {
-  const rhythm = buildCodingRhythm(persona(EVERY_DAY_14, [23, 23, 23]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'night-surge')
-  assert.strictEqual(RHYTHM_FACET[rhythm.label!], 'time')
-  assert.strictEqual(rhythm.secondaryLabel, 'daily-steady')
-  assert.strictEqual(RHYTHM_FACET[rhythm.secondaryLabel!], 'density')
-  assert.notStrictEqual(RHYTHM_FACET[rhythm.label!], RHYTHM_FACET[rhythm.secondaryLabel!])
-  assert.ok(rhythm.secondaryEvidence)
-  assert.ok(rhythm.secondaryEvidence.lift >= MIN_LABEL_LIFT, '2순위도 게이트 통과')
-})
-
-test('2순위는 1순위와 같은 축 신호를 뽑지 않는다 — early-bird(time) 가 2순위로 안 옴', () => {
-  // night 1순위인데 같은 time 축의 early-bird 는 2순위 후보에서 배제돼야 한다.
-  const rhythm = buildCodingRhythm(persona(EVERY_DAY_14, [23, 23, 23]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'night-surge')
-  assert.ok(rhythm.secondaryLabel !== null, '전제: 2순위가 존재해야 의미 있는 검증')
-  assert.notStrictEqual(RHYTHM_FACET[rhythm.secondaryLabel!], 'time', '2순위가 1순위와 같은 time 축')
-})
-
-test('2순위 게이트 — 다른 축 신호가 모두 MIN_LABEL_LIFT 미만이면 secondaryLabel null', () => {
-  // 주중 10일 매일 23시대 3건: night 1순위(lift 4.8, time).
-  // weekday 축: weekend lift 0(주말활동 0) < 1.5, weekday-steady 는 23시라 office 밴드 밖 → lift 0.
-  // density 축: 밀도 10/12≈0.83 → steady lift 2.08 ≥ 1.5 → 실제론 2순위 daily-steady 가 잡힌다.
-  // 따라서 게이트 null 검증은 다른 축이 전부 약한 별도 페르소나로:
-  // 주중 8일 매일 06~08시(early) 3건 → early-bird 1순위(time).
-  //   weekday 축: weekday-steady office 밴드 밖(06~08) lift 0, weekend 0 → 약함.
-  //   density 축: 밀도 8/8=1.0 → steady lift 2.5 ≥ 1.5 → 또 잡힘.
-  // density 까지 약하게 만들려면 관측 구간을 늘려 밀도를 낮춘다: 06-01~06-19 중 8일만 활동.
-  const sparseEarly = ['2026-06-01', '2026-06-03', '2026-06-05', '2026-06-08', '2026-06-10', '2026-06-12', '2026-06-15', '2026-06-17']
-  const rhythm = buildCodingRhythm(persona(sparseEarly, [6, 7, 8]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, 'early-bird', '전제: 1순위는 early-bird')
-  // 밀도 8/17≈0.47 → steady lift ≈1.18 < 1.5, weekend/weekday-steady 약함 → 2순위 게이트 컷
-  assert.strictEqual(rhythm.secondaryLabel, null, `약한 다른-축 신호인데 2순위가 붙음: ${rhythm.secondaryLabel}`)
-  assert.strictEqual(rhythm.secondaryEvidence, null)
-})
-
-test('1순위가 null이면 2순위도 null', () => {
-  // 활동일 6일(가드 미달) → label null → secondaryLabel 도 null
-  const sixDays = JUNE_WEEKDAYS_10.slice(0, 6)
-  const rhythm = buildCodingRhythm(persona(sixDays, [23, 23, 23]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, null)
-  assert.strictEqual(rhythm.secondaryLabel, null)
-  assert.strictEqual(rhythm.secondaryEvidence, null)
-})
-
-test('약신호 1순위 null 케이스도 2순위 null — 모든 신호 약하면 둘 다 null', () => {
-  const days = [
-    '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04',
-    '2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11',
-    '2026-06-06', '2026-06-07', '2026-06-20',
-  ]
-  const rhythm = buildCodingRhythm(persona(days, [10, 15, 19, 21]), { offsetMinutes: KST })
-  assert.strictEqual(rhythm.label, null)
-  assert.strictEqual(rhythm.secondaryLabel, null)
-})
-
-test('2순위 동률 결정성 — signals 배열 순서가 빠른 축이 이긴다(같은 입력 반복 안정)', () => {
-  // 결정성: 같은 입력으로 두 번 빌드하면 2순위가 동일해야 한다.
-  const ts = persona(JUNE_WEEKENDS_8, [23, 23, 23])
-  const a = buildCodingRhythm(ts, { offsetMinutes: KST })
-  const b = buildCodingRhythm(ts, { offsetMinutes: KST })
-  assert.strictEqual(a.secondaryLabel, b.secondaryLabel)
-  assert.deepStrictEqual(a.secondaryEvidence, b.secondaryEvidence)
-})
-
-test('2순위 동률 경계 — lift 정확히 동일하면 signals 배열 앞 항목이 이긴다(`>` vs `>=` 구분)', () => {
-  // 합성 신호: 1순위 축(time) 제외 후, 요일축·밀도축 후보가 lift 정확히 1.8 동률.
-  // 배열 앞(weekday-steady)이 선택돼야 한다 — `>=` 로 회귀하면 daily-steady 가 이겨 실패.
-  const sig = (id: RhythmSignal['id'], lift: number): RhythmSignal => ({
-    id, lift, eligible: true, evidence: { lift, share: 0, n: 100 },
-  })
-  const signals = [
-    sig('night-surge', 2.0),       // primaryFacet(time) — 제외 대상
-    sig('weekday-steady', 1.8),    // 후보 A (배열 앞, weekday 축)
-    sig('daily-steady', 1.8),      // 후보 B (배열 뒤, density 축, 동일 lift)
-  ]
-  assert.strictEqual(selectSecondarySignal(signals, 'time')?.id, 'weekday-steady')
-})
-
-test('2순위 헬퍼 — 다른 축 최대 lift 선택 + MIN_LABEL_LIFT 게이트 + 동축 제외', () => {
-  const sig = (id: RhythmSignal['id'], lift: number, eligible = true): RhythmSignal => ({
-    id, lift, eligible, evidence: { lift, share: 0, n: 100 },
-  })
-  // primaryFacet=time: early-bird(같은 축) 무시, weekend-builder(2.4) > daily-steady(1.6) 선택
-  assert.strictEqual(
-    selectSecondarySignal([sig('early-bird', 9), sig('weekend-builder', 2.4), sig('daily-steady', 1.6)], 'time')?.id,
-    'weekend-builder',
-  )
-  // 다른 축이 전부 게이트 미만이면 null
-  assert.strictEqual(selectSecondarySignal([sig('weekend-builder', MIN_LABEL_LIFT - 0.01), sig('daily-steady', 1.0)], 'time'), null)
-  // eligible=false 는 제외
-  assert.strictEqual(selectSecondarySignal([sig('weekend-builder', 3.0, false), sig('daily-steady', 1.7)], 'time')?.id, 'daily-steady')
+test('totalMessages = 입력 타임스탬프 수, localDailyCounts 합과 일치', () => {
+  const rhythm = buildCodingRhythm(persona(JUNE_WEEKDAYS_10, [10, 14]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.totalMessages, 20)
+  const dailySum = Object.values(rhythm.localDailyCounts).reduce((s, v) => s + v, 0)
+  assert.strictEqual(dailySum, rhythm.totalMessages)
 })
 
 // === 결과 보고 =============================================================

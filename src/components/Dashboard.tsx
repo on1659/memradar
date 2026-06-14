@@ -1,6 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
-import { flushSync } from 'react-dom'
+import type { ReactNode } from 'react'
 import {
   ArrowLeftRight,
   BarChart3,
@@ -9,7 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleHelp,
-  Download,
+  Cpu,
   Fingerprint,
   Lightbulb,
   LineChart,
@@ -18,6 +17,7 @@ import {
   SlidersHorizontal,
   Timer,
   TrendingUp,
+  Users,
 } from 'lucide-react'
 import { PERSONALITY_ICONS, ROLE_ICONS, ToolDefaultIcon, type RoleIconKey } from '../icons'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -28,12 +28,7 @@ import { computePersonality } from '../lib/personality'
 import { analyzeUsageTopCategories, USAGE_CATEGORIES, type UsageCategoryScore } from '../lib/usageProfile'
 import {
   buildCodingRhythm,
-  BURST_TOP_DAY_FRACTION,
   collectUserTimestamps,
-  MIN_ACTIVE_DAYS_FOR_RHYTHM,
-  RHYTHM_LIFT_CAP,
-  type RhythmLabelEvidence,
-  type RhythmLabelId,
 } from '../lib/codingRhythm'
 import {
   buildDailyCollab,
@@ -57,7 +52,8 @@ import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { maskSecrets } from '../lib/secretMask'
-import { exportCardPng } from '../lib/cardImageExport'
+import { buildModelIntensity, type ModelIntensity } from '../lib/modelIntensity'
+import { buildAuthorshipRatio } from '../lib/authorshipRatio'
 import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { GrowthCoaching } from './growth/GrowthCoaching'
 import { GrowthComplexity } from './growth/GrowthComplexity'
@@ -549,17 +545,15 @@ function DashboardHoverTooltip({
 }
 
 /**
- * 영수증(receipts) 접힘 패턴 — 신규 카드 3장(코딩 리듬·그날 이야기·AI 협업 지문) 공통.
+ * 영수증(receipts) 접힘 패턴 — 그날 이야기·AI 협업 지문 카드 공통.
  * "세부 수치"/"Details" 토글 pill + 접힘 패널 + "일 단위는 로컬 날짜 기준" 푸터를 렌더한다.
  *
- * - controlled: open 상태는 Dashboard 가 유지한다 — PNG export 시 영수증 강제 펼침
- *   (flushSync) 후 원복해야 하므로 내부 상태로 가둘 수 없다.
+ * - controlled: open 상태는 Dashboard 가 유지한다 (카드별 단일 토글).
  * - spacing: 'tight' = space-y-1.5 + text-xs text-text/70 (이야기·지문 텍스트 행),
- *   'loose' = space-y-3 (리듬 — 요일 분포 블록 리듬).
+ *   'loose' = space-y-3.
  * - dateBasisTooltip: 푸터 CircleHelp 툴팁 문구만 카드별로 상이 — 주입식.
- * - leading/trailing: 토글 pill 과 같은 행에 놓일 액션 슬롯 (이야기 카드의 "이날 세션
- *   보기" 점프 버튼 = leading, PNG export 버튼 = trailing). 마크업 공통화를 위한
- *   최소 확장이며 기존 문구/className/aria-expanded 계약은 그대로 보존한다.
+ * - leading: 토글 pill 과 같은 행에 놓일 액션 슬롯 (이야기 카드의 "이날 세션 보기" 점프 버튼).
+ *   마크업 공통화를 위한 최소 확장이며 기존 문구/className/aria-expanded 계약은 보존한다.
  * - DashboardHoverTooltip 의존 때문에 같은 파일 내 추출 (기존 헬퍼 관례).
  */
 function ReceiptsDisclosure({
@@ -570,7 +564,6 @@ function ReceiptsDisclosure({
   dateBasisTooltip,
   containerClassName = 'mt-3',
   leading,
-  trailing,
   children,
 }: {
   open: boolean
@@ -580,7 +573,6 @@ function ReceiptsDisclosure({
   dateBasisTooltip: string
   containerClassName?: string
   leading?: ReactNode
-  trailing?: ReactNode
   children: ReactNode
 }) {
   const panelClassName = spacing === 'tight'
@@ -589,9 +581,7 @@ function ReceiptsDisclosure({
 
   return (
     <div className={containerClassName}>
-      {/* 액션 행 전체를 PNG 캡처에서 제외 — leading(세션 점프)·토글 pill·trailing(export 버튼)
-          모두 인터랙티브 컨트롤이라 정적 공유 이미지에 의미가 없다 (DESIGN-GUIDE §8.5). */}
-      <div className="flex flex-wrap items-center gap-2" data-export-exclude="true">
+      <div className="flex flex-wrap items-center gap-2">
         {leading}
         <button
           type="button"
@@ -602,7 +592,6 @@ function ReceiptsDisclosure({
           <span>{isKorean ? '세부 수치' : 'Details'}</span>
           {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
-        {trailing}
       </div>
 
       {open && (
@@ -617,38 +606,6 @@ function ReceiptsDisclosure({
         </div>
       )}
     </div>
-  )
-}
-
-/**
- * 카드 단독 PNG export 버튼 — 중립 pill ("세부 수치" 토글과 동일 톤).
- * data-export-exclude 로 캡처 산출물에서 자기 자신을 제외한다 (cardImageExport filter).
- * 빈상태 카드에서는 호출부가 렌더하지 않는다 — 의미 없는 빈 캡처 방지.
- */
-function CardExportButton({
-  cardId,
-  onClick,
-  busy,
-  isKorean,
-}: {
-  cardId: 'rhythm' | 'story' | 'fingerprint' | 'activity-calendar' | 'weekday'
-  onClick: () => void
-  busy: boolean
-  isKorean: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      data-export-exclude="true"
-      data-card-export={cardId}
-      aria-label={isKorean ? 'PNG로 저장' : 'Save as PNG'}
-      className="flex items-center gap-1.5 rounded-full border border-border/40 bg-bg px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-border hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <Download className="h-3 w-3" aria-hidden="true" />
-      <span>PNG</span>
-    </button>
   )
 }
 
@@ -756,95 +713,8 @@ function DashboardAxisBar({
 }
 
 /**
- * 코딩 리듬 한 줄 서사 — evidence 의 실측 수치(lift 배수·비율·n=)만 삽입.
- * hedged 어조 필수("~형으로 보여요"), 단정("당신은 ~다") 금지 (설계 문서 단정 판정 금지 제약).
- * 사용자 프롬프트 원문 인용 금지 — 라벨 사전 단어 + 수치만 (GrowthCoaching insightCopy 패턴).
- */
-function rhythmNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean: boolean): string {
-  const lift = ev.lift >= RHYTHM_LIFT_CAP ? null : ev.lift.toFixed(1)
-  const pct = Math.round(ev.share * 100)
-  switch (label) {
-    case 'night-surge':
-      return isKorean
-        ? `심야형으로 보여요 — 22~02시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
-        : `Looks like a night-surge pattern — 22:00–02:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'early-bird':
-      return isKorean
-        ? `아침형으로 보여요 — 05~09시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
-        : `Looks like an early-bird pattern — 05:00–09:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'weekend-builder':
-      return lift === null
-        ? isKorean
-          ? `주말 빌더형으로 보여요 — 메시지의 ${pct}%가 주말에 몰려 있고 주중 활동은 거의 없어요 (관측 ${ev.n}일)`
-          : `Looks like a weekend-builder pattern — ${pct}% of messages land on weekends with almost no weekday activity (${ev.n} days observed)`
-        : isKorean
-          ? `주말 빌더형으로 보여요 — 주말 하루 평균이 주중의 ${lift}배예요 (관측 ${ev.n}일)`
-          : `Looks like a weekend-builder pattern — weekend daily average runs ${lift}x your weekday average (${ev.n} days observed)`
-    case 'weekday-steady':
-      return isKorean
-        ? `평일 정시형으로 보여요 — 주중 09~18시 메시지가 균등 기대치의 ${lift}배예요 (전체의 ${pct}%, n=${ev.n})`
-        : `Looks like a weekday 9-to-6 pattern — weekday 09:00–18:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'burst-sprinter': {
-      // 잠정값 상수에서 도출 — "상위 20%" 하드코딩 시 BURST_TOP_DAY_FRACTION 변경에 카피가 드리프트
-      const topPct = Math.round(BURST_TOP_DAY_FRACTION * 100)
-      return isKorean
-        ? `몰아치기형으로 보여요 — 상위 ${topPct}% 활동일에 메시지의 ${pct}%가 몰려 있어요 (활동 ${ev.n}일)`
-        : `Looks like a burst-sprinter pattern — the top ${topPct}% of active days hold ${pct}% of your messages (${ev.n} active days)`
-    }
-    case 'daily-steady':
-      return isKorean
-        ? `꾸준형으로 보여요 — 관측일의 ${pct}%에 활동이 있고 일별 편차도 낮아요 (관측 ${ev.n}일)`
-        : `Looks like a daily-steady pattern — activity on ${pct}% of observed days with low day-to-day variance (${ev.n} days observed)`
-  }
-}
-
-/**
- * 코딩 리듬 2순위 — 1순위와 *다른 축*의 부가 경향 한 줄. evidence 의 실측 수치(lift 배수·비율·n=)만 삽입.
- * 1순위 rhythmNarrative 와 어조를 의도적으로 분리한다: 두 개의 "~형으로 보여요" 단정은 바넘 위반
- * (lessons/personality-eval.md L-1 — 정체성 단정 중첩 금지). 여기는 "~경향이 함께 보여요" 부가 어휘만 쓴다
- * (fingerprintNarrative 의 패턴/경향 어휘 선례 — 카드 모듈 주석 참조). 단정 0건, 추상 형용사 0건.
- */
-function rhythmSecondaryNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean: boolean): string {
-  const lift = ev.lift >= RHYTHM_LIFT_CAP ? null : ev.lift.toFixed(1)
-  const pct = Math.round(ev.share * 100)
-  switch (label) {
-    case 'night-surge':
-      return isKorean
-        ? `심야(22~02시)에도 메시지가 균등 기대치의 ${lift}배로 몰리는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
-        : `Also leans late-night — 22:00–02:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'early-bird':
-      return isKorean
-        ? `아침(05~09시)에도 메시지가 균등 기대치의 ${lift}배로 몰리는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
-        : `Also leans early-morning — 05:00–09:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'weekend-builder':
-      return lift === null
-        ? isKorean
-          ? `메시지의 ${pct}%가 주말에 몰리고 주중 활동은 거의 없는 경향도 함께 보여요 (관측 ${ev.n}일)`
-          : `Also clusters on weekends — ${pct}% of messages land on weekends with almost no weekday activity (${ev.n} days observed)`
-        : isKorean
-          ? `주말 하루 평균이 주중의 ${lift}배로 더 모이는 경향이 함께 보여요 (관측 ${ev.n}일)`
-          : `Also leans toward weekends — weekend daily average runs ${lift}x your weekday average (${ev.n} days observed)`
-    case 'weekday-steady':
-      return isKorean
-        ? `주중 09~18시에 메시지가 균등 기대치의 ${lift}배로 모이는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
-        : `Also leans toward weekday daytime — 09:00–18:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
-    case 'burst-sprinter': {
-      // 잠정값 상수에서 도출 — "상위 20%" 하드코딩 시 BURST_TOP_DAY_FRACTION 변경에 카피가 드리프트
-      const topPct = Math.round(BURST_TOP_DAY_FRACTION * 100)
-      return isKorean
-        ? `상위 ${topPct}% 활동일에 메시지의 ${pct}%가 몰리는 경향도 함께 보여요 (활동 ${ev.n}일)`
-        : `Also tends to bunch up — the top ${topPct}% of active days hold ${pct}% of your messages (${ev.n} active days)`
-    }
-    case 'daily-steady':
-      return isKorean
-        ? `관측일의 ${pct}%에 활동이 이어지고 일별 편차가 낮은 경향도 함께 보여요 (관측 ${ev.n}일)`
-        : `Also leans steady — activity on ${pct}% of observed days with low day-to-day variance (${ev.n} days observed)`
-  }
-}
-
-/**
  * 그날 이야기 패턴 요약 1문장 — dominantTerm 별 분기, receipts 실측 수치만 삽입.
- * hedged 어조 필수("~로 보여요"), 단정 금지. 원문 인용 금지 — 수치 + 사전 단어만 (rhythmNarrative 패턴).
+ * hedged 어조 필수("~로 보여요"), 단정 금지. 원문 인용 금지 — 수치 + 사전 단어만.
  */
 function storyNarrative(story: StoryOfDay, isKorean: boolean): string {
   const r = story.receipts
@@ -1142,6 +1012,47 @@ function LanguageBar({ languages }: { languages: LanguageScore[] }) {
   )
 }
 
+/**
+ * 모델별 사용 강도 — 모델별 가로 막대 리스트 (InteractiveRoleDonutChart 막대 패턴 차용).
+ * 막대 길이 = 평균 토큰(최댓값 정규화). 라벨 옆에 평균 user 턴/토큰 사실 수치만 표기 — 단정 아님.
+ * 빈입력 가드는 호출부(빈상태). 모델 raw 이름은 shortModelName 으로 단축 (집계는 modelIntensity.ts).
+ */
+function ModelIntensityBars({ models, isKorean }: { models: ModelIntensity[]; isKorean: boolean }) {
+  const maxAvgTokens = Math.max(...models.map((m) => m.avgTokens), 1)
+
+  return (
+    <div className="w-full space-y-2.5">
+      {models.map((model, index) => {
+        const barPct = Math.max(4, Math.round((model.avgTokens / maxAvgTokens) * 100))
+        const turnsLabel = isKorean
+          ? `평균 ${model.avgUserTurns.toFixed(1)}턴`
+          : `${model.avgUserTurns.toFixed(1)} turns`
+        const tokensLabel = `${formatTokens(Math.round(model.avgTokens))}`
+        return (
+          <div key={model.model} className="flex items-center gap-3">
+            <div className="w-24 shrink-0">
+              <span className="block truncate text-xs font-bold text-text-bright">{shortModelName(model.model)}</span>
+              <span className="block text-[10px] text-text/40">
+                {isKorean ? `세션 ${model.sessionCount}개` : `${model.sessionCount} sessions`}
+              </span>
+            </div>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-500"
+                style={{ width: `${barPct}%`, opacity: index === 0 ? 0.85 : 0.6 }}
+              />
+            </div>
+            <div className="w-24 shrink-0 text-right text-[10px] text-text/45">
+              <span className="block">{turnsLabel}</span>
+              <span className="block text-text/35">{tokensLabel} {isKorean ? '토큰' : 'tok'}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Dashboard({
   sessions,
   onSelectSession,
@@ -1203,41 +1114,6 @@ export function Dashboard({
   const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
   const [fingerprintReceiptsOpen, setFingerprintReceiptsOpen] = useState(false)
 
-  // 카드 PNG export — busy 는 공용 1개 (동시 클릭 방지 + 캡처 중 텍스트 노드 임시 치환과
-  // 리렌더 경합 창 최소화). 영수증(disclosure)을 가진 카드만 캡처 중 강제 펼침/원복 한다 —
-  // receiptsOpen/setReceiptsOpen 인자가 있을 때만. disclosure 없는 카드는 단순 캡처.
-  // 카드 root ref 는 캡처 대상 노드.
-  const [cardExportBusy, setCardExportBusy] = useState(false)
-  // 활동 그리드 3카드 — 각각 자기 root 를 캡처. 인사이트 카드는 e2e data-card-export="rhythm"
-  // 의존으로 ref 이름도 rhythmCardRef 유지.
-  const calendarCardRef = useRef<HTMLDivElement | null>(null)
-  const weekdayCardRef = useRef<HTMLDivElement | null>(null)
-  const rhythmCardRef = useRef<HTMLDivElement | null>(null)
-  const storyCardRef = useRef<HTMLDivElement | null>(null)
-  const fingerprintCardRef = useRef<HTMLDivElement | null>(null)
-
-  const handleCardExport = async (
-    cardRef: RefObject<HTMLDivElement | null>,
-    fileName: string,
-    receiptsOpen?: boolean,
-    setReceiptsOpen?: (open: boolean) => void,
-  ) => {
-    const node = cardRef.current
-    if (!node || cardExportBusy) return
-    setCardExportBusy(true)
-    try {
-      // 영수증을 가진 카드만 강제 펼침 — 접힌 세부 수치도 PNG 에 포함. flushSync 로 DOM 반영 후 캡처.
-      if (setReceiptsOpen) flushSync(() => setReceiptsOpen(true))
-      await exportCardPng(node, fileName)
-    } catch {
-      // 실패 시 사용자 노출은 버튼 재활성화(finally)로 충분 — 카드 공간 제약상
-      // ShareSlide 식 상태 메시지는 싣지 않는다 (이더 지시서 재량 범위).
-    } finally {
-      // export 전 접힘 상태 복원 + busy 해제 (disclosure 카드만 원복)
-      if (setReceiptsOpen) setReceiptsOpen(receiptsOpen ?? false)
-      setCardExportBusy(false)
-    }
-  }
   const [aiRoleMetricMode, setAiRoleMetricMode] = useState<'count' | 'ratio'>('count')
   const [tokenSource, setTokenSource] = useState<'claude' | 'codex'>('claude')
 
@@ -1313,11 +1189,11 @@ export function Dashboard({
 
   useEffect(() => {
     if (sourceSessions[tokenSource].length > 0) return
+    // set-state-in-effect 의도적 사용 — 선택된 소스가 비면 stale 선택을 보정.
+    // (PNG export 의 flushSync 제거로 react-hooks 컴파일러 린트가 이 컴포넌트를 다시
+    //  분석하게 되어 룰이 재발동 — 보정 로직 자체는 안전하므로 명시 disable.)
     if (sourceSessions.claude.length > 0) {
-      // set-state-in-effect 의도적 사용 — 선택된 소스가 비면 stale 선택을 보정.
-      // (카드 export 의 flushSync 사용으로 컴파일러 기반 react-hooks 린트가 이 컴포넌트
-      //  분석을 건너뛰어, 기존 eslint-disable 지시문이 unused 가 되어 제거함. 룰이
-      //  다시 보고되면 동일 사유로 disable 지시문을 복원할 것.)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTokenSource('claude')
       return
     }
@@ -1402,6 +1278,11 @@ export function Dashboard({
   const hasCalibration = personaQuiz != null
 
   const topLanguages = useMemo(() => analyzeLanguages(sessions), [sessions])
+
+  // 모델별 사용 강도 — 세션별 model 그룹화 (순수 함수, 상위 5). 빈입력이면 빈 배열 (카드 빈상태)
+  const modelIntensity = useMemo(() => buildModelIntensity(sessions), [sessions])
+  // 나 vs AI 글 비중 — stats.totalTokens(input/output) 사실 수치. 합 0이면 빈상태
+  const authorship = useMemo(() => buildAuthorshipRatio(sessions), [sessions])
 
   // 그날 이야기 — stats.dailyTokens(UTC 키)는 재사용 금지, buildDailyCollab 이 로컬 키로 재집계 (설계 공통 데이터 정책 1·2항)
   const dailyCollab = useMemo(() => buildDailyCollab(sessions), [sessions])
@@ -1754,7 +1635,7 @@ export function Dashboard({
             "AI에게 무엇을 시키나(요청 주제)" / 지문 = "AI와 어떻게 협업하나(상호작용 행동)".
             성격 카드의 'rhythm' 축 ≠ 지문 신호 — 어휘 분리 (collabFingerprint.ts 모듈 주석).
             전폭 2행 배치 (span 4) — 성격/도넛 카드 레이아웃은 무변경. */}
-        <div ref={fingerprintCardRef} className="dashboard-overview-card-fingerprint rounded-[26px] border border-border bg-bg-card p-5">
+        <div className="dashboard-overview-card-fingerprint rounded-[26px] border border-border bg-bg-card p-5">
           <div className="mb-1 flex min-w-0 items-center gap-2">
             <Fingerprint className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
             <h2 className="truncate text-lg font-bold text-text-bright">{fingerprintTitle}</h2>
@@ -1783,23 +1664,11 @@ export function Dashboard({
 
           <ReceiptsDisclosure
             open={fingerprintReceiptsOpen}
-            onToggle={() => { if (cardExportBusy) return; setFingerprintReceiptsOpen((prev) => !prev) }}
+            onToggle={() => setFingerprintReceiptsOpen((prev) => !prev)}
             isKorean={isKorean}
             dateBasisTooltip={isKorean
               ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
               : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
-            trailing={
-              // 빈상태에서는 export 버튼 미렌더 — 카드 본문과 동일 조건 (viableCount 가 2 이상이어도
-              // lift/delta 게이트로 topSignals 가 미달이면 본문은 빈상태라 export 도 함께 숨긴다)
-              fingerprint.topSignals.length >= MIN_FINGERPRINT_TOP_SIGNALS ? (
-                <CardExportButton
-                  cardId="fingerprint"
-                  busy={cardExportBusy}
-                  isKorean={isKorean}
-                  onClick={() => handleCardExport(fingerprintCardRef, 'memradar-collab-fingerprint.png', fingerprintReceiptsOpen, setFingerprintReceiptsOpen)}
-                />
-              ) : undefined
-            }
           >
             {/* viable 미달 신호도 측정 현황을 그대로 표기 — 숨기지 않음 (반증가능 원칙). 수집 중 빈상태에서도 표시 */}
             {fingerprint.signals.map((signal) => (
@@ -1939,7 +1808,7 @@ export function Dashboard({
           <div className="mt-1 text-xs text-text/60">일 평균 {dailyAvg}개 메시지</div>
         </div>
 
-        <div ref={storyCardRef} className="dashboard-card">
+        <div className="dashboard-card">
           <div className="mb-3 flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-amber" />
             <span className="text-sm text-text">{isKorean ? '그날 이야기' : 'Story of the Day'}</span>
@@ -1952,7 +1821,7 @@ export function Dashboard({
               </p>
               <ReceiptsDisclosure
                 open={storyReceiptsOpen}
-                onToggle={() => { if (cardExportBusy) return; setStoryReceiptsOpen((prev) => !prev) }}
+                onToggle={() => setStoryReceiptsOpen((prev) => !prev)}
                 isKorean={isKorean}
                 containerClassName="mt-2"
                 dateBasisTooltip={isKorean
@@ -1967,14 +1836,6 @@ export function Dashboard({
                   >
                     {isKorean ? '이날 세션 보기' : 'View sessions'}
                   </button>
-                }
-                trailing={
-                  <CardExportButton
-                    cardId="story"
-                    busy={cardExportBusy}
-                    isKorean={isKorean}
-                    onClick={() => handleCardExport(storyCardRef, `memradar-story-${story.dayKey}.png`, storyReceiptsOpen, setStoryReceiptsOpen)}
-                  />
                 }
               >
                 <div>
@@ -2027,15 +1888,12 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* 활동 그리드 — "정보 하나당 칸 하나" 원칙으로 3카드 분해 (2026-06-14 사용자 재결정,
-          W1 통합의 의도적 부분 되돌림). 3카드 모두 단일 rhythm(useMemo) 인스턴스를 공유 —
-          추가 buildCodingRhythm 호출 없음. CodingRhythm 스키마 불변(지문 카드 의존).
-          1) 활동 캘린더(span 2): 히트맵 + 보조 수치 + 로컬/UTC 각주
-          2) 요일 분포: 7행 막대 (가장 활발한 요일 강조)
-          3) 코딩 리듬(인사이트): 1·2순위 서사 + 추정 부제 (빈상태는 이 카드만) */}
+      {/* 활동 그리드 — "정보 하나당 칸 하나" 3카드: 활동 캘린더(span 2)·요일 분포(1)·시간대별 활동(1).
+          캘린더·요일은 단일 rhythm(useMemo) 인스턴스를 공유, 시간대별 활동은 stats.hourlyActivity.
+          코딩 리듬 인사이트 카드는 2026-06-14 재편으로 제거(라벨/2순위 폐지). PNG export 제거. */}
       <div className="dashboard-activity-grid animate-in">
         {/* ── 1. 활동 캘린더 ─────────────────────────────────────────── */}
-        <div ref={calendarCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-calendar">
+        <div className="dashboard-card dashboard-card-tight dashboard-activity-card-calendar">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <Calendar className="h-4 w-4 text-green" />
             {isKorean ? '활동 캘린더' : 'Activity Calendar'}
@@ -2043,14 +1901,14 @@ export function Dashboard({
 
           {rhythm.activeDayCount > 0 ? (
             <>
-              {/* 폭 제약(lg:w-[440px]) 제거 → 카드 span 2 폭을 히트맵이 채운다 */}
+              {/* 1칸 폭(span 2)에서 고정 셀 + 가로 스크롤 — 최근 약 3개월(13주)만 노출 (Heatmap 내부) */}
               <div className="w-full">
                 <div className="dashboard-heatmap-body">
                   <Heatmap localDailyCounts={rhythm.localDailyCounts} />
                 </div>
               </div>
 
-              {/* 보조 수치 — 전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상 */}
+              {/* 보조 수치 — 전부 사실 수치(단정 아님). text-xs 압축 + flex-wrap */}
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
                 <span>
                   {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
@@ -2073,15 +1931,6 @@ export function Dashboard({
                   <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
                 </DashboardHoverTooltip>
               </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
-                <CardExportButton
-                  cardId="activity-calendar"
-                  busy={cardExportBusy}
-                  isKorean={isKorean}
-                  onClick={() => handleCardExport(calendarCardRef, 'memradar-activity-calendar.png')}
-                />
-              </div>
             </>
           ) : (
             <p className="text-sm text-text/40">
@@ -2093,7 +1942,7 @@ export function Dashboard({
         </div>
 
         {/* ── 2. 요일 분포 ───────────────────────────────────────────── */}
-        <div ref={weekdayCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-weekday">
+        <div className="dashboard-card dashboard-card-tight dashboard-activity-card-weekday">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <BarChart3 className="h-4 w-4 text-accent" />
             {isKorean ? '요일 분포' : 'Weekday Distribution'}
@@ -2129,15 +1978,6 @@ export function Dashboard({
                   )
                 })}
               </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
-                <CardExportButton
-                  cardId="weekday"
-                  busy={cardExportBusy}
-                  isKorean={isKorean}
-                  onClick={() => handleCardExport(weekdayCardRef, 'memradar-weekday.png')}
-                />
-              </div>
             </>
           ) : (
             <p className="text-sm text-text/40">
@@ -2148,85 +1988,20 @@ export function Dashboard({
           )}
         </div>
 
-        {/* ── 3. 코딩 리듬(인사이트) ─────────────────────────────────── */}
-        <div ref={rhythmCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-rhythm">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <LineChart className="h-4 w-4 text-cyan" />
-            {isKorean ? '코딩 리듬' : 'Coding Rhythm'}
-          </h2>
-
-          {rhythm.label !== null && rhythm.labelEvidence !== null ? (
-            <>
-              <p className="text-sm font-medium text-text-bright">
-                {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
-              </p>
-              {/* 2순위 부가 경향 — 1순위와 다른 축, 1순위보다 약한 시각 위계(text-text/60) */}
-              {rhythm.secondaryLabel !== null && rhythm.secondaryEvidence !== null && (
-                <p className="mt-1 text-sm text-text/60">
-                  {rhythmSecondaryNarrative(rhythm.secondaryLabel, rhythm.secondaryEvidence, isKorean)}
-                </p>
-              )}
-              {/* 추정 부제 — hedge 톤, 단정 0 (지문/코칭 부제 패턴) */}
-              <p className="mt-3 text-[11px] text-text/40">
-                {isKorean
-                  ? '본인 과거 활동 기준 추정이에요 — 단정은 아니에요.'
-                  : 'Estimated from your own past activity — not a verdict.'}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-text/40">
-              {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
-                ? (isKorean
-                  ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
-                  : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
-                : (isKorean
-                  ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
-                  : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
-            </p>
-          )}
-
-          {/* 활동일 > 0이면 서사(또는 빈상태 문구)라도 캡처할 내용이 있으므로 버튼 렌더.
-              cardId="rhythm" 유지 — e2e data-card-export="rhythm" 의존. */}
-          {rhythm.activeDayCount > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
-              <CardExportButton
-                cardId="rhythm"
-                busy={cardExportBusy}
-                isKorean={isKorean}
-                onClick={() => handleCardExport(rhythmCardRef, 'memradar-coding-rhythm.png')}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="dashboard-analytics-grid">
-        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-model">
-          <h2 className="mb-3 text-sm font-semibold text-text-bright">사용한 모델</h2>
-          <div className="dashboard-card-body-center">
-            <InteractiveDonutChart data={topModels} />
-          </div>
-        </div>
-
-        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-language">
-          <h2 className="mb-3 text-sm font-semibold text-text-bright">
-            {isKorean ? '사용한 언어' : 'Languages'}
-          </h2>
-          <div className="dashboard-card-body-center">
-            <LanguageBar languages={topLanguages} />
-          </div>
-        </div>
-
-        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-hour">
+        {/* ── 3. 시간대별 활동 ───────────────────────────────────────── */}
+        <div className="dashboard-card dashboard-card-tight dashboard-activity-card-hour">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <MessageSquare className="h-4 w-4 text-cyan" />
-            시간대별 활동
+            {isKorean ? '시간대별 활동' : 'Activity by Hour'}
           </h2>
           <div className="dashboard-card-body-center">
             <HourChart data={stats.hourlyActivity} />
           </div>
         </div>
+      </div>
 
+      <div className="dashboard-analytics-grid">
+        {/* 위 행: 자주 쓴 스킬 · 세션 길이 · 자주 쓴 단어 (2026-06-14 사용자 요청으로 AI 사용 행과 상하 교체) */}
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-skills">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <ToolDefaultIcon className="h-4 w-4 text-violet" aria-hidden="true" />
@@ -2250,6 +2025,74 @@ export function Dashboard({
             wordsUser={stats.topWordsUser}
             wordsAssistant={stats.topWordsAssistant}
           />
+        </div>
+
+        {/* 아래 행: 사용한 모델 · 사용한 언어 · 모델별 사용 강도 · 나 vs AI 글 비중 (AI 사용 결) */}
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-model">
+          <h2 className="mb-3 text-sm font-semibold text-text-bright">사용한 모델</h2>
+          <div className="dashboard-card-body-center">
+            <InteractiveDonutChart data={topModels} />
+          </div>
+        </div>
+
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-language">
+          <h2 className="mb-3 text-sm font-semibold text-text-bright">
+            {isKorean ? '사용한 언어' : 'Languages'}
+          </h2>
+          <div className="dashboard-card-body-center">
+            <LanguageBar languages={topLanguages} />
+          </div>
+        </div>
+
+        {/* 모델별 사용 강도 — "어떤 모델엔 길게 쓰나" (세션당 평균 턴/토큰). 사실 수치, 단정 아님 */}
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-model-intensity">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Cpu className="h-4 w-4 text-green" />
+            {isKorean ? '모델별 사용 강도' : 'Model usage intensity'}
+          </h2>
+          {modelIntensity.length > 0 ? (
+            <div className="dashboard-card-body-center">
+              <ModelIntensityBars models={modelIntensity} isKorean={isKorean} />
+            </div>
+          ) : (
+            <p className="text-sm text-text/40">
+              {isKorean
+                ? '모델 정보가 있는 세션이 모이면 보여드려요'
+                : 'Appears once sessions with model info are recorded'}
+            </p>
+          )}
+        </div>
+
+        {/* 나 vs AI 글 비중 — 입력 토큰(나) vs 출력 토큰(AI). 사실 수치, 단정 아님 */}
+        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-authorship">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <Users className="h-4 w-4 text-amber" />
+            {isKorean ? '나 vs AI 글 비중' : 'You vs AI'}
+          </h2>
+          {authorship.userWords + authorship.aiWords > 0 ? (
+            <>
+              <div className="dashboard-card-body-center">
+                <GenericDonutChart
+                  data={[
+                    [isKorean ? '내 글' : 'You', authorship.userWords],
+                    [isKorean ? 'AI 글' : 'AI', authorship.aiWords],
+                  ]}
+                  centerLabel={isKorean ? '단어' : 'words'}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-text/45">
+                {isKorean
+                  ? `내 글 ${fmtPct0(authorship.userShare)} · AI 글 ${fmtPct0(authorship.aiShare)}`
+                  : `You ${fmtPct0(authorship.userShare)} · AI ${fmtPct0(authorship.aiShare)}`}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-text/40">
+              {isKorean
+                ? '대화가 모이면 글 비중을 보여드려요'
+                : 'Appears once conversations are recorded'}
+            </p>
+          )}
         </div>
       </div>
 
