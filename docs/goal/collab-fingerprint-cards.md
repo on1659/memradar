@@ -72,6 +72,7 @@ Each W runs the project's harness pipeline (triage → Scout → Coder → Revie
 ## Acceptance Criteria
 
 - [ ] `dashboard-activity-grid`'s 4 cards (heatmap, streak, density, weekday) are replaced by one Coding Rhythm card; hourly 24h bar card unchanged.
+  - **Superseded (2026-06-14 사용자 재결정):** "1통합" → "3분해". "정보 하나당 칸 하나" 원칙으로 활동 캘린더(히트맵+최장연속+활동밀도+로컬/UTC 각주, span 2) · 요일 분포(7행 막대) · 코딩 리듬(1·2순위 서사+추정 부제, 빈상태는 이 카드만) 3카드로 분해. 단일 `rhythm`(useMemo) 인스턴스 공유, `CodingRhythm` 스키마 불변. 중복(요일 데이터가 캘린더 보조수치와 요일 카드에 분리 표시)은 의도적 트레이드오프로 승인됨.
 - [ ] Max/min token-day card and its toggle/pin interaction are gone; Story of the Day card renders in that slot with date + summary + working session-list jump (date filter applied).
 - [ ] Fingerprint card shows 2–3 lift statements with `n=` receipts and an estimate-disclaimer subtitle; zero assertive-verdict copy across all new cards (manual copy review, ko + en).
 - [ ] All new per-day aggregation uses local-date keys (`toLocalDayKey`); a unit test covers the KST late-night boundary case (00–09h local lands on the local date, not the UTC previous day).

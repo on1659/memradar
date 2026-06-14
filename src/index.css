@@ -239,6 +239,13 @@ body {
   margin-bottom: 2rem;
 }
 
+/* 활동 그리드 3카드 높이 정렬 — 7행 요일 막대 + 캡션 기준 (analytics 카드 관례 참고) */
+.dashboard-activity-card-calendar,
+.dashboard-activity-card-weekday,
+.dashboard-activity-card-rhythm {
+  min-height: 16.5rem;
+}
+
 .dashboard-analytics-card {
   min-height: 0;
 }
@@ -564,6 +571,24 @@ body {
 }
 
 @media (min-width: 768px) {
+  /* 활동 그리드 중간 배치 — 캘린더 전폭(span 2), 요일·리듬 각 1열.
+     768px 미만은 기본 단일 컬럼 세로 스택. */
+  .dashboard-activity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-activity-card-calendar {
+    grid-column: 1 / span 2;
+  }
+
+  .dashboard-activity-card-weekday {
+    grid-column: 1 / span 1;
+  }
+
+  .dashboard-activity-card-rhythm {
+    grid-column: 2 / span 1;
+  }
+
   .dashboard-analytics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -613,7 +638,23 @@ body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  /* 활동 그리드는 코딩 리듬 카드 1장 — 전 브레이크포인트 전폭 단일 컬럼 (기본값 사용) */
+  /* 활동 그리드 — 활동 캘린더(span 2) · 요일 분포(1) · 코딩 리듬(1) 4열 배치.
+     "정보 하나당 칸 하나" 원칙 (2026-06-14 사용자 재결정, W1 통합의 부분 되돌림). */
+  .dashboard-activity-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-activity-card-calendar {
+    grid-column: 1 / span 2;
+  }
+
+  .dashboard-activity-card-weekday {
+    grid-column: 3 / span 1;
+  }
+
+  .dashboard-activity-card-rhythm {
+    grid-column: 4 / span 1;
+  }
 
   .dashboard-analytics-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -134,7 +134,7 @@ Wrapped 를 진입하면 `.wrapped-surface` 클래스가 씌워지며 CSS 변수
 
 ### 3.3 레이아웃 토큰
 
-현재 `:root` 에 전역 레이아웃 변수는 없다. 활동 그리드(`.dashboard-activity-grid`)는 "코딩 리듬" 카드 1장만 담는 전폭 단일 컬럼이라 브레이크포인트 오버라이드가 없고, 다른 그리드(stats·analytics·growth)의 반응형 컬럼 분할은 `src/index.css` 의 `@media` 블록에서 지정된다. 새 레이아웃 변수를 공용화할 필요가 생기면 §3.1 간격 토큰과 같은 규칙으로 `:root` 에 추가한다.
+현재 `:root` 에 전역 레이아웃 변수는 없다. 활동 그리드(`.dashboard-activity-grid`)는 "활동 캘린더(span 2)·요일 분포·코딩 리듬" 3카드를 담는다 — ≥1024px에서 4열(캘린더 `1 / span 2`, 요일 `3`, 리듬 `4`), ≥768px에서 2열(캘린더 전폭 + 요일·리듬 각 1열), 그 미만은 단일 컬럼 세로 스택. 다른 그리드(stats·analytics·growth)의 반응형 컬럼 분할은 `src/index.css` 의 `@media` 블록에서 지정된다. 새 레이아웃 변수를 공용화할 필요가 생기면 §3.1 간격 토큰과 같은 규칙으로 `:root` 에 추가한다.
 
 ### 3.4 Z-index 레이어
 
@@ -857,11 +857,12 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 
 - 캡처: `toPng(node, { pixelRatio: 2, cacheBust: true, filter })` — Share Card 와 동일 배율. ShareSlide 규격과 **의도적 중복**(wrapped/ 수정 금지 영역) — 한쪽 규격 변경 시 동기화 필수.
 - 배경: `backgroundColor` 미지정 — 카드 자체 배경(`bg-bg-card`, 현재 테마의 computed 값)이 그대로 찍히고 라운드 코너 바깥은 투명 PNG. 의식적 결정.
-- 제외 필터: `data-export-exclude` 속성이 붙은 요소는 PNG 에 찍히지 않는다. 영수증 액션 행 전체(세션 점프 버튼·"세부 수치" 토글 pill·export 버튼)에 행 단위로 부여 — 인터랙티브 컨트롤은 정적 공유 이미지에서 제외.
+- 제외 필터: `data-export-exclude` 속성이 붙은 요소는 PNG 에 찍히지 않는다. 인터랙티브 액션 행(세션 점프 버튼·"세부 수치" 토글 pill·export 버튼)에 행 단위로 부여 — 정적 공유 이미지에서 제외. 활동 그리드 3카드(캘린더·요일·리듬)는 영수증 disclosure 없이 보조 수치를 본문에 직접 두므로 export 버튼 행에만 부여.
 - 마스킹: 캡처 직전 텍스트 노드 전수 스캔 → `maskSecrets` hit 노드만 임시 치환 → 캡처 → finally 원복 (defense-in-depth — 신규 카드는 수치+사전 단어만 렌더라 정상 경로 no-op).
 - 영수증: export 시 접힌 "세부 수치"를 `flushSync` 로 강제 펼침 후 캡처하고, 끝나면 이전 접힘 상태로 복원.
-- 파일명 관례: `memradar-coding-rhythm.png` / `memradar-story-{YYYY-MM-DD}.png` (로컬 일 키) / `memradar-collab-fingerprint.png`. 기존 `memradar-code-report.png` 규격은 불변.
-- export 버튼: "세부 수치" 토글과 같은 행의 중립 pill (lucide `Download` h-3 w-3 + "PNG" 라벨 + aria-label "PNG로 저장"/"Save as PNG"). 빈상태 카드에서는 미렌더.
+- 파일명 관례: `memradar-activity-calendar.png` / `memradar-weekday.png` / `memradar-coding-rhythm.png`(인사이트 카드, `data-card-export="rhythm"` 유지) / `memradar-story-{YYYY-MM-DD}.png` (로컬 일 키) / `memradar-collab-fingerprint.png`. 기존 `memradar-code-report.png` 규격은 불변.
+- export 버튼: 중립 pill (lucide `Download` h-3 w-3 + "PNG" 라벨 + aria-label "PNG로 저장"/"Save as PNG"). disclosure 카드(이야기·지문)는 "세부 수치" 토글과 같은 행에, disclosure 없는 카드(활동 그리드 3장)는 본문 하단 단독 행에 놓는다. 빈상태 카드에서는 미렌더.
+- `handleCardExport(ref, fileName, receiptsOpen?, setReceiptsOpen?)`: receipts 인자가 있을 때만 캡처 중 영수증 강제 펼침(flushSync)·원복. disclosure 없는 카드는 인자 생략 → 단순 캡처. 공용 `cardExportBusy` 가드는 모든 카드 공유.
 
 ---
 

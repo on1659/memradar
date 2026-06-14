@@ -631,7 +631,7 @@ function CardExportButton({
   busy,
   isKorean,
 }: {
-  cardId: 'rhythm' | 'story' | 'fingerprint'
+  cardId: 'rhythm' | 'story' | 'fingerprint' | 'activity-calendar' | 'weekday'
   onClick: () => void
   busy: boolean
   isKorean: boolean
@@ -1200,15 +1200,18 @@ export function Dashboard({
     onFiltersChange?.(merged)
   }
 
-  const [rhythmReceiptsOpen, setRhythmReceiptsOpen] = useState(false)
   const [storyReceiptsOpen, setStoryReceiptsOpen] = useState(false)
   const [fingerprintReceiptsOpen, setFingerprintReceiptsOpen] = useState(false)
 
   // 카드 PNG export — busy 는 공용 1개 (동시 클릭 방지 + 캡처 중 텍스트 노드 임시 치환과
-  // 리렌더 경합 창 최소화). 캡처 중에는 3카드 영수증 토글도 무시 — 캡처 도중 패널이
-  // 닫히면 영수증 없는 PNG 가 나오고, finally 복원이 사용자 토글을 덮어쓴다.
+  // 리렌더 경합 창 최소화). 영수증(disclosure)을 가진 카드만 캡처 중 강제 펼침/원복 한다 —
+  // receiptsOpen/setReceiptsOpen 인자가 있을 때만. disclosure 없는 카드는 단순 캡처.
   // 카드 root ref 는 캡처 대상 노드.
   const [cardExportBusy, setCardExportBusy] = useState(false)
+  // 활동 그리드 3카드 — 각각 자기 root 를 캡처. 인사이트 카드는 e2e data-card-export="rhythm"
+  // 의존으로 ref 이름도 rhythmCardRef 유지.
+  const calendarCardRef = useRef<HTMLDivElement | null>(null)
+  const weekdayCardRef = useRef<HTMLDivElement | null>(null)
   const rhythmCardRef = useRef<HTMLDivElement | null>(null)
   const storyCardRef = useRef<HTMLDivElement | null>(null)
   const fingerprintCardRef = useRef<HTMLDivElement | null>(null)
@@ -1216,22 +1219,22 @@ export function Dashboard({
   const handleCardExport = async (
     cardRef: RefObject<HTMLDivElement | null>,
     fileName: string,
-    receiptsOpen: boolean,
-    setReceiptsOpen: (open: boolean) => void,
+    receiptsOpen?: boolean,
+    setReceiptsOpen?: (open: boolean) => void,
   ) => {
     const node = cardRef.current
     if (!node || cardExportBusy) return
     setCardExportBusy(true)
     try {
-      // 영수증 강제 펼침 — 접힌 세부 수치도 PNG 에 포함. flushSync 로 DOM 반영 후 캡처.
-      flushSync(() => setReceiptsOpen(true))
+      // 영수증을 가진 카드만 강제 펼침 — 접힌 세부 수치도 PNG 에 포함. flushSync 로 DOM 반영 후 캡처.
+      if (setReceiptsOpen) flushSync(() => setReceiptsOpen(true))
       await exportCardPng(node, fileName)
     } catch {
       // 실패 시 사용자 노출은 버튼 재활성화(finally)로 충분 — 카드 공간 제약상
       // ShareSlide 식 상태 메시지는 싣지 않는다 (이더 지시서 재량 범위).
     } finally {
-      // export 전 접힘 상태 복원 + busy 해제
-      setReceiptsOpen(receiptsOpen)
+      // export 전 접힘 상태 복원 + busy 해제 (disclosure 카드만 원복)
+      if (setReceiptsOpen) setReceiptsOpen(receiptsOpen ?? false)
       setCardExportBusy(false)
     }
   }
@@ -2024,127 +2027,176 @@ export function Dashboard({
         </div>
       </div>
 
+      {/* 활동 그리드 — "정보 하나당 칸 하나" 원칙으로 3카드 분해 (2026-06-14 사용자 재결정,
+          W1 통합의 의도적 부분 되돌림). 3카드 모두 단일 rhythm(useMemo) 인스턴스를 공유 —
+          추가 buildCodingRhythm 호출 없음. CodingRhythm 스키마 불변(지문 카드 의존).
+          1) 활동 캘린더(span 2): 히트맵 + 보조 수치 + 로컬/UTC 각주
+          2) 요일 분포: 7행 막대 (가장 활발한 요일 강조)
+          3) 코딩 리듬(인사이트): 1·2순위 서사 + 추정 부제 (빈상태는 이 카드만) */}
       <div className="dashboard-activity-grid animate-in">
-        <div ref={rhythmCardRef} className="dashboard-card dashboard-card-tight">
+        {/* ── 1. 활동 캘린더 ─────────────────────────────────────────── */}
+        <div ref={calendarCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-calendar">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <Calendar className="h-4 w-4 text-green" />
+            {isKorean ? '활동 캘린더' : 'Activity Calendar'}
+          </h2>
+
+          {rhythm.activeDayCount > 0 ? (
+            <>
+              {/* 폭 제약(lg:w-[440px]) 제거 → 카드 span 2 폭을 히트맵이 채운다 */}
+              <div className="w-full">
+                <div className="dashboard-heatmap-body">
+                  <Heatmap localDailyCounts={rhythm.localDailyCounts} />
+                </div>
+              </div>
+
+              {/* 보조 수치 — 전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상 */}
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
+                <span>
+                  {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
+                </span>
+                <span>
+                  {activityDensityTitle} {fmtPct0(rhythm.densityRatio)}
+                  {' '}({activeDayLabel} {rhythm.activeDayCount}{dayUnitLabel} / {observedDayLabel} {rhythm.observedDayCount}{dayUnitLabel})
+                </span>
+              </div>
+
+              {/* 로컬/UTC 날짜 각주 — 일 단위 수치는 로컬 날짜 기준 (이 카드에 귀속) */}
+              <div className="mt-3 flex items-center gap-1 text-[10px] text-text/40">
+                <span>{isKorean ? '일 단위는 로컬 날짜 기준' : 'Daily stats use local dates'}</span>
+                <DashboardHoverTooltip
+                  align="left"
+                  description={isKorean
+                    ? '일 단위 수치(캘린더·요일 분포·연속 기록)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+                    : 'Daily numbers (calendar, weekday distribution, streak) use your local date; monthly stats (growth section) use UTC.'}
+                >
+                  <CircleHelp className="h-3 w-3 text-text/40" aria-hidden="true" />
+                </DashboardHoverTooltip>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
+                <CardExportButton
+                  cardId="activity-calendar"
+                  busy={cardExportBusy}
+                  isKorean={isKorean}
+                  onClick={() => handleCardExport(calendarCardRef, 'memradar-activity-calendar.png')}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-text/40">
+              {isKorean
+                ? '활동 캘린더는 활동이 기록되면 보여드려요 (아직 활동일 0일)'
+                : 'Your activity calendar appears once activity is recorded (0 active days so far)'}
+            </p>
+          )}
+        </div>
+
+        {/* ── 2. 요일 분포 ───────────────────────────────────────────── */}
+        <div ref={weekdayCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-weekday">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <BarChart3 className="h-4 w-4 text-accent" />
+            {isKorean ? '요일 분포' : 'Weekday Distribution'}
+          </h2>
+
+          {rhythm.activeDayCount > 0 ? (
+            <>
+              {/* 가장 활발한 요일 — 칩 대신 캡션으로 흡수 (별도 칩 행 제거) */}
+              <p className="mb-3 text-xs text-text/60">
+                {isKorean ? '가장 활발한 요일' : 'Most active'} · <span className="font-semibold text-accent">{rhythmBestWeekdayLabel}</span> {fmtPct0(rhythmBestWeekdayShare)}
+              </p>
+
+              <div className="space-y-1">
+                {(isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN).map((label, index) => {
+                  const entry = rhythm.weekdayDistribution[index]
+                  const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
+                  const isBest = index === rhythmBestWeekday && entry.count > 0
+                  return (
+                    <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
+                      <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
+                        {label}
+                      </span>
+                      <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+                        <div
+                          className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
+                        {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
+                <CardExportButton
+                  cardId="weekday"
+                  busy={cardExportBusy}
+                  isKorean={isKorean}
+                  onClick={() => handleCardExport(weekdayCardRef, 'memradar-weekday.png')}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-text/40">
+              {isKorean
+                ? '요일 분포는 활동이 기록되면 보여드려요 (아직 활동일 0일)'
+                : 'Weekday distribution appears once activity is recorded (0 active days so far)'}
+            </p>
+          )}
+        </div>
+
+        {/* ── 3. 코딩 리듬(인사이트) ─────────────────────────────────── */}
+        <div ref={rhythmCardRef} className="dashboard-card dashboard-card-tight dashboard-activity-card-rhythm">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-bright">
+            <LineChart className="h-4 w-4 text-cyan" />
             {isKorean ? '코딩 리듬' : 'Coding Rhythm'}
           </h2>
 
-          {/* 2단: 좌 = 서사·2순위·칩(히트맵 옆 가로 공간을 채움), 우 = 히트맵(자연 폭).
-              좁은 화면(<lg)에서는 세로로 쌓인다. PNG export 는 카드 root(rhythmCardRef) 캡처라 무영향. */}
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="min-w-0 flex-1">
-              {rhythm.label !== null && rhythm.labelEvidence !== null ? (
-                <p className="text-sm font-medium text-text-bright">
-                  {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
-                </p>
-              ) : (
-                <p className="text-sm text-text/40">
-                  {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
-                    ? (isKorean
-                      ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
-                      : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
-                    : (isKorean
-                      ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
-                      : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
-                </p>
-              )}
-
+          {rhythm.label !== null && rhythm.labelEvidence !== null ? (
+            <>
+              <p className="text-sm font-medium text-text-bright">
+                {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
+              </p>
               {/* 2순위 부가 경향 — 1순위와 다른 축, 1순위보다 약한 시각 위계(text-text/60) */}
               {rhythm.secondaryLabel !== null && rhythm.secondaryEvidence !== null && (
                 <p className="mt-1 text-sm text-text/60">
                   {rhythmSecondaryNarrative(rhythm.secondaryLabel, rhythm.secondaryEvidence, isKorean)}
                 </p>
               )}
+              {/* 추정 부제 — hedge 톤, 단정 0 (지문/코칭 부제 패턴) */}
+              <p className="mt-3 text-[11px] text-text/40">
+                {isKorean
+                  ? '본인 과거 활동 기준 추정이에요 — 단정은 아니에요.'
+                  : 'Estimated from your own past activity — not a verdict.'}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-text/40">
+              {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
+                ? (isKorean
+                  ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
+                  : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
+                : (isKorean
+                  ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
+                  : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
+            </p>
+          )}
 
-              {/* 하이라이트 칩 — 활동일 > 0이면 label null이어도 표시(수치는 표시, 라벨만 숨김 정책과 정합).
-                  전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상(export-exclude 불요). */}
-              {rhythm.activeDayCount > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                    {isKorean ? '가장 활발한 요일' : 'Most active'} · {rhythmBestWeekdayLabel} {fmtPct0(rhythmBestWeekdayShare)}
-                  </span>
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                    {isKorean ? '최장 연속' : 'Longest streak'} · {rhythm.longestStreak}{dayUnitLabel}
-                  </span>
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                    {isKorean ? '활동 밀도' : 'Density'} · {fmtPct0(rhythm.densityRatio)}
-                  </span>
-                </div>
-              )}
-
-              {/* 요일 분포 — 영수증에서 좌측 컬럼으로 승격(히트맵 옆 세로 공간을 채움).
-                  비인터랙티브·rhythm.* 단일 소스 → PNG 캡처 포함 정상. */}
-              {rhythm.activeDayCount > 0 && (
-                <div className="mt-4">
-                  <div className="mb-1.5 text-[10px] text-text/50">
-                    {isKorean ? '요일 분포' : 'Weekday distribution'}
-                  </div>
-                  <div className="space-y-1">
-                    {(isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN).map((label, index) => {
-                      const entry = rhythm.weekdayDistribution[index]
-                      const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
-                      const isBest = index === rhythmBestWeekday && entry.count > 0
-                      return (
-                        <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
-                          <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
-                            {label}
-                          </span>
-                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-                            <div
-                              className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
-                              style={{ width: `${width}%` }}
-                            />
-                          </div>
-                          <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
-                            {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+          {/* 활동일 > 0이면 서사(또는 빈상태 문구)라도 캡처할 내용이 있으므로 버튼 렌더.
+              cardId="rhythm" 유지 — e2e data-card-export="rhythm" 의존. */}
+          {rhythm.activeDayCount > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2" data-export-exclude="true">
+              <CardExportButton
+                cardId="rhythm"
+                busy={cardExportBusy}
+                isKorean={isKorean}
+                onClick={() => handleCardExport(rhythmCardRef, 'memradar-coding-rhythm.png')}
+              />
             </div>
-
-            <div className="w-full shrink-0 lg:w-[440px]">
-              <div className="dashboard-heatmap-body">
-                <Heatmap localDailyCounts={rhythm.localDailyCounts} />
-              </div>
-            </div>
-          </div>
-
-          <ReceiptsDisclosure
-            open={rhythmReceiptsOpen}
-            onToggle={() => { if (cardExportBusy) return; setRhythmReceiptsOpen((prev) => !prev) }}
-            isKorean={isKorean}
-            spacing="loose"
-            dateBasisTooltip={isKorean
-              ? '일 단위 수치(캘린더·요일 분포·연속 기록)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
-              : 'Daily numbers (calendar, weekday distribution, streak) use your local date; monthly stats (growth section) use UTC.'}
-            trailing={
-              // 활동일 0이면 캡처할 내용이 없으므로 미렌더 (빈상태 가드 일관성)
-              rhythm.activeDayCount > 0 ? (
-                <CardExportButton
-                  cardId="rhythm"
-                  busy={cardExportBusy}
-                  isKorean={isKorean}
-                  onClick={() => handleCardExport(rhythmCardRef, 'memradar-coding-rhythm.png', rhythmReceiptsOpen, setRhythmReceiptsOpen)}
-                />
-              ) : undefined
-            }
-          >
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
-              <span>
-                {activityDensityTitle} {Math.round(rhythm.densityRatio * 100)}%
-                {' '}({activeDayLabel} {rhythm.activeDayCount}{dayUnitLabel} / {observedDayLabel} {rhythm.observedDayCount}{dayUnitLabel})
-              </span>
-              <span>
-                {isKorean ? '최장 연속' : 'Longest streak'} {rhythm.longestStreak}{dayUnitLabel}
-              </span>
-            </div>
-          </ReceiptsDisclosure>
+          )}
         </div>
       </div>
 

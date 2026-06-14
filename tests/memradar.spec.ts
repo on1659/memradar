@@ -101,20 +101,27 @@ test.describe('Dashboard loads', () => {
     await expect(page.locator('.divide-y.divide-border > button').first()).toBeVisible()
   })
 
-  test('card PNG export downloads and restores receipts collapsed state', async ({ page }) => {
-    // W4: 카드 단독 PNG export — 픽스처(활동 2일)에서 데이터가 있는 카드는 코딩 리듬.
-    // 픽셀 비교는 금지(플래키) — 다운로드 성공 + 파일명 + 영수증 접힘 복원만 단언.
-    const rhythmCard = page.locator('.dashboard-activity-grid .dashboard-card').first()
-    const receiptsToggle = rhythmCard.locator('button[aria-expanded]')
-    await expect(receiptsToggle).toHaveAttribute('aria-expanded', 'false')
-
+  test('coding rhythm card PNG export downloads', async ({ page }) => {
+    // 활동 그리드 3카드 분해 — 인사이트 카드(data-card-export="rhythm")를 명시 지목.
+    // 픽셀 비교는 금지(플래키) — 다운로드 성공 + 파일명만 단언.
     const downloadPromise = page.waitForEvent('download')
-    await rhythmCard.locator('[data-card-export="rhythm"]').click()
+    await page.locator('.dashboard-activity-grid [data-card-export="rhythm"]').click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toBe('memradar-coding-rhythm.png')
+  })
 
-    // export 가 영수증을 강제 펼침했더라도 끝나면 원래 접힘 상태로 복원돼야 한다
-    await expect(receiptsToggle).toHaveAttribute('aria-expanded', 'false')
+  test('activity calendar card PNG export downloads', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download')
+    await page.locator('.dashboard-activity-grid [data-card-export="activity-calendar"]').click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('memradar-activity-calendar.png')
+  })
+
+  test('weekday distribution card PNG export downloads', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download')
+    await page.locator('.dashboard-activity-grid [data-card-export="weekday"]').click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('memradar-weekday.png')
   })
 
   test('replay opens from session and responds to controls', async ({ page }) => {
