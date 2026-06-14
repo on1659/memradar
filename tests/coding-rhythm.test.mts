@@ -23,6 +23,8 @@ import {
   NIGHT_BAND_HOURS,
   RHYTHM_FACET,
   RHYTHM_LIFT_CAP,
+  selectSecondarySignal,
+  type RhythmSignal,
 } from '../src/lib/codingRhythm.ts'
 import type { ParsedMessage, Session } from '../src/types.ts'
 
@@ -359,6 +361,35 @@ test('2순위 동률 결정성 — signals 배열 순서가 빠른 축이 이긴
   const b = buildCodingRhythm(ts, { offsetMinutes: KST })
   assert.strictEqual(a.secondaryLabel, b.secondaryLabel)
   assert.deepStrictEqual(a.secondaryEvidence, b.secondaryEvidence)
+})
+
+test('2순위 동률 경계 — lift 정확히 동일하면 signals 배열 앞 항목이 이긴다(`>` vs `>=` 구분)', () => {
+  // 합성 신호: 1순위 축(time) 제외 후, 요일축·밀도축 후보가 lift 정확히 1.8 동률.
+  // 배열 앞(weekday-steady)이 선택돼야 한다 — `>=` 로 회귀하면 daily-steady 가 이겨 실패.
+  const sig = (id: RhythmSignal['id'], lift: number): RhythmSignal => ({
+    id, lift, eligible: true, evidence: { lift, share: 0, n: 100 },
+  })
+  const signals = [
+    sig('night-surge', 2.0),       // primaryFacet(time) — 제외 대상
+    sig('weekday-steady', 1.8),    // 후보 A (배열 앞, weekday 축)
+    sig('daily-steady', 1.8),      // 후보 B (배열 뒤, density 축, 동일 lift)
+  ]
+  assert.strictEqual(selectSecondarySignal(signals, 'time')?.id, 'weekday-steady')
+})
+
+test('2순위 헬퍼 — 다른 축 최대 lift 선택 + MIN_LABEL_LIFT 게이트 + 동축 제외', () => {
+  const sig = (id: RhythmSignal['id'], lift: number, eligible = true): RhythmSignal => ({
+    id, lift, eligible, evidence: { lift, share: 0, n: 100 },
+  })
+  // primaryFacet=time: early-bird(같은 축) 무시, weekend-builder(2.4) > daily-steady(1.6) 선택
+  assert.strictEqual(
+    selectSecondarySignal([sig('early-bird', 9), sig('weekend-builder', 2.4), sig('daily-steady', 1.6)], 'time')?.id,
+    'weekend-builder',
+  )
+  // 다른 축이 전부 게이트 미만이면 null
+  assert.strictEqual(selectSecondarySignal([sig('weekend-builder', MIN_LABEL_LIFT - 0.01), sig('daily-steady', 1.0)], 'time'), null)
+  // eligible=false 는 제외
+  assert.strictEqual(selectSecondarySignal([sig('weekend-builder', 3.0, false), sig('daily-steady', 1.7)], 'time')?.id, 'daily-steady')
 })
 
 // === 결과 보고 =============================================================

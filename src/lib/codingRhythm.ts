@@ -127,13 +127,31 @@ export function dayKeyToUtcMs(key: string): number {
 /** 달력 하루(ms) — dayKeyToUtcMs 와 함께 날짜 연산에 사용 (collabFingerprint.ts 와 공유) */
 export const DAY_MS = 86_400_000
 
-interface RhythmSignal {
+export interface RhythmSignal {
   id: RhythmLabelId
   /** 본인 기준선 대비 배수 — 클수록 두드러진 패턴 */
   lift: number
   evidence: RhythmLabelEvidence
   /** lift 외 부가 조건 (예: 몰아치기형의 밀도 상한) 충족 여부 */
   eligible: boolean
+}
+
+/**
+ * 2순위 신호 선택 — eligible 이고 primaryFacet 과 *다른 축*인 신호 중 최대 lift 하나.
+ * MIN_LABEL_LIFT 게이트 미달이면 null. 동률(lift 동일)이면 signals 배열에서 *앞선* 항목이
+ * 이긴다(`>` 비교 — 결정적). 1순위 선택과 동일한 규칙. 단위 테스트 가능하게 분리.
+ */
+export function selectSecondarySignal(
+  signals: RhythmSignal[],
+  primaryFacet: RhythmFacet,
+): RhythmSignal | null {
+  let secondBest: RhythmSignal | null = null
+  for (const signal of signals) {
+    if (!signal.eligible) continue
+    if (RHYTHM_FACET[signal.id] === primaryFacet) continue
+    if (secondBest === null || signal.lift > secondBest.lift) secondBest = signal
+  }
+  return secondBest !== null && secondBest.lift >= MIN_LABEL_LIFT ? secondBest : null
 }
 
 export function buildCodingRhythm(
@@ -297,14 +315,8 @@ export function buildCodingRhythm(
   let secondaryLabel: RhythmLabelId | null = null
   let secondaryEvidence: RhythmLabelEvidence | null = null
   if (label !== null) {
-    const primaryFacet = RHYTHM_FACET[label]
-    let secondBest: RhythmSignal | null = null
-    for (const signal of signals) {
-      if (!signal.eligible) continue
-      if (RHYTHM_FACET[signal.id] === primaryFacet) continue
-      if (secondBest === null || signal.lift > secondBest.lift) secondBest = signal
-    }
-    if (secondBest !== null && secondBest.lift >= MIN_LABEL_LIFT) {
+    const secondBest = selectSecondarySignal(signals, RHYTHM_FACET[label])
+    if (secondBest !== null) {
       secondaryLabel = secondBest.id
       secondaryEvidence = secondBest.evidence
     }
