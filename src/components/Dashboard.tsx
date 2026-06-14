@@ -2031,48 +2031,89 @@ export function Dashboard({
             {isKorean ? '코딩 리듬' : 'Coding Rhythm'}
           </h2>
 
-          <div className="dashboard-heatmap-body">
-            <Heatmap localDailyCounts={rhythm.localDailyCounts} />
-          </div>
+          {/* 2단: 좌 = 서사·2순위·칩(히트맵 옆 가로 공간을 채움), 우 = 히트맵(자연 폭).
+              좁은 화면(<lg)에서는 세로로 쌓인다. PNG export 는 카드 root(rhythmCardRef) 캡처라 무영향. */}
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1">
+              {rhythm.label !== null && rhythm.labelEvidence !== null ? (
+                <p className="text-sm font-medium text-text-bright">
+                  {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
+                </p>
+              ) : (
+                <p className="text-sm text-text/40">
+                  {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
+                    ? (isKorean
+                      ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
+                      : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
+                    : (isKorean
+                      ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
+                      : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
+                </p>
+              )}
 
-          {rhythm.label !== null && rhythm.labelEvidence !== null ? (
-            <p className="mt-3 text-sm font-medium text-text-bright">
-              {rhythmNarrative(rhythm.label, rhythm.labelEvidence, isKorean)}
-            </p>
-          ) : (
-            <p className="mt-3 text-sm text-text/40">
-              {rhythm.activeDayCount < MIN_ACTIVE_DAYS_FOR_RHYTHM
-                ? (isKorean
-                  ? `리듬이 모이는 중이에요 — 활동일이 ${MIN_ACTIVE_DAYS_FOR_RHYTHM}일이 되면 분석해요 (지금 ${rhythm.activeDayCount}일)`
-                  : `Rhythm is still collecting — analysis starts at ${MIN_ACTIVE_DAYS_FOR_RHYTHM} active days (${rhythm.activeDayCount} so far)`)
-                : (isKorean
-                  ? `아직 라벨을 붙일 만큼 강한 신호는 부족해 보여요 (활동 ${rhythm.activeDayCount}일)`
-                  : `Signals don't look strong enough for a rhythm label yet (${rhythm.activeDayCount} active days)`)}
-            </p>
-          )}
+              {/* 2순위 부가 경향 — 1순위와 다른 축, 1순위보다 약한 시각 위계(text-text/60) */}
+              {rhythm.secondaryLabel !== null && rhythm.secondaryEvidence !== null && (
+                <p className="mt-1 text-sm text-text/60">
+                  {rhythmSecondaryNarrative(rhythm.secondaryLabel, rhythm.secondaryEvidence, isKorean)}
+                </p>
+              )}
 
-          {/* 2순위 부가 경향 — 1순위와 다른 축, 1순위보다 약한 시각 위계(text-text/60) */}
-          {rhythm.secondaryLabel !== null && rhythm.secondaryEvidence !== null && (
-            <p className="mt-1 text-sm text-text/60">
-              {rhythmSecondaryNarrative(rhythm.secondaryLabel, rhythm.secondaryEvidence, isKorean)}
-            </p>
-          )}
+              {/* 하이라이트 칩 — 활동일 > 0이면 label null이어도 표시(수치는 표시, 라벨만 숨김 정책과 정합).
+                  전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상(export-exclude 불요). */}
+              {rhythm.activeDayCount > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                    {isKorean ? '가장 활발한 요일' : 'Most active'} · {rhythmBestWeekdayLabel} {fmtPct0(rhythmBestWeekdayShare)}
+                  </span>
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                    {isKorean ? '최장 연속' : 'Longest streak'} · {rhythm.longestStreak}{dayUnitLabel}
+                  </span>
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                    {isKorean ? '활동 밀도' : 'Density'} · {fmtPct0(rhythm.densityRatio)}
+                  </span>
+                </div>
+              )}
 
-          {/* 하이라이트 칩 — 활동일 > 0이면 label null이어도 표시(수치는 표시, 라벨만 숨김 정책과 정합).
-              전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상(export-exclude 불요). */}
-          {rhythm.activeDayCount > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                {isKorean ? '가장 활발한 요일' : 'Most active'} · {rhythmBestWeekdayLabel} {fmtPct0(rhythmBestWeekdayShare)}
-              </span>
-              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                {isKorean ? '최장 연속' : 'Longest streak'} · {rhythm.longestStreak}{dayUnitLabel}
-              </span>
-              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
-                {isKorean ? '활동 밀도' : 'Density'} · {fmtPct0(rhythm.densityRatio)}
-              </span>
+              {/* 요일 분포 — 영수증에서 좌측 컬럼으로 승격(히트맵 옆 세로 공간을 채움).
+                  비인터랙티브·rhythm.* 단일 소스 → PNG 캡처 포함 정상. */}
+              {rhythm.activeDayCount > 0 && (
+                <div className="mt-4">
+                  <div className="mb-1.5 text-[10px] text-text/50">
+                    {isKorean ? '요일 분포' : 'Weekday distribution'}
+                  </div>
+                  <div className="space-y-1">
+                    {(isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN).map((label, index) => {
+                      const entry = rhythm.weekdayDistribution[index]
+                      const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
+                      const isBest = index === rhythmBestWeekday && entry.count > 0
+                      return (
+                        <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
+                          <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
+                            {label}
+                          </span>
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                          <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
+                            {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            <div className="w-full shrink-0 lg:w-[440px]">
+              <div className="dashboard-heatmap-body">
+                <Heatmap localDailyCounts={rhythm.localDailyCounts} />
+              </div>
+            </div>
+          </div>
 
           <ReceiptsDisclosure
             open={rhythmReceiptsOpen}
@@ -2094,35 +2135,6 @@ export function Dashboard({
               ) : undefined
             }
           >
-            <div>
-              <div className="mb-1.5 text-[10px] text-text/50">
-                {isKorean ? '요일 분포' : 'Weekday distribution'}
-              </div>
-              <div className="space-y-1">
-                {(isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN).map((label, index) => {
-                  const entry = rhythm.weekdayDistribution[index]
-                  const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
-                  const isBest = index === rhythmBestWeekday && entry.count > 0
-                  return (
-                    <div key={label} className="dashboard-pattern-row flex items-center gap-1.5 rounded-md px-1 py-0.5">
-                      <span className={`w-3 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/50'}`}>
-                        {label}
-                      </span>
-                      <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/5">
-                        <div
-                          className={`dashboard-pattern-bar h-full rounded-full ${isBest ? 'bg-accent/70' : 'bg-accent/30'}`}
-                          style={{ width: `${width}%` }}
-                        />
-                      </div>
-                      <span className={`w-16 text-right text-[10px] ${isBest ? 'font-bold text-accent' : 'text-text/40'}`}>
-                        {entry.count.toLocaleString()} · {(entry.share * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text/70">
               <span>
                 {activityDensityTitle} {Math.round(rhythm.densityRatio * 100)}%
