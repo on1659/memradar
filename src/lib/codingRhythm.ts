@@ -41,6 +41,21 @@ export type RhythmLabelId =
   | 'burst-sprinter'   // 몰아치기형 — 밀도 낮음 + 상위 활동일 집중
   | 'daily-steady'     // 꾸준형 — 밀도 높음 + 일별 편차 낮음
 
+/** 리듬 신호의 축(facet) — 한 카드에 같은 축의 신호 2개가 동시에 노출되면 동어반복이므로 분리한다.
+ * time={심야/아침}, weekday={주말/평일정시}, density={몰아치기/꾸준}.
+ * 2순위는 1순위와 다른 축에서만 고른다 (서로 보완하는 경향만 노출). */
+export type RhythmFacet = 'time' | 'weekday' | 'density'
+
+/** 라벨 id → 축 매핑 (2순위 선택의 다른-축 게이트 단일 소스) */
+export const RHYTHM_FACET: Record<RhythmLabelId, RhythmFacet> = {
+  'night-surge': 'time',
+  'early-bird': 'time',
+  'weekend-builder': 'weekday',
+  'weekday-steady': 'weekday',
+  'burst-sprinter': 'density',
+  'daily-steady': 'density',
+}
+
 export interface RhythmLabelEvidence {
   /** lift 배수 raw — 표시 반올림은 UI에서. RHYTHM_LIFT_CAP 이상이면 분모 0 (기준선 없음) */
   lift: number
@@ -73,6 +88,9 @@ export interface CodingRhythm {
   /** 활동일 < MIN_ACTIVE_DAYS_FOR_RHYTHM 또는 최대 lift < MIN_LABEL_LIFT 이면 null */
   label: RhythmLabelId | null
   labelEvidence: RhythmLabelEvidence | null
+  /** 1순위와 다른 축의 eligible 신호 중 최대 lift (MIN_LABEL_LIFT 게이트 통과 시에만). 1순위 null이면 항상 null */
+  secondaryLabel: RhythmLabelId | null
+  secondaryEvidence: RhythmLabelEvidence | null
 }
 
 /** Dashboard 호출용 — 세션에서 유효한 user 메시지 타임스탬프만 추출 */
@@ -271,6 +289,27 @@ export function buildCodingRhythm(
     }
   }
 
+  // ── 2순위 신호 판정 (가산) ─────────────────────────────────────────────────
+  // 1순위 label 이 정해진 뒤, 1순위와 *다른 축*의 eligible 신호 중 최대 lift 하나를 2순위로.
+  // 1순위와 동일하게 MIN_LABEL_LIFT 게이트를 통과해야만 노출한다 (약한 2순위 금지, 바넘 회피).
+  // 동률이면 1순위와 동일하게 signals 배열 순서가 빠른 쪽이 이긴다(결정적).
+  // 1순위가 null이면 2순위도 null — 1순위 없이 부가 경향만 노출하지 않는다.
+  let secondaryLabel: RhythmLabelId | null = null
+  let secondaryEvidence: RhythmLabelEvidence | null = null
+  if (label !== null) {
+    const primaryFacet = RHYTHM_FACET[label]
+    let secondBest: RhythmSignal | null = null
+    for (const signal of signals) {
+      if (!signal.eligible) continue
+      if (RHYTHM_FACET[signal.id] === primaryFacet) continue
+      if (secondBest === null || signal.lift > secondBest.lift) secondBest = signal
+    }
+    if (secondBest !== null && secondBest.lift >= MIN_LABEL_LIFT) {
+      secondaryLabel = secondBest.id
+      secondaryEvidence = secondBest.evidence
+    }
+  }
+
   return {
     localDailyCounts,
     weekdayDistribution,
@@ -282,5 +321,7 @@ export function buildCodingRhythm(
     totalMessages,
     label,
     labelEvidence,
+    secondaryLabel,
+    secondaryEvidence,
   }
 }

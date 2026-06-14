@@ -21,6 +21,7 @@ import {
   MIN_ACTIVE_DAYS_FOR_RHYTHM,
   MIN_LABEL_LIFT,
   NIGHT_BAND_HOURS,
+  RHYTHM_FACET,
   RHYTHM_LIFT_CAP,
 } from '../src/lib/codingRhythm.ts'
 import type { ParsedMessage, Session } from '../src/types.ts'
@@ -286,6 +287,78 @@ test('daily-steady — 매일 균일 활동 (주말 lift 1.0 으로 weekday-stea
   assert.strictEqual(rhythm.label, 'daily-steady')
   assert.ok(rhythm.labelEvidence)
   assert.strictEqual(rhythm.labelEvidence.share, 1) // densityRatio raw 0~1
+})
+
+// === buildCodingRhythm — 2순위 라벨 판정 (가산) =============================
+console.log('\n[buildCodingRhythm 2순위]')
+
+// 06-01~14 매일 23시대 3건: night share 1 → 1순위 night-surge(time, lift 4.8),
+// 밀도 1.0/0.4=2.5 → daily-steady(density) 가 다른 축 최대 → 2순위.
+const EVERY_DAY_14 = Array.from({ length: 14 }, (_, i) => `2026-06-${String(i + 1).padStart(2, '0')}`)
+
+test('2순위는 1순위와 다른 축에서 선택 — 심야(time) 1순위 + 꾸준(density) 2순위', () => {
+  const rhythm = buildCodingRhythm(persona(EVERY_DAY_14, [23, 23, 23]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.label, 'night-surge')
+  assert.strictEqual(RHYTHM_FACET[rhythm.label!], 'time')
+  assert.strictEqual(rhythm.secondaryLabel, 'daily-steady')
+  assert.strictEqual(RHYTHM_FACET[rhythm.secondaryLabel!], 'density')
+  assert.notStrictEqual(RHYTHM_FACET[rhythm.label!], RHYTHM_FACET[rhythm.secondaryLabel!])
+  assert.ok(rhythm.secondaryEvidence)
+  assert.ok(rhythm.secondaryEvidence.lift >= MIN_LABEL_LIFT, '2순위도 게이트 통과')
+})
+
+test('2순위는 1순위와 같은 축 신호를 뽑지 않는다 — early-bird(time) 가 2순위로 안 옴', () => {
+  // night 1순위인데 같은 time 축의 early-bird 는 2순위 후보에서 배제돼야 한다.
+  const rhythm = buildCodingRhythm(persona(EVERY_DAY_14, [23, 23, 23]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.label, 'night-surge')
+  assert.ok(rhythm.secondaryLabel !== null, '전제: 2순위가 존재해야 의미 있는 검증')
+  assert.notStrictEqual(RHYTHM_FACET[rhythm.secondaryLabel!], 'time', '2순위가 1순위와 같은 time 축')
+})
+
+test('2순위 게이트 — 다른 축 신호가 모두 MIN_LABEL_LIFT 미만이면 secondaryLabel null', () => {
+  // 주중 10일 매일 23시대 3건: night 1순위(lift 4.8, time).
+  // weekday 축: weekend lift 0(주말활동 0) < 1.5, weekday-steady 는 23시라 office 밴드 밖 → lift 0.
+  // density 축: 밀도 10/12≈0.83 → steady lift 2.08 ≥ 1.5 → 실제론 2순위 daily-steady 가 잡힌다.
+  // 따라서 게이트 null 검증은 다른 축이 전부 약한 별도 페르소나로:
+  // 주중 8일 매일 06~08시(early) 3건 → early-bird 1순위(time).
+  //   weekday 축: weekday-steady office 밴드 밖(06~08) lift 0, weekend 0 → 약함.
+  //   density 축: 밀도 8/8=1.0 → steady lift 2.5 ≥ 1.5 → 또 잡힘.
+  // density 까지 약하게 만들려면 관측 구간을 늘려 밀도를 낮춘다: 06-01~06-19 중 8일만 활동.
+  const sparseEarly = ['2026-06-01', '2026-06-03', '2026-06-05', '2026-06-08', '2026-06-10', '2026-06-12', '2026-06-15', '2026-06-17']
+  const rhythm = buildCodingRhythm(persona(sparseEarly, [6, 7, 8]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.label, 'early-bird', '전제: 1순위는 early-bird')
+  // 밀도 8/17≈0.47 → steady lift ≈1.18 < 1.5, weekend/weekday-steady 약함 → 2순위 게이트 컷
+  assert.strictEqual(rhythm.secondaryLabel, null, `약한 다른-축 신호인데 2순위가 붙음: ${rhythm.secondaryLabel}`)
+  assert.strictEqual(rhythm.secondaryEvidence, null)
+})
+
+test('1순위가 null이면 2순위도 null', () => {
+  // 활동일 6일(가드 미달) → label null → secondaryLabel 도 null
+  const sixDays = JUNE_WEEKDAYS_10.slice(0, 6)
+  const rhythm = buildCodingRhythm(persona(sixDays, [23, 23, 23]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.label, null)
+  assert.strictEqual(rhythm.secondaryLabel, null)
+  assert.strictEqual(rhythm.secondaryEvidence, null)
+})
+
+test('약신호 1순위 null 케이스도 2순위 null — 모든 신호 약하면 둘 다 null', () => {
+  const days = [
+    '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04',
+    '2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11',
+    '2026-06-06', '2026-06-07', '2026-06-20',
+  ]
+  const rhythm = buildCodingRhythm(persona(days, [10, 15, 19, 21]), { offsetMinutes: KST })
+  assert.strictEqual(rhythm.label, null)
+  assert.strictEqual(rhythm.secondaryLabel, null)
+})
+
+test('2순위 동률 결정성 — signals 배열 순서가 빠른 축이 이긴다(같은 입력 반복 안정)', () => {
+  // 결정성: 같은 입력으로 두 번 빌드하면 2순위가 동일해야 한다.
+  const ts = persona(JUNE_WEEKENDS_8, [23, 23, 23])
+  const a = buildCodingRhythm(ts, { offsetMinutes: KST })
+  const b = buildCodingRhythm(ts, { offsetMinutes: KST })
+  assert.strictEqual(a.secondaryLabel, b.secondaryLabel)
+  assert.deepStrictEqual(a.secondaryEvidence, b.secondaryEvidence)
 })
 
 // === 결과 보고 =============================================================

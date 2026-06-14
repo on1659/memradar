@@ -480,6 +480,7 @@ function InteractiveRoleDonutChart({
 }
 
 const DAY_OF_WEEK_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const DAY_OF_WEEK_LABELS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 type DashboardAxisKey = 'style' | 'scope' | 'rhythm'
 
@@ -794,6 +795,50 @@ function rhythmNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean
       return isKorean
         ? `꾸준형으로 보여요 — 관측일의 ${pct}%에 활동이 있고 일별 편차도 낮아요 (관측 ${ev.n}일)`
         : `Looks like a daily-steady pattern — activity on ${pct}% of observed days with low day-to-day variance (${ev.n} days observed)`
+  }
+}
+
+/**
+ * 코딩 리듬 2순위 — 1순위와 *다른 축*의 부가 경향 한 줄. evidence 의 실측 수치(lift 배수·비율·n=)만 삽입.
+ * 1순위 rhythmNarrative 와 어조를 의도적으로 분리한다: 두 개의 "~형으로 보여요" 단정은 바넘 위반
+ * (lessons/personality-eval.md L-1 — 정체성 단정 중첩 금지). 여기는 "~경향이 함께 보여요" 부가 어휘만 쓴다
+ * (fingerprintNarrative 의 패턴/경향 어휘 선례 — 카드 모듈 주석 참조). 단정 0건, 추상 형용사 0건.
+ */
+function rhythmSecondaryNarrative(label: RhythmLabelId, ev: RhythmLabelEvidence, isKorean: boolean): string {
+  const lift = ev.lift >= RHYTHM_LIFT_CAP ? null : ev.lift.toFixed(1)
+  const pct = Math.round(ev.share * 100)
+  switch (label) {
+    case 'night-surge':
+      return isKorean
+        ? `심야(22~02시)에도 메시지가 균등 기대치의 ${lift}배로 몰리는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
+        : `Also leans late-night — 22:00–02:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'early-bird':
+      return isKorean
+        ? `아침(05~09시)에도 메시지가 균등 기대치의 ${lift}배로 몰리는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
+        : `Also leans early-morning — 05:00–09:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'weekend-builder':
+      return lift === null
+        ? isKorean
+          ? `메시지의 ${pct}%가 주말에 몰리고 주중 활동은 거의 없는 경향도 함께 보여요 (관측 ${ev.n}일)`
+          : `Also clusters on weekends — ${pct}% of messages land on weekends with almost no weekday activity (${ev.n} days observed)`
+        : isKorean
+          ? `주말 하루 평균이 주중의 ${lift}배로 더 모이는 경향이 함께 보여요 (관측 ${ev.n}일)`
+          : `Also leans toward weekends — weekend daily average runs ${lift}x your weekday average (${ev.n} days observed)`
+    case 'weekday-steady':
+      return isKorean
+        ? `주중 09~18시에 메시지가 균등 기대치의 ${lift}배로 모이는 경향이 함께 보여요 (전체의 ${pct}%, n=${ev.n})`
+        : `Also leans toward weekday daytime — 09:00–18:00 messages run ${lift}x the uniform expectation (${pct}% of all, n=${ev.n})`
+    case 'burst-sprinter': {
+      // 잠정값 상수에서 도출 — "상위 20%" 하드코딩 시 BURST_TOP_DAY_FRACTION 변경에 카피가 드리프트
+      const topPct = Math.round(BURST_TOP_DAY_FRACTION * 100)
+      return isKorean
+        ? `상위 ${topPct}% 활동일에 메시지의 ${pct}%가 몰리는 경향도 함께 보여요 (활동 ${ev.n}일)`
+        : `Also tends to bunch up — the top ${topPct}% of active days hold ${pct}% of your messages (${ev.n} active days)`
+    }
+    case 'daily-steady':
+      return isKorean
+        ? `관측일의 ${pct}%에 활동이 이어지고 일별 편차가 낮은 경향도 함께 보여요 (관측 ${ev.n}일)`
+        : `Also leans steady — activity on ${pct}% of observed days with low day-to-day variance (${ev.n} days observed)`
   }
 }
 
@@ -1405,6 +1450,11 @@ export function Dashboard({
   const observedDayLabel = isKorean ? '관측' : 'Observed'
   const dayUnitLabel = isKorean ? '일' : ' days'
 
+  // 하이라이트 칩 파생값 — 전부 rhythm.* 단일 소스에서 도출 (영수증·서사와 수치 드리프트 방지).
+  // 칩은 사실 수치만(단정 아님): 가장 활발한 요일·share, 최장 연속, 활동 밀도.
+  const rhythmBestWeekdayLabel = (isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN)[rhythmBestWeekday]
+  const rhythmBestWeekdayShare = rhythm.weekdayDistribution[rhythmBestWeekday]?.share ?? 0
+
   // AI 협업 지문 — dailyCollab(그날 이야기)·rhythm(코딩 리듬) 인스턴스를 그대로 주입 (카드 간 수치 드리프트 방지)
   const fingerprint = useMemo(() => buildCollabFingerprint(sessions, dailyCollab, rhythm), [sessions, dailyCollab, rhythm])
   const fingerprintTitle = isKorean ? 'AI 협업 지문' : 'AI Collaboration Fingerprint'
@@ -2001,6 +2051,29 @@ export function Dashboard({
             </p>
           )}
 
+          {/* 2순위 부가 경향 — 1순위와 다른 축, 1순위보다 약한 시각 위계(text-text/60) */}
+          {rhythm.secondaryLabel !== null && rhythm.secondaryEvidence !== null && (
+            <p className="mt-1 text-sm text-text/60">
+              {rhythmSecondaryNarrative(rhythm.secondaryLabel, rhythm.secondaryEvidence, isKorean)}
+            </p>
+          )}
+
+          {/* 하이라이트 칩 — 활동일 > 0이면 label null이어도 표시(수치는 표시, 라벨만 숨김 정책과 정합).
+              전부 사실 수치(단정 아님)·비인터랙티브 → PNG 캡처 포함 정상(export-exclude 불요). */}
+          {rhythm.activeDayCount > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                {isKorean ? '가장 활발한 요일' : 'Most active'} · {rhythmBestWeekdayLabel} {fmtPct0(rhythmBestWeekdayShare)}
+              </span>
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                {isKorean ? '최장 연속' : 'Longest streak'} · {rhythm.longestStreak}{dayUnitLabel}
+              </span>
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent">
+                {isKorean ? '활동 밀도' : 'Density'} · {fmtPct0(rhythm.densityRatio)}
+              </span>
+            </div>
+          )}
+
           <ReceiptsDisclosure
             open={rhythmReceiptsOpen}
             onToggle={() => { if (cardExportBusy) return; setRhythmReceiptsOpen((prev) => !prev) }}
@@ -2026,7 +2099,7 @@ export function Dashboard({
                 {isKorean ? '요일 분포' : 'Weekday distribution'}
               </div>
               <div className="space-y-1">
-                {DAY_OF_WEEK_LABELS.map((label, index) => {
+                {(isKorean ? DAY_OF_WEEK_LABELS : DAY_OF_WEEK_LABELS_EN).map((label, index) => {
                   const entry = rhythm.weekdayDistribution[index]
                   const width = Math.round((entry.count / rhythmWeekdayMax) * 100)
                   const isBest = index === rhythmBestWeekday && entry.count > 0
