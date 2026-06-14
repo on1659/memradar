@@ -49,7 +49,7 @@ src/
 │   ├── promptCoaching.ts   # 성장 지표 기반 프롬프트 코칭 인사이트 (5룰, 증거 기반 발화)
 │   ├── codingRhythm.ts     # 코딩 리듬 집계 — 로컬 날짜 키 per-day 카운트 + 요일 분포 + 최장 연속 + 활동 밀도 + 시간대 밴드 비율(night/early/office). 활동 캘린더·요일 분포 카드와 AI 협업 지문(hourBandShares.night·totalMessages)의 단일 소스. 리듬 "라벨"/2순위 판정은 2026-06-14 재편으로 제거(코딩 리듬 인사이트 카드 폐지)
 │   ├── modelIntensity.ts   # 모델별 사용 강도 — 세션을 model 별 그룹화, 세션당 평균 user 턴/토큰(getSessionTotalTokens 공식). 상위 N, 세션 0/모델 미상 가드. id+수치만 반환 (단축·카피는 UI)
-│   ├── authorshipRatio.ts  # 나 vs AI 글 비중 — stats.totalTokens.input(나) vs .output(AI) 비율, 0분모 가드. 분수 0~1 raw (% 변환은 UI)
+│   ├── authorshipRatio.ts  # 나 vs AI 글 비중 — 역할별 단어 수(user vs assistant 메시지, stripMarkup+countWords) 비율, 0분모 가드. 분수 0~1 raw (% 변환은 UI). 토큰은 캐시·컨텍스트 추정 섞여 부적합
 │   ├── storyOfDay.ts       # 그날 이야기 — per-day 협업 집계(buildDailyCollab) + 서사 점수 최고일 선정 (4항 가중합·결측 재정규화·source-aware, parser 의 matchRetryMarker/extractSkillNames 재사용)
 │   └── collabFingerprint.ts # AI 협업 지문 — 상호작용 신호 5종(주말 집중·구조화 변화·정정 후 계획·심야 비중·긴 세션)의 본인 기준선 대비 lift, top 2~3 분포형 (dailyCollab·rhythm 주입형 — 카드 간 수치 드리프트 방지, parser 의 matchPlanMarker/matchRetryMarker 재사용)
 ├── theme/

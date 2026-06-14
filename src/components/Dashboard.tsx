@@ -424,8 +424,9 @@ function InteractiveRoleDonutChart({
         const sharePct = Math.round((category.score / total) * 100)
         const barPct = Math.max(4, Math.round((category.score / maxScore) * 100))
         const CategoryIcon = ROLE_ICONS[category.id as RoleIconKey]
+        const roundedScore = Math.round(category.score)
         const metricLabel = metricMode === 'count'
-          ? (isKorean ? `${category.score}회` : `${category.score}`)
+          ? (isKorean ? `${roundedScore.toLocaleString()}회` : roundedScore.toLocaleString())
           : `${sharePct}%`
         const tooltipDescription = `${category.subtitle}. ${isKorean ? '이 역할과 관련된 요청 패턴이 자주 잡혔어요.' : 'This role pattern showed up frequently in your requests.'}`
 
@@ -458,7 +459,7 @@ function InteractiveRoleDonutChart({
                   }}
                 />
               </div>
-              <div className="w-12 shrink-0 text-right text-[11px] text-text/40">
+              <div className="w-16 shrink-0 whitespace-nowrap text-right text-[11px] tabular-nums text-text/40">
                 <span
                   key={`${category.id}-${metricMode}`}
                   className="dashboard-cycle-drop inline-block"
@@ -1281,7 +1282,8 @@ export function Dashboard({
 
   // 모델별 사용 강도 — 세션별 model 그룹화 (순수 함수, 상위 5). 빈입력이면 빈 배열 (카드 빈상태)
   const modelIntensity = useMemo(() => buildModelIntensity(sessions), [sessions])
-  // 나 vs AI 글 비중 — stats.totalTokens(input/output) 사실 수치. 합 0이면 빈상태
+  // 나 vs AI 글 비중 — 역할별 단어 수(내 메시지 vs AI 메시지) 사실 수치. 합 0이면 빈상태.
+  // 토큰(input/output)은 캐시·컨텍스트 추정이 섞여 99:1 왜곡 → 단어 수로 정직하게 (authorshipRatio.ts 주석 참고)
   const authorship = useMemo(() => buildAuthorshipRatio(sessions), [sessions])
 
   // 그날 이야기 — stats.dailyTokens(UTC 키)는 재사용 금지, buildDailyCollab 이 로컬 키로 재집계 (설계 공통 데이터 정책 1·2항)
@@ -1994,9 +1996,17 @@ export function Dashboard({
             <MessageSquare className="h-4 w-4 text-cyan" />
             {isKorean ? '시간대별 활동' : 'Activity by Hour'}
           </h2>
-          <div className="dashboard-card-body-center">
-            <HourChart data={stats.hourlyActivity} />
-          </div>
+          {stats.hourlyActivity.some((count) => count > 0) ? (
+            <div className="dashboard-card-body-center">
+              <HourChart data={stats.hourlyActivity} />
+            </div>
+          ) : (
+            <p className="text-sm text-text/40">
+              {isKorean
+                ? '활동이 기록되면 시간대 분포를 보여드려요'
+                : 'Appears once activity is recorded'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -2063,7 +2073,7 @@ export function Dashboard({
           )}
         </div>
 
-        {/* 나 vs AI 글 비중 — 입력 토큰(나) vs 출력 토큰(AI). 사실 수치, 단정 아님 */}
+        {/* 나 vs AI 글 비중 — 역할별 단어 수(내 글 vs AI 글). 사실 수치, 단정 아님 */}
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-authorship">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
             <Users className="h-4 w-4 text-amber" />

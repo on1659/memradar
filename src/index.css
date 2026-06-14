@@ -569,10 +569,10 @@ body {
 }
 
 @media (min-width: 768px) {
-  /* 활동 그리드 중간 배치 — 캘린더(좁은 1열, 최근 ~3개월 + 스크롤) + 요일 분포, 시간대별은 다음 행 전폭.
+  /* 활동 그리드 중간 배치 — 데스크톱과 동일하게 [캘린더(좁은 고정폭, ~3개월+스크롤)][요일][시간대별] 3열.
      768px 미만은 기본 단일 컬럼 세로 스택. */
   .dashboard-activity-grid {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .dashboard-activity-card-calendar {
@@ -584,7 +584,7 @@ body {
   }
 
   .dashboard-activity-card-hour {
-    grid-column: 1 / span 2;
+    grid-column: 3;
   }
 
   .dashboard-analytics-grid {
