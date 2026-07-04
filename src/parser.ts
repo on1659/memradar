@@ -378,12 +378,12 @@ export function matchPlanMarker(text: string): string | null {
 }
 
 const MIN_MONTH_SAMPLES = 5          // 유효 월 최소 user 메시지 수 — 저샘플 월 제외 (스펙 §유효 버킷)
-// export: GrowthCoaching 상세뷰가 improving 의 A/B/C 분해를 buildGrowth 와 동일 분모/클램프로
-// 재현하기 위해 import (하드코딩 방지 — _common.md L-10 congruence). 값·계산 로직 불변.
-export const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
-export const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)
+// buildGrowth 의 proxy B/C 정규화 분모 — module-local (외부 소비처 없음). 값·계산 로직 불변.
+const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
+const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)
 
-export function clamp01(value: number): number {
+// module-local — 외부 소비처 없음 (storyOfDay 등은 자체 로컬 clamp01 정의). buildGrowth proxy B/C 정규화용.
+function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
