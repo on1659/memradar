@@ -89,6 +89,7 @@ export interface GrowthStats {
     uniqueSkills: number       // proxy C raw — slash command 종 수 (Claude 전용)
     hasClaudeSession: boolean
     count: number
+    activeDays: number         // 해당 월 user 메시지의 distinct UTC 일수 — 부분 달 eligibility 판정용 (promptCoaching)
   }[]
   retryStats: {
     totalFollowups: number

@@ -13,10 +13,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   toMonthKey,
+  toDayKey,
   stripMarkup,
   countWords,
   isStructured,
   buildGrowth,
+  matchRetryMarker,
+  RETRY_MARKERS,
   CLI_TRUNCATION_MARKER,
 } from '../src/parser.ts'
 import type { ParsedMessage, Session, SessionSource } from '../src/types.ts'
@@ -93,6 +96,20 @@ test('ISO UTC → YYYY-MM', () => {
 test('UTC 월 경계 — +09:00 2/1 새벽은 UTC 1월', () => {
   // 2026-02-01T08:30+09:00 = 2026-01-31T23:30Z → "2026-01" (dailyActivity 와 동일 축)
   assert.strictEqual(toMonthKey('2026-02-01T08:30:00+09:00'), '2026-01')
+})
+
+// === toDayKey ===============================================================
+console.log('\n[toDayKey]')
+
+test('undefined/파싱 불가 → null', () => {
+  assert.strictEqual(toDayKey(undefined), null)
+  assert.strictEqual(toDayKey('not-a-date'), null)
+})
+
+test('ISO UTC → YYYY-MM-DD (toMonthKey 와 동일 축)', () => {
+  assert.strictEqual(toDayKey('2026-03-15T10:00:00.000Z'), '2026-03-15')
+  // +09:00 새벽은 UTC 전날 — 월 키와 같은 UTC 규칙
+  assert.strictEqual(toDayKey('2026-02-01T08:30:00+09:00'), '2026-01-31')
 })
 
 // === stripMarkup ============================================================
@@ -297,6 +314,74 @@ test('타임스탬프 없는 메시지는 월 버킷에서 제외 (크래시 없
   const s = makeSession('claude', [msg('user', '질문', '')])
   const growth = buildGrowth([s])
   assert.deepStrictEqual(growth.monthlyComplexity, [])
+})
+
+test('activeDays — distinct UTC 일수 집계 (monthSession 은 일자를 분산시킴)', () => {
+  // monthSession 은 i 마다 (i % 27) + 1 일로 분산 → 5개 텍스트 = 5일
+  const s = monthSession('claude', '2026-06', Array(5).fill(WORDS_10))
+  const growth = buildGrowth([s])
+  assert.strictEqual(growth.skillCurve[0].activeDays, 5)
+})
+
+test('activeDays — 같은 날 여러 메시지는 1일로 집계', () => {
+  const sameDay = Array.from({ length: 5 }, (_, i) =>
+    msg('user', WORDS_10, `2026-06-10T1${i}:00:00.000Z`))
+  const s = makeSession('claude', sameDay)
+  const growth = buildGrowth([s])
+  assert.strictEqual(growth.skillCurve[0].count, 5)
+  assert.strictEqual(growth.skillCurve[0].activeDays, 1)
+})
+
+// === matchRetryMarker 2계층 (스펙 impl-note #6) =============================
+// 전부 합성 문장 — 라벨 데이터(사용자 세션 문장)는 커밋 테스트에 옮기지 않는다
+console.log('\n[matchRetryMarker 2계층]')
+
+test("'수정' 은 사전에서 완전 제거 — 문두 '수정해줘' 도 null", () => {
+  assert.ok(!RETRY_MARKERS.includes('수정'))
+  assert.strictEqual(matchRetryMarker('수정해줘'), null)
+})
+
+test('Tier A 문두 고정 — 문두 아니는 매치, 문중 아니 질문은 null', () => {
+  assert.strictEqual(matchRetryMarker('아니 그게 아니고 이쪽'), '아니')
+  assert.strictEqual(matchRetryMarker('이거 되는거 아니야?'), null)
+})
+
+test("Tier B '말고' — 문중 정정은 매치", () => {
+  assert.strictEqual(matchRetryMarker('이 함수 말고 저 함수를 고쳐줘'), '말고')
+})
+
+test("Tier B '말고' 가드 — 금지형 '…지 말고' 는 null", () => {
+  assert.strictEqual(matchRetryMarker('나한테 묻지 말고 진행해'), null)
+  assert.strictEqual(matchRetryMarker('멈추지말고 계속해줘'), null)
+})
+
+test("Tier B '말고' 가드 — 이중 공백 금지형도 null (stripMarkup 의 공백 치환 대비 \\s*)", () => {
+  assert.strictEqual(matchRetryMarker('나한테 묻지  말고 진행해'), null)
+  // 인라인 코드가 공백으로 치환되며 연속 공백 발생 — 가드가 그대로 걸러야 함
+  assert.strictEqual(matchRetryMarker('나한테 묻지 `자꾸` 말고 진행해'), null)
+})
+
+test("Tier B '말고' 가드 — 첨가형 '말고도' 는 null", () => {
+  assert.strictEqual(matchRetryMarker('카메라 말고도 뭐가 필요해?'), null)
+})
+
+test("Tier B '아니라' — 'X가 아니라 Y' 내용 정정은 매치", () => {
+  assert.strictEqual(matchRetryMarker('폰트가 아니라 배경색을 바꿔달라는 뜻이야'), '아니라')
+})
+
+test("Tier B '아니라' 가드 — 첨가형 '뿐만 아니라' 는 null", () => {
+  assert.strictEqual(matchRetryMarker('성능뿐만 아니라 안정성도 챙겨줘'), null)
+  assert.strictEqual(matchRetryMarker('속도뿐만아니라 메모리도 봐야 해'), null)
+})
+
+test("Tier B '아니라' 가드 — '뿐만이 아니라'는 본체('이 아니라')에 걸리므로 가드가 걸러야 함", () => {
+  assert.strictEqual(matchRetryMarker('성능뿐만이 아니라 안정성도 챙겨줘'), null)
+})
+
+test('RETRY_MARKERS 는 matchRetryMarker 리턴값 전체 집합 (표시용 flat 리스트)', () => {
+  // Tier B 표시명 포함 — analyze-coaching 의 카운트 초기화·출력 순회가 의존
+  assert.ok(RETRY_MARKERS.includes('말고'))
+  assert.ok(RETRY_MARKERS.includes('아니라'))
 })
 
 // === 결과 보고 =============================================================

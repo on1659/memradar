@@ -6,7 +6,7 @@
 > - `src/parser.ts` — `toMonthKey`, `stripMarkup`, `countWords`, `isStructured`, `RETRY_MARKERS`, `buildGrowth`, `BUILTIN_COMMANDS` export 승격
 > - `src/components/growth/` — `GrowthComplexity` / `GrowthRetry` / `GrowthSkillCurve` / `GrowthCoaching`
 > - `src/index.css` — `.dashboard-growth-grid` + 카드 클래스
-> - 테스트: `tests/growth.test.mts` (30) + `tests/prompt-coaching.test.mts` (21), `test:harness` 체인 편입
+> - 테스트: `tests/growth.test.mts` (44) + `tests/prompt-coaching.test.mts` (35), `test:harness` 체인 편입
 >
 > **구현 시 스펙 대비 확장/보강** (스펙 본문은 원안 유지, 차이는 여기에만 기록):
 >
@@ -15,6 +15,8 @@
 > 3. **SVG 왜곡 보정** — `preserveAspectRatio="none"` 스트레치로 인한 비등방 왜곡을 라인 `vectorEffect="non-scaling-stroke"` + 데이터 점은 % 좌표 HTML 오버레이로 해결.
 > 4. **정정 마커 매칭** — 긴 마커 우선 정렬로 짧은 마커가 긴 마커를 흡수하지 않게 보강.
 > 5. **코칭 발화 정책 (2026-06-12 확정)** — 유효 월이 1개뿐이어도 발화 조건(메시지 ≥ 5 + 실측 수치) 충족 시 코칭을 표시한다. 발화 조건 자체가 근거를 요구하므로 무근거 코칭이 나갈 수 없고, 첫 달 사용자도 가치를 보는 쪽을 택함. 보수화(유효 월 ≥ 2)는 임계값 실측 보정 시 재검토.
+> 6. **정정 마커 2계층 재정의 + 월 eligibility (2026-07-03 라벨 실측 보정)** — 본문의 정의 모순(§카드 2 "정정 마커로 **시작**한 비율" vs "첫 30자 내" 매칭 vs `retryCount` "정정 마커 **포함** 수")은 이 노트의 2계층 정의가 유일한 운영 기준으로 해소한다. 라벨 157건 실측에서 구 flat-includes 매처의 정밀도가 41%('수정' 단독 18%)로 확인되어 재설계: **Tier A(문두 고정)** `그게 아니라·그거 말고·아 잠깐·잠깐만·틀렸·아니·다시·no wait·actually` 는 head(stripMarkup→trim→lower→30자)가 마커로 **시작**할 때만 매치, **'수정'은 사전에서 완전 제거**. **Tier B(문중 가드 패턴)** `말고`(금지형 `…지 말고/…지말고`·첨가형 `말고도` 제외), `아니라`(`가/게/이 아니라` 패턴만, 첨가형 `뿐만(이) 아니라/뿐만아니라` 제외 — `뿐만이 아니라`는 `이 아니라`로 본체 패턴에 걸리므로 가드 필수, `아니고` 변형 미포함). 가드 정규식의 공백은 전부 `\s*` — stripMarkup 이 인라인 코드/태그를 공백으로 치환해 연속 공백이 구조적으로 생기기 때문. 재설계 실측: 정밀도 79.7% / 재현율 73.4% (수용 기준 P≥70%·R≥60%; 라벨 셋에는 연속 공백·`뿐만이` 변형 케이스가 없어 가드 강화 전후 수치 동일). 지표 스케일 축소에 맞춰 `HIGH_RETRY_MIN_RATE` 0.15 → **0.08** 재보정 (실측 정정률 3.4~4.4%의 ~2배 지점). 부분 달 오발화 가드로 `skillCurve[].activeDays`(distinct UTC 일수) 신설 + latest-월 룰 4종(long-unstructured / short-prompts / low-skill-variety / improving 종점)은 **eligible 월**(완료된 달력 월 또는 현재 월 & activeDays ≥ `MIN_ELIGIBLE_ACTIVE_DAYS`=7 잠정값) 기준으로만 발화 — 첫 달 정책(#5)은 현재 월 활동 ≥ 7일이면 그대로 성립. improving 카피는 합성 점수 사실 기술만 허용 (개별 proxy 동반 상승 주장 금지 — 실측에서 uniqueSkills 7→1 하락과 합성 점수 상승이 공존).
+> 7. **역상 칭찬 룰 2종 + MAX_INSIGHTS 4 + 카드별 자세히 (2026-07-04 `coaching-strengths-detail`)** — 실데이터에서 tip 룰 3종(high-retry / short-prompts / low-skill-variety)이 사용자가 *강점* 쪽이라 미발화하면 카드가 2개로 얇아지는 문제 대응. 경고 룰을 강제 표시하면 데이터와 모순되는 조언("142단어인데 프롬프트가 짧다")이 나가 바넘 결함이 재발하므로, 대신 **측정 가능한 강점일 때만 실측 근거를 달고 발화하는 역상 칭찬 룰 2종**을 추가: **low-retry**(high-retry 와 동일 신호 게이트 `totalFollowups ≥ HIGH_RETRY_MIN_FOLLOWUPS` 통과 + `retryRate ≤ LOW_RETRY_MAX_RATE`=0.05 잠정값, evidence `{retryRate,retryCount,totalFollowups}`), **high-skill-variety**(low-skill-variety 와 동일 eligibility 경로 + `uniqueSkills ≥ HIGH_SKILL_VARIETY_MIN`=5 잠정값, evidence `{month,uniqueSkills}`). **상호배타 by construction**: 0.05 < `HIGH_RETRY_MIN_RATE`(0.08), 5 > `LOW_SKILL_VARIETY_MAX`(1) 이라 한 데이터가 tip/praise 쌍을 동시 발화 못 함(구조상 최대 동시 발화 = 4). short-prompts 역상은 추가 안 함(긴 프롬프트가 명백한 강점이 아님 — long-unstructured 가 이미 산만함을 잡음). `MAX_INSIGHTS` 3→**4**, 우선순위 = push 순서: tip 먼저(high-retry→long-unstructured→short-prompts→low-skill-variety) → praise(improving→low-retry→high-skill-variety). 카드마다 "자세히"(en `Details`) 인라인 accordion(로컬 `useState`, `aria-expanded`, 기본 접힘, `ChevronDown/Up`) — 발화 조건을 실제값 vs 임계값(promptCoaching export const)으로, improving 은 A/B/C proxy 분해(parser export `AVG_WORDS_NORMALIZER`/`UNIQUE_SKILLS_NORMALIZER`/`clamp01` 로 buildGrowth 공식 재현 — 하드코딩 0)까지 표시. `analyze-coaching.mts` 보드 5룰→**7룰**(low-retry·high-skill-variety 를 improving 뒤에 추가), 드리프트 가드 3은 MAX_INSIGHTS=4 에서 그대로 성립.
 
 ---
 

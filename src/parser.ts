@@ -237,6 +237,14 @@ export function toMonthKey(ts: string | undefined): string | null {
   return d.toISOString().slice(0, 7)   // "YYYY-MM"
 }
 
+/** 일별 버킷 키 — UTC ISO 기준 (toMonthKey 와 동일 축). dailyActivity·activeDays 집계 공용 */
+export function toDayKey(ts: string | undefined): string | null {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)  // "YYYY-MM-DD"
+}
+
 /**
  * 일(day) 버킷 키 — 로컬 날짜 기준 "YYYY-MM-DD".
  *
@@ -287,23 +295,52 @@ export function isStructured(text: string): boolean {
   return markers.filter(Boolean).length >= 2     // 2종 이상 섞였을 때만
 }
 
-/** 정정 마커 사전 (스펙 §카드 2) — 첫 30자 내, stripMarkup 적용 후 매칭 */
-export const RETRY_MARKERS = [
-  '다시', '아니', '그게 아니라', '그거 말고', '수정',
-  '아 잠깐', '잠깐만', '말고', '틀렸',
+/**
+ * 정정 마커 2계층 사전 (스펙 impl-note #6 — 2026-07 라벨 실측 보정).
+ *
+ * 구 설계(flat includes)는 라벨 157건 기준 정밀도 41% — "보다시피"의 '다시',
+ * 질문형 "~된거 아니지?"의 '아니', 신규 요청 "수정해줘"의 '수정'이 전부 오탐이었다.
+ *
+ * - Tier A: head 가 마커로 **시작**할 때만 매치 (문두 정정 — 정밀도 최상 구간).
+ *   '수정'은 문두에서도 정밀도 18% 실측이라 사전에서 완전 제거.
+ * - Tier B: 문중 허용하되 가드 정규식으로 비정정 용법을 제외하는 패턴
+ *   (matchPlanMarker 의 컴파일 정규식 + 가드 스타일).
+ */
+const RETRY_TIER_A = [
+  '그게 아니라', '그거 말고', '아 잠깐', '잠깐만', '틀렸', '아니', '다시',
   'no wait', 'actually',
 ]
 
-// 긴 마커 우선 매칭 — "그거 말고"가 "말고"로, "그게 아니라"가 "아니"로 흡수되지 않게
-const RETRY_MARKERS_BY_LENGTH = [...RETRY_MARKERS].sort((a, b) => b.length - a.length)
+// 긴 마커 우선 매칭 — "그게 아니라"가 "아니"로 흡수되지 않게 (표시 마커 정확성)
+const RETRY_TIER_A_BY_LENGTH = [...RETRY_TIER_A].sort((a, b) => b.length - a.length)
 
+// Tier B 가드 — head(30자) 전체에 대해 판정한다.
+// 공백은 전부 \s* — stripMarkup 이 인라인 코드/태그를 공백으로 치환해 다중 연속 공백이 구조적으로 생긴다.
+const PROHIBITIVE_MALGO_RE = /지\s*말고/    // 금지형 "…지 말고/…지말고" ("묻지 말고 진행해") — 정정 아님
+const ADDITIVE_MALGO_RE = /말고도/          // 첨가형 "X 말고도 Y" — 정정 아님
+const ANIRA_CORRECTION_RE = /[가게이]\s*아니라/  // "X가/게/이 아니라 Y" — 내용 정정 ('아니고' 변형은 라벨상 비정정 우세라 미포함)
+const PPUNMAN_ANIRA_RE = /뿐만이?\s*아니라/ // 첨가형 "뿐만(이) 아니라" — 정정 아님 ("뿐만이 아니라"는 '이 아니라'로 본체에 걸리므로 가드 필수)
+
+/**
+ * 정정 마커 매칭 — stripMarkup → trim → lower → head 30자.
+ * Tier A(문두) 우선, 미스 시 Tier B(문중 가드 패턴) 순서로 판정.
+ * 리턴 문자열은 RETRY_MARKERS 의 표시용 마커명과 일치 (GrowthRetry pill 에 그대로 노출).
+ */
 export function matchRetryMarker(text: string): string | null {
   const head = stripMarkup(text).trim().toLowerCase().slice(0, 30)
-  for (const marker of RETRY_MARKERS_BY_LENGTH) {
-    if (head.includes(marker)) return marker
+  for (const marker of RETRY_TIER_A_BY_LENGTH) {
+    if (head.startsWith(marker)) return marker
   }
+  if (head.includes('말고') && !PROHIBITIVE_MALGO_RE.test(head) && !ADDITIVE_MALGO_RE.test(head)) return '말고'
+  if (ANIRA_CORRECTION_RE.test(head) && !PPUNMAN_ANIRA_RE.test(head)) return '아니라'
   return null
 }
+
+/**
+ * 표시용 flat 마커명 리스트 — matchRetryMarker 가 리턴할 수 있는 문자열의 전체 집합.
+ * analyze-coaching.mts 가 카운트 초기화·출력 순회에 사용. 티어 구조는 위 내부 상수 참조.
+ */
+export const RETRY_MARKERS = [...RETRY_TIER_A, '말고', '아니라']
 
 /**
  * 계획 요청 마커 사전 (W3 카드 3 — 지문 신호 plan-after-correction) — 전부 잠정값.
@@ -341,10 +378,12 @@ export function matchPlanMarker(text: string): string | null {
 }
 
 const MIN_MONTH_SAMPLES = 5          // 유효 월 최소 user 메시지 수 — 저샘플 월 제외 (스펙 §유효 버킷)
-const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
-const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)
+// export: GrowthCoaching 상세뷰가 improving 의 A/B/C 분해를 buildGrowth 와 동일 분모/클램프로
+// 재현하기 위해 import (하드코딩 방지 — _common.md L-10 congruence). 값·계산 로직 불변.
+export const AVG_WORDS_NORMALIZER = 80      // proxy B 정규화 분모 (스펙 §카드 3)
+export const UNIQUE_SKILLS_NORMALIZER = 10  // proxy C 정규화 분모 (스펙 §카드 3)
 
-function clamp01(value: number): number {
+export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
@@ -372,6 +411,7 @@ export function buildGrowth(sessions: Session[]): Stats['growth'] {
     structuredCount: number
     skills: Set<string>
     hasClaudeSession: boolean
+    days: Set<string>          // distinct UTC 일 키 — activeDays (부분 달 eligibility 판정용)
   }
   const buckets = new Map<string, MonthBucket>()
   let totalFollowups = 0
@@ -388,11 +428,13 @@ export function buildGrowth(sessions: Session[]): Stats['growth'] {
         if (month) {
           let bucket = buckets.get(month)
           if (!bucket) {
-            bucket = { totalWords: 0, count: 0, structuredCount: 0, skills: new Set(), hasClaudeSession: false }
+            bucket = { totalWords: 0, count: 0, structuredCount: 0, skills: new Set(), hasClaudeSession: false, days: new Set() }
             buckets.set(month, bucket)
           }
           bucket.totalWords += countWords(msg.text)
           bucket.count++
+          const day = toDayKey(msg.timestamp)
+          if (day) bucket.days.add(day)
           if (isStructured(msg.text)) bucket.structuredCount++
           if (session.source === 'claude') {
             bucket.hasClaudeSession = true
@@ -441,6 +483,7 @@ export function buildGrowth(sessions: Session[]): Stats['growth'] {
       uniqueSkills: bucket.skills.size,
       hasClaudeSession: bucket.hasClaudeSession,
       count: bucket.count,
+      activeDays: bucket.days.size,
     }
   })
 
@@ -479,10 +522,10 @@ export function computeStats(sessions: Session[]): Stats {
     for (const msg of session.messages) {
       totalMessages++
 
-      if (msg.timestamp) {
+      const dayKey = toDayKey(msg.timestamp)
+      if (msg.timestamp && dayKey) {
         const date = new Date(msg.timestamp)
         hourlyActivity[date.getHours()]++
-        const dayKey = date.toISOString().slice(0, 10)
         dailyActivity[dayKey] = (dailyActivity[dayKey] || 0) + 1
         if (msg.tokens) {
           const msgTokenTotal = msg.tokens.input + msg.tokens.output + (msg.tokens.cachedInput || 0)
