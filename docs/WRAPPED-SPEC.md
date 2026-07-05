@@ -156,7 +156,8 @@
 - 공유 버튼:
   - **이미지 저장** — `memradar-code-report.png` PNG 다운로드
   - **공유하기** — 플랫폼 모달 (Threads 활성, X · Instagram "개발중" 배지)
-- **전체 보기로 돌아가기** — 마지막 슬라이드 도달 2.5초 뒤 하단 버튼 노출
+- 성향 진단 유도: **"내 성향 진단 해볼래요?"** CTA (accent 필 버튼, `Sparkles` 아이콘) → 페르소나 진단 퀴즈(`persona` 뷰)로 이동. `App → WrappedView → ShareSlide` 의 `onOpenPersonaQuiz` 배선
+- 대시보드 복귀: 별도의 "전체 보기로 돌아가기" 하단 버튼은 제거됨. 우상단 **X**, 또는 마지막 슬라이드 도달 2.5초 뒤 빈 곳 클릭 시 뜨는 "전체 분석 화면으로 이동할까요?" 모달로 이동한다 (`WrappedView` 처리)
 - 워터마크: `Made in 이더`
 
 공유 동작:

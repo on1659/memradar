@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { motion } from 'framer-motion'
-import { Camera, Download, LayoutDashboard, MessageCircle, Send, Share2, Sparkles, X } from 'lucide-react'
+import { Camera, Download, MessageCircle, Send, Share2, Sparkles, X } from 'lucide-react'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { shortModelName } from '../../../lib/modelNames'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
@@ -14,8 +14,7 @@ interface Props {
   codingLabel: string
   topModel: string
   usageHeadline: string
-  onOpenDashboard?: () => void
-  onOpenPersonality?: () => void
+  onOpenPersonaQuiz?: () => void
 }
 
 type SharePlatform = 'threads'
@@ -26,8 +25,7 @@ export function ShareSlide({
   codingLabel,
   topModel,
   usageHeadline,
-  onOpenDashboard,
-  onOpenPersonality,
+  onOpenPersonaQuiz,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
@@ -390,28 +388,15 @@ export function ShareSlide({
         </button>
       </motion.div>
 
-      {onOpenPersonality && (
+      {onOpenPersonaQuiz && (
         <FadeInText delay={0.85} className="mt-5">
           <button
-            onClick={onOpenPersonality}
+            onClick={onOpenPersonaQuiz}
             data-wrapped-control="true"
             className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-4 py-2 text-xs font-semibold text-text-bright transition-all hover:-translate-y-0.5 hover:border-accent/60 hover:bg-accent/25"
           >
             <Sparkles className="h-4 w-4 text-accent" />
-            <span>내 전체 성향도 볼래요?</span>
-          </button>
-        </FadeInText>
-      )}
-
-      {onOpenDashboard && (
-        <FadeInText delay={0.9} className="mt-5">
-          <button
-            onClick={onOpenDashboard}
-            data-wrapped-control="true"
-            className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-xs font-semibold text-text-bright transition-all hover:-translate-y-0.5 hover:border-accent/55 hover:bg-accent/20"
-          >
-            <LayoutDashboard className="h-4 w-4 text-accent" />
-            <span>전체 보기로 돌아가기</span>
+            <span>내 성향 진단 해볼래요?</span>
           </button>
         </FadeInText>
       )}
