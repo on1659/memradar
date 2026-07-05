@@ -63,3 +63,45 @@
 - **함정**: `preserveAspectRatio="none"`은 SVG 좌표계를 컨테이너에 비등방 스케일하므로, 폭이 가변인 카드 안에서는 원·점·텍스트·stroke가 전부 찌그러진다. 좁은 viewBox로 그려놓고 데스크탑에서만 확인하면 모바일/태블릿에서 왜곡 정도가 달라져 더 늦게 발견된다.
 - **회피**: 라인/폴리라인에는 `vectorEffect="non-scaling-stroke"`를 주고, 점 마커·툴팁 히트 영역처럼 형태가 유지돼야 하는 요소는 SVG 밖 % 좌표 HTML 오버레이(absolute positioning)로 분리한다. 패턴 구현 예: `src/components/growth/GrowthSkillCurve.tsx`, `GrowthComplexity.tsx`.
 - **연관 파일/함수**: `src/components/growth/GrowthSkillCurve.tsx`, `src/components/growth/GrowthComplexity.tsx`
+
+## L-8: check-triage 훅은 assistant 텍스트가 transcript에 flush되지 않는 환경에서 응답 첫 줄 선언을 못 본다
+
+- **언제 만났나**: 2026-07-03, 정밀 진단+지문 신호 작업 — 응답 첫 줄에 `[트리아지: COMPLEX]`를 선언했는데도 Edit이 반복 차단됨. 원인: 이 환경의 transcript JSONL에 assistant 텍스트 블록이 도구 호출 시점까지 기록되지 않아, "마지막 user 메시지 이후" 구간에 키워드가 없었음. 도구 입력(에이전트 프롬프트/Bash description)에 키워드가 포함된 뒤에야 통과.
+- **함정**: `check-triage.sh`는 transcript에서 마지막 real user 메시지 이후 내용을 grep하는데, assistant 텍스트 flush 타이밍은 하네스/호스트별로 다르다. 선언을 분명히 했는데 차단되면 "선언 형식이 틀렸나"로 오판해 시간을 낭비한다.
+- **회피**: 선언했는데도 차단되면 형식을 의심하지 말고 flush 문제로 보고, 키워드가 도구 입력에 실리도록 한다(예: `echo "[트리아지: ...]"` Bash 1회 — 우회가 아니라 동일 선언의 기록 경로 보정). 근본 해결은 훅이 tool_use 입력·assistant 텍스트를 모두 보도록 개선하는 것 — 훅 수정 기회에 반영할 것.
+- **연관 파일/함수**: `.claude/hooks/check-triage.sh`(L17 last_user 탐색, L25~28 grep 구간)
+
+## L-9: Tailwind v4 자동 소스 스캔은 docs/*.md의 `\`+16진수 경로 조각을 CSS 이스케이프로 해석해 빌드를 깨뜨린다
+
+- **언제 만났나**: 2026-07-03, QA 빌드 게이트 — `docs/goal/fix-coaching-accuracy.md`(병행 세션 산출물) 안의 Windows 스크래치패드 경로 GUID 조각 `\dc8c601c-…`를 Tailwind v4 스캐너가 unescape하다 `RangeError: Invalid code point 14453856`(=0xDC8C60)으로 `npm run build` 전체 실패. 해당 파일을 치우면 805ms에 성공.
+- **함정**: Tailwind v4는 클래스 후보를 찾으려 `docs/**/*.md`까지 스캔하며, 코드펜스 안이라도 읽는다. `\` 뒤에 16진수로 시작하는 GUID/해시 경로가 있으면 CSS 이스케이프 시퀀스로 오해석돼 소스와 무관한 파일이 빌드를 깨뜨린다 — 에러 메시지에 원인 파일이 안 나와 추적이 어렵다.
+- **회피**: docs에 Windows temp/스크래치패드 경로를 적을 때 `\` 구분자 + 16진수 시작 조각을 피한다 — `/` 구분자로 표기하거나 GUID 조각을 생략. 빌드가 `Invalid code point`로 깨지면 최근 추가된 .md에서 `\[0-9a-f]` 패턴부터 grep. 근본 해결 후보: vite/tailwind 설정에서 docs 디렉터리를 스캔 대상에서 제외.
+- **연관 파일/함수**: `vite.config.ts`(@tailwindcss/vite), `docs/goal/*.md`
+
+## L-10: 재구현 보드의 파생 설명 문자열은 원본과의 congruence assert가 전제일 때만 참
+
+- **언제 만났나**: 2026-07-03, 프롬프트 코칭 정확도 수정 — `scripts/analyze-coaching.mts`의 5룰 상태 보드는 `buildPromptCoaching` 발화 조건의 의도적 재구현(마진 표시 목적)인데, 원본에 월 eligibility 로직이 추가되면서 보드의 latest/latestClaude/improving 종점 선택이 원본과 갈라질 수 있었다. 드리프트 가드 3(eligible id 집합 == 리턴 id 집합)이 같은 실행 경로에 있어 갈라짐이 즉시 assert로 잡히는 구조였고, 이번 수정에서 eligibility 판정 자체는 `isEligibleMonth` export 공유로 단일화했다.
+- **함정**: 진단/리포트용 재구현 보드가 "조건 충족 ✓/✗ (margin ±N)" 같은 파생 설명 문자열을 출력하면, 그 문자열은 원본 로직과의 일치가 **assert로 강제될 때만** 참이다. 가드 없이 복제하면 원본만 수정되는 조용한 드리프트가 생겨, 보드가 실제로는 발화하지 않는 룰을 "충족"으로 설명하는 거짓 리포트가 된다 — personality-eval L-6("복제엔 가드")의 재발 사례(2회차).
+- **회피**: 재구현 보드를 만들면 반드시 (1) 원본 함수 실제 리턴과 보드 판정을 deep 비교하는 congruence assert를 같은 실행 경로에 심고, (2) 공유 가능한 판정 조각(predicate·상수)은 원본 모듈에서 export해 재구현 표면적을 줄인다. assert 삭제로 통과시키는 것은 금지 (가드가 곧 계약).
+- **연관 파일/함수**: `scripts/analyze-coaching.mts`(buildRuleBoard + 드리프트 가드 3), `src/lib/promptCoaching.ts`(`isEligibleMonth`, `MIN_ELIGIBLE_ACTIVE_DAYS`), 원사례 `lessons/personality-eval.md` L-6
+
+## L-11: 지시서·문서가 하드코딩한 lesson/note 번호를 그대로 쓰면 병행 세션 추가분과 충돌한다
+
+- **언제 만났나**: 2026-07-04, 프롬프트 코칭 작업 — 지시서가 "_common.md에 L-8 추가"라고 못박았는데 병행 세션이 이미 L-8/L-9를 추가해 둔 상태라 그대로 쓰면 번호가 겹쳤다(실제 L-10으로 배정). impl-note "#6", skill-candidate "C-002"도 같은 위험.
+- **함정**: goal 문서·지시서를 쓰는 시점과 실행 시점 사이에 다른 세션이 같은 지식 파일에 항목을 추가하면, 하드코딩된 번호가 최신 상태와 어긋난다. 지시서를 곧이곧대로 따르면 중복 번호가 생기고 cross-ref가 엉킨다.
+- **회피**: 지식 파일(lessons/skill-candidates)·스펙 impl-note에 항목을 추가하기 직전, 대상 파일에서 `^## L-`/`^## C-`/impl-note 최대 번호를 grep해 실제 다음 번호를 배정한다. 지시서의 번호는 "추가하라"는 신호로만 읽고, 실제 번호는 실행 시점에 결정.
+- **연관 파일/함수**: `.claude/knowledge/lessons/*`, `.claude/knowledge/skill-candidates.md`, `docs/GROWTH-SECTION-SPEC.md`(impl-note 번호)
+
+## L-12: 룰/항목 "개수" 라벨은 코드에서 파생하거나 congruence로 동시 갱신할 것
+
+- **언제 만났나**: 2026-07-04, 코칭 칭찬 룰 추가 — 보드 룰을 5→7로 늘렸는데 주석·헤더·스펙 impl-note·ARCHITECTURE가 "6룰"로 적혀(원래 5 + 신규 2 = 7인데 사람이 잘못 셈) 진단 스크립트 자기 출력이 실제 항목 수와 어긋났다.
+- **함정**: 사람이 손으로 센 개수 문자열("5룰", "6룰", "테스트 26개")은 룰/테스트를 추가할 때 코드 실제 개수와 조용히 어긋난다. 기능·가드에는 무해해 리뷰에서 놓치기 쉽지만, 진단 도구의 자기 라벨이 거짓이 되면 신뢰가 떨어진다. L-10 congruence의 "개수" 변형.
+- **회피**: 개수는 가능하면 코드에서 파생(`rules.length`)해 출력한다. 문서·주석에 개수를 손으로 적어야 하면, 룰/테스트 추가를 "코드 라벨 + doc + 테스트 카운트 동시 갱신" 하나의 congruence 항목으로 묶어 체크리스트화한다.
+- **연관 파일/함수**: `scripts/analyze-coaching.mts`(§4 보드 헤더), `docs/GROWTH-SECTION-SPEC.md`(헤더 테스트 개수·impl-note), `docs/ARCHITECTURE.md`, 관련 원칙 `lessons/_common.md` L-10
+
+## L-13: 상호배타 룰 쌍이 있으면 slice(0, MAX) 절단 상한이 도달 불가능한 방어코드가 된다
+
+- **언제 만났나**: 2026-07-04, 코칭 칭찬 룰 추가 — 룰이 상호배타 쌍(high-retry↔low-retry, low-skill↔high-skill) 3쌍 + improving 1개라 동시 최대 발화가 4개인데 MAX_INSIGHTS도 4. "5개 발화 → 4개로 절단" 테스트를 쓰려 해도 그런 입력이 구조적으로 존재하지 않는다.
+- **함정**: slice(0, MAX) 류 상한을 넣고 "절단이 동작한다"는 테스트를 작성하려는데, 룰 간 상호배타 구조 때문에 동시 발화 최대치가 MAX와 같거나 작으면 절단이 실제로는 절대 트리거되지 않는다. 모르면 도달 불가능한 방어코드를 검증하려 픽스처를 억지로 만들거나, 반대로 "절단 미검증"을 결함으로 오판한다.
+- **회피**: 상한을 넣을 땐 "이 상한이 실제로 트리거되는 입력이 존재하나"를 먼저 따진다. 존재하지 않으면 상한은 순수 방어코드로 문서화하고, 테스트는 "동시 최대 발화 == MAX"까지만 검증한다. 독립(비상호배타) 룰을 추가하거나 MAX를 낮추면 그때 절단 테스트가 유의미해진다.
+- **연관 파일/함수**: `src/lib/promptCoaching.ts`(MAX_INSIGHTS, 상호배타 룰 쌍), `tests/prompt-coaching.test.mts`

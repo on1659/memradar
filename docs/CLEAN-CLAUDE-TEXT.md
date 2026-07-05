@@ -29,9 +29,32 @@ Claude Code 하네스가 메시지 컨텍스트에 XML 블록으로 주입하는
 | `<local-command-caveat>` | 슬래시 커맨드 | 커맨드 출력 면책 문구 |
 | `<bash-input>` | Bash 툴 | 실행한 명령어 에코 |
 | `<bash-stdout>` | Bash 툴 | 명령어 stdout 에코 |
-| `<command-name>` `<command-message>` `<command-args>` | 슬래시 커맨드 | 커맨드 메타데이터 |
 | `<summary>` | 컨텍스트 압축 | 컨텍스트 한계 도달 시 주입되는 대화 요약 |
 | `<turn_aborted>` | 하네스 | 유저가 응답을 중단했을 때 삽입 — `interrupted: true` 반환 |
+
+> `<command-name>` `<command-message>` `<command-args>` 는 **제거하지 않고 언랩**한다 — 아래 "커맨드 클러스터 언랩" 절 참조.
+
+### 커맨드 클러스터 언랩
+
+슬래시 커맨드/스킬 호출은 형제 태그 묶음(순서·개행 무관)으로 주입된다.
+
+```text
+<command-name>/goal</command-name>
+<command-message>goal</command-message>
+<command-args>docs/x.md 정리해줘</command-args>
+```
+
+`<command-args>` 안의 내용은 **유저가 실제로 타이핑한 요청**이다. 스킬로 첫 문장을 실행한 세션은 `messages[0].text` 가 이 클러스터 하나뿐이라, 예전처럼 통째로 strip 하면 빈 문자열이 되어 대시보드에서 "(빈 세션)"으로 오표시됐다.
+
+그래서 클러스터 전체를 다음 한 값으로 언랩한다:
+
+- `<command-args>` 내용이 있으면 → 그 내용(실제 요청)
+- 비어있으면 → `<command-name>` 내용(예: `/goal`)으로 폴백
+- `<command-message>` 는 버림 (커맨드명 중복)
+
+언랩은 다른 시스템 태그 strip **이전**에 적용된다. args 안에 다른 시스템 태그가 섞여 있으면 그 태그는 뒤이은 strip 단계에서 제거된다.
+
+> 참고: `src/parser.ts` 의 스킬 이름 추출(`extractSkillNames`)은 **raw text 기준**(cleanClaudeText 이전)이라 이 언랩과 무관하게 `<command-name>` 태그를 직접 읽는다.
 
 ### 브래킷 어노테이션형
 

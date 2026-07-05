@@ -15,10 +15,11 @@ import {
   type Side,
   type CategoryId,
   type QuizState,
+  type QuizRun,
   type JobLens,
 } from '../lib/personaQuiz'
 import { PERSONA_STATEMENTS, resolveStatements } from '../data/personaStatements'
-import { savePersonaQuiz } from '../lib/personaQuizStorage'
+import { savePersonaQuiz, loadPersonaQuiz, clearPersonaQuiz } from '../lib/personaQuizStorage'
 
 interface PersonaQuizViewProps {
   sessions: Session[]
@@ -67,14 +68,17 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
 
   const rawScores = useMemo(() => collectRawScores(sessions), [sessions])
 
+  // 저장된 진단 상태 — 있으면 정밀 진단(refine) 모드: 직군 재사용 + unseen-first 샘플링.
+  const [saved, setSaved] = useState<QuizState | null>(() => loadPersonaQuiz())
   const [seed, setSeed] = useState<number>(() => makeSeed())
-  const [job, setJob] = useState<JobLens>('general')
+  const [job, setJob] = useState<JobLens>(saved?.job ?? 'general')
   const [phase, setPhase] = useState<Phase>('intro')
   const [pairs, setPairs] = useState<Pair[]>(() =>
     generateBalancedPairs(
       CATEGORY_IDS,
-      resolveStatements(PERSONA_STATEMENTS, 'general'),
+      resolveStatements(PERSONA_STATEMENTS, saved?.job ?? 'general'),
       seed,
+      saved ? new Set(saved.seenStatements) : undefined,
     ),
   )
   const [current, setCurrent] = useState(0)
@@ -88,36 +92,56 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
 
   const startQuiz = useCallback(() => {
     // 최종 선택된 job 기준으로 진술을 resolve 해 페어를 셋업한다(intro 에서 고른 직군 반영).
+    // refine 모드면 이미 출제된 진술(seenStatements)을 제외하고 뽑는다(unseen-first).
     setPairs(
-      generateBalancedPairs(CATEGORY_IDS, resolveStatements(PERSONA_STATEMENTS, job), seed),
+      generateBalancedPairs(
+        CATEGORY_IDS,
+        resolveStatements(PERSONA_STATEMENTS, job),
+        seed,
+        saved ? new Set(saved.seenStatements) : undefined,
+      ),
     )
     setPhase('quiz')
     setCurrent(0)
     setAnswers([])
-  }, [job, seed])
+  }, [job, seed, saved])
 
   const finish = useCallback(
     (finalAnswers: Answer[], usedSeed: number) => {
+      // 정밀 진단: 모든 run 의 answers 를 병합해 보정 재계산 — 카테고리별
+      // appearances 가 2 → 4 → 6 … 으로 늘어나 pickRate 해상도가 자연 향상된다.
+      const mergedAnswers = saved
+        ? [...saved.runs.flatMap((r) => r.answers), ...finalAnswers]
+        : finalAnswers
       const { calibration, finalDistribution } = computeCalibration(
-        finalAnswers,
+        mergedAnswers,
         rawScores,
         CATEGORY_IDS,
       )
       const autoDistribution = normalizeTopShare(rawScores, CATEGORY_IDS)
+      const now = new Date().toISOString()
+      const newRun: QuizRun = { seed: usedSeed, ts: now, answers: finalAnswers }
+      // 이번 run 에 출제된 진술 텍스트를 누적 (answers 에는 진술이 없으므로 pairs 에서 수집).
+      const seen = new Set(saved?.seenStatements ?? [])
+      for (const p of pairs) {
+        seen.add(p.leftStatement)
+        seen.add(p.rightStatement)
+      }
       const state: QuizState = {
         version: PERSONA_QUIZ_VERSION,
         job,
-        ts: new Date().toISOString(),
-        seed: usedSeed,
-        answers: finalAnswers,
+        ts: now,
+        runs: [...(saved?.runs ?? []), newRun],
+        seenStatements: [...seen],
         calibration,
         finalDistribution,
       }
       savePersonaQuiz(state)
+      setSaved(state)
       setResult({ autoDistribution, finalDistribution })
       setPhase('result')
     },
-    [job, rawScores],
+    [job, rawScores, saved, pairs],
   )
 
   const answer = useCallback(
@@ -142,16 +166,34 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
 
   const restart = useCallback(() => {
     // 현재 job 유지 — 같은 직군 눈높이로 페어만 새 시드로 재생성.
+    // 저장 상태가 있으면 refine 재실행: 누적 유지 + 갱신된 seenStatements 로 unseen-first.
     const newSeed = makeSeed()
     setSeed(newSeed)
     setPairs(
-      generateBalancedPairs(CATEGORY_IDS, resolveStatements(PERSONA_STATEMENTS, job), newSeed),
+      generateBalancedPairs(
+        CATEGORY_IDS,
+        resolveStatements(PERSONA_STATEMENTS, job),
+        newSeed,
+        saved ? new Set(saved.seenStatements) : undefined,
+      ),
     )
     setCurrent(0)
     setAnswers([])
     setResult(null)
     setPhase('quiz')
-  }, [job])
+  }, [job, saved])
+
+  const startOver = useCallback(() => {
+    // 처음부터 다시 — 누적 상태 제거 후 일반 intro 로 전환 (직군 선택 다시 노출).
+    clearPersonaQuiz()
+    setSaved(null)
+    setJob('general')
+    setSeed(makeSeed())
+    setCurrent(0)
+    setAnswers([])
+    setResult(null)
+    setPhase('intro')
+  }, [])
 
   return (
     <div className="min-h-screen w-full bg-bg text-text">
@@ -174,12 +216,21 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
         <AnimatePresence mode="wait">
           {phase === 'intro' && (
             <IntroPhase
-              key="intro"
+              key={saved ? 'intro-refine' : 'intro'}
               isKorean={isKorean}
               total={total}
               job={job}
               onJobChange={setJob}
               onStart={startQuiz}
+              refine={
+                saved
+                  ? {
+                      runCount: saved.runs.length,
+                      questionCount: saved.runs.reduce((sum, r) => sum + r.answers.length, 0),
+                    }
+                  : null
+              }
+              onStartOver={startOver}
             />
           )}
           {phase === 'quiz' && pairs[current] && (
@@ -196,6 +247,11 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
             <ResultPhase
               key="result"
               isKorean={isKorean}
+              total={total}
+              runCount={saved?.runs.length ?? 1}
+              questionCount={
+                saved ? saved.runs.reduce((sum, r) => sum + r.answers.length, 0) : total
+              }
               autoDistribution={result.autoDistribution}
               finalDistribution={result.finalDistribution}
               onRestart={restart}
@@ -215,13 +271,64 @@ function IntroPhase({
   job,
   onJobChange,
   onStart,
+  refine,
+  onStartOver,
 }: {
   isKorean: boolean
   total: number
   job: JobLens
   onJobChange: (job: JobLens) => void
   onStart: () => void
+  /** 저장된 진단이 있을 때의 누적 컨텍스트 — 있으면 정밀 진단(refine) intro 로 렌더. */
+  refine: { runCount: number; questionCount: number } | null
+  onStartOver: () => void
 }) {
+  // 정밀 진단 intro — 직군 선택 생략(저장된 job 재사용), 누적 컨텍스트 + 컴팩트 카피.
+  if (refine) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col items-center pt-10 text-center"
+      >
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-accent/25 bg-accent/10">
+          <HelpCircle className="h-10 w-10 text-accent" aria-hidden="true" />
+        </div>
+        <h1 className="font-display mb-3 text-3xl font-bold text-text-bright">
+          {isKorean ? '정밀 진단' : 'Refine Diagnosis'}
+        </h1>
+        <p className="mb-2 max-w-md text-sm leading-relaxed text-text/70">
+          {isKorean
+            ? `지금까지 ${refine.runCount}회 · ${refine.questionCount}문항을 진행했어요. ${total}문항을 더 풀면 보정이 더 또렷해져요.`
+            : `You've answered ${refine.questionCount} questions across ${refine.runCount} ${
+                refine.runCount === 1 ? 'run' : 'runs'
+              } so far. Answering ${total} more tends to sharpen the calibration.`}
+        </p>
+        <p className="mb-8 max-w-md text-xs leading-relaxed text-text/45">
+          {isKorean
+            ? '이전 응답은 그대로 누적되고, 아직 안 본 문항 위주로 나와요.'
+            : 'Your previous answers stay accumulated; new questions favor statements you haven’t seen.'}
+        </p>
+        <button
+          type="button"
+          onClick={onStart}
+          className="rounded-full bg-accent px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-dim"
+        >
+          {isKorean ? `${total}문항 더 풀기` : `Answer ${total} more`}
+        </button>
+        <button
+          type="button"
+          onClick={onStartOver}
+          className="mt-4 text-xs font-medium text-text/45 underline-offset-4 transition-colors hover:text-text/80 hover:underline"
+        >
+          {isKorean ? '처음부터 다시' : 'Start over'}
+        </button>
+      </motion.div>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -376,12 +483,18 @@ function StatementButton({
 // --- 결과 화면 (전/후 비교) -----------------------------------------------
 function ResultPhase({
   isKorean,
+  total,
+  runCount,
+  questionCount,
   autoDistribution,
   finalDistribution,
   onRestart,
   onClose,
 }: {
   isKorean: boolean
+  total: number
+  runCount: number
+  questionCount: number
   autoDistribution: Record<CategoryId, number>
   finalDistribution: Record<CategoryId, number>
   onRestart: () => void
@@ -409,10 +522,16 @@ function ResultPhase({
       <h1 className="font-display mb-1 text-center text-2xl font-bold text-text-bright">
         {isKorean ? '진단 결과' : 'Your Result'}
       </h1>
-      <p className="mb-8 text-center text-sm text-text/55">
+      <p className="mb-2 text-center text-sm text-text/55">
         {isKorean
           ? '자동 분류와 검사 응답을 합쳐 보정한 결과예요.'
           : 'We blended the auto-classification with your answers.'}
+      </p>
+      {/* 누적 영수증 — 정밀 진단으로 쌓인 표본 크기를 정직하게 표기 (anti-Barnum). */}
+      <p className="mb-8 text-center text-xs text-text/45">
+        {isKorean
+          ? `n=${questionCount}문항 · ${runCount}회`
+          : `n=${questionCount} questions · ${runCount} ${runCount === 1 ? 'run' : 'runs'}`}
       </p>
 
       {/* 강조 카드 */}
@@ -472,7 +591,7 @@ function ResultPhase({
           className="flex items-center gap-2 rounded-full border border-border/70 bg-bg-card px-5 py-2.5 text-sm font-medium text-text/80 transition-colors hover:bg-bg-hover hover:text-text-bright"
         >
           <RotateCcw className="h-4 w-4" />
-          <span>{isKorean ? '다시 하기' : 'Retake'}</span>
+          <span>{isKorean ? `${total}문항 더 풀기` : `Answer ${total} more`}</span>
         </button>
         <button
           type="button"

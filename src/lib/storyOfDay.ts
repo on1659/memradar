@@ -1,6 +1,7 @@
 import type { Session } from '../types'
-import { extractSkillNames, isStructured, matchRetryMarker, toLocalDayKey } from '../parser'
+import { countWords, extractSkillNames, isStructured, matchRetryMarker, stripMarkup, toLocalDayKey } from '../parser'
 import { detectLanguageNames } from './languageProfile'
+import { extractProject } from './personality'
 
 /**
  * 그날 이야기 (Story of the Day) — 토큰 최대인 날이 아니라 **서사 점수 최대인 날** 선정.
@@ -84,6 +85,31 @@ export interface DailyCollab {
   languages: Set<string>
   /** 그날 메시지 중 Claude 세션 출신 존재 여부 — ④ 스킬 서브항 산입 조건 */
   hasClaudeSession: boolean
+  /** user 메시지 단어 수 합 — countWords(stripMarkup(text)), authorshipRatio.ts 와 동일 호출식 (지문 ⑥⑦ 재료, 가산 필드) */
+  userWords: number
+  /** assistant 메시지 단어 수 합 — 산식 동일 (지문 ⑥ 재료, 가산 필드) */
+  aiWords: number
+  /** 그날 사용 모델 — per-message model, 없으면 session.model 폴백, 둘 다 없으면 미기록 (지문 ⑨ 재료, 가산 필드) */
+  models: Set<string>
+  /** 그날 세션의 프로젝트 키 — sessionProjectKey 규칙, 세션당 1회 계산 (지문 ⑧ 재료, 가산 필드) */
+  projects: Set<string>
+}
+
+/**
+ * 세션 → 프로젝트 키 (세션당 1회 계산 — 지문 ⑧ 이 전체 세션 분포에도 같은 규칙을 쓰도록 export).
+ *   ① cwd 있으면 extractProject(cwd) (personality.ts 와 동일 규칙 — 프로젝트 키 단일 소스)
+ *   ② cwd 없고 Claude 세션 + filePath 있으면 부모 디렉터리명 (~/.claude/projects/{slug}/x.jsonl 구조,
+ *      cli/index.mjs handleSessions 의 project slug 와 동일 축 — 경로 구분자 양쪽 처리, node:path 미사용)
+ *   ③ Codex 는 filePath 폴백 금지 (날짜 디렉터리라 프로젝트 정보가 아님 — cli/index.mjs 'codex' 상수와 동일 판단)
+ *   ④ 둘 다 없으면 null — 해당 세션은 프로젝트 집계에 기여하지 않음
+ */
+export function sessionProjectKey(session: Session): string | null {
+  if (session.cwd) return extractProject(session.cwd)
+  if (session.source === 'claude' && session.filePath) {
+    const parts = session.filePath.replace(/\\/g, '/').split('/').filter(Boolean)
+    if (parts.length >= 2) return parts[parts.length - 2]
+  }
+  return null
 }
 
 /**
@@ -113,6 +139,10 @@ export function buildDailyCollab(
         skills: new Set(),
         languages: new Set(),
         hasClaudeSession: false,
+        userWords: 0,
+        aiWords: 0,
+        models: new Set(),
+        projects: new Set(),
       }
       days.set(key, day)
     }
@@ -121,6 +151,8 @@ export function buildDailyCollab(
 
   for (const session of sessions) {
     const sessionDays = new Set<string>()
+    // 프로젝트 키는 세션당 1회 계산 — 세션 꼬리 루프에서 그날들에 add (sessionCount 와 동일 귀속 축)
+    const projectKey = sessionProjectKey(session)
     // 세션 경계 안전성 — 이전 세션이 assistant 로 끝나도 다음 세션 첫 user 가 follow-up 으로 오인되지 않게 (buildGrowth 패턴)
     let prevRole: 'user' | 'assistant' | null = null
 
@@ -145,9 +177,14 @@ export function buildDailyCollab(
         }
         if (session.source === 'claude') day.hasClaudeSession = true
         for (const name of detectLanguageNames(msg.text)) day.languages.add(name)
+        // per-message model 우선, 없으면 세션 레벨 폴백 — 둘 다 없으면 미기록 (분모 오염 방지)
+        const model = msg.model ?? session.model
+        if (model) day.models.add(model)
 
         if (msg.role === 'user') {
           day.userMessageCount++
+          // authorshipRatio.ts 와 동일 호출식 — 카드 간 단어 수 산식 정합 (지문 ⑥⑦ 재료)
+          day.userWords += countWords(stripMarkup(msg.text))
           if (isStructured(msg.text)) day.structuredCount++
           if (session.source === 'claude') {
             // <command-name> 태그는 Claude 세션에만 존재 — 스킬은 Claude 전용 (buildGrowth proxy C 패턴)
@@ -156,6 +193,8 @@ export function buildDailyCollab(
           if (prevRole === 'assistant') {
             day.followUps.push({ ts, isRetry: matchRetryMarker(msg.text) !== null })
           }
+        } else if (msg.role === 'assistant') {
+          day.aiWords += countWords(stripMarkup(msg.text))
         }
       }
 
@@ -163,7 +202,9 @@ export function buildDailyCollab(
     }
 
     for (const key of sessionDays) {
-      getOrCreate(key).sessionCount++
+      const day = getOrCreate(key)
+      day.sessionCount++
+      if (projectKey !== null) day.projects.add(projectKey)
     }
   }
 

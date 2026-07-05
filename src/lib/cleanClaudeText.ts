@@ -29,10 +29,13 @@
 // local-command-caveat | Disclaimer appended to slash command output
 // bash-input       | Bash tool call input echoed into context
 // bash-stdout      | Bash tool call stdout echoed into context
-// command-name     | Slash command name metadata
-// command-message  | Slash command message metadata
-// command-args     | Slash command arguments metadata
 // summary          | Compaction summary — injected when context is compressed
+//
+// NOTE: command-name / command-message / command-args are NOT in this list.
+// They are handled separately below (see COMMAND_CLUSTER_RE) because
+// <command-args> holds the user's ACTUAL typed request — so the cluster is
+// UNWRAPPED (args, falling back to the command name), not deleted. Stripping
+// them would blank out skill-first-sentence sessions (rendered "(빈 세션)").
 //
 const SYSTEM_XML_TAGS = [
   'ide_opened_file', 'ide_selection', 'ide_diagnostics',
@@ -40,7 +43,6 @@ const SYSTEM_XML_TAGS = [
   'task-notification', 'task_notification',
   'local-command-stdout', 'local-command-caveat',
   'bash-input', 'bash-stdout',
-  'command-name', 'command-message', 'command-args',
   'summary',
   'turn_aborted',
   'result',
@@ -77,6 +79,40 @@ const BRACKET_RE = new RegExp(`\\[(?:${verbAlt})\\s[^\\]]+\\]\\s*`, 'gi')
 // [Image #1], [Image: source: path], [Image: original WxH...]
 const IMAGE_ANNOTATION_RE = /\[Image[^\]]*\]\s*/gi
 
+// ─── Command cluster (slash-command metadata) ────────────────────────────────
+//
+// Claude Code wraps a slash-command invocation as a cluster of sibling tags —
+// in ANY order, separated by whitespace/newlines:
+//
+//   <command-name>/goal</command-name>
+//   <command-message>goal</command-message>
+//   <command-args>docs/x.md 정리해줘</command-args>
+//
+// Unlike the strip-only tags above, <command-args> carries the USER'S ACTUAL
+// TYPED REQUEST. Deleting it blanks out skill-first-sentence sessions, which
+// then render as "(빈 세션)" in the dashboard. So we UNWRAP the whole cluster
+// into a single value:
+//   command-args content  (the real request)   — preferred
+//   └ if empty → command-name content (e.g. "/goal") — fallback
+//   command-message is discarded (it only duplicates the command name).
+//
+// The trailing `\s*` inside the group lets the `+` swallow the whitespace
+// between sibling tags so the cluster matches as one unit regardless of order.
+const COMMAND_CLUSTER_RE = /(?:<command[-_](?:name|message|args)[^>]*>[\s\S]*?<\/command[-_](?:name|message|args)>\s*)+/gi
+const COMMAND_ARGS_RE = /<command[-_]args[^>]*>([\s\S]*?)<\/command[-_]args>/i
+const COMMAND_NAME_RE = /<command[-_]name[^>]*>([\s\S]*?)<\/command[-_]name>/i
+
+function unwrapCommandCluster(cluster: string): string {
+  const args = (cluster.match(COMMAND_ARGS_RE)?.[1] ?? '').trim()
+  const name = (cluster.match(COMMAND_NAME_RE)?.[1] ?? '').trim()
+  const value = args || name
+  // The cluster regex consumed the whitespace that separated it from any
+  // trailing user text, so re-insert one separator to avoid gluing the
+  // collapsed value onto that text. The outer .trim() drops it when the
+  // cluster is the whole message.
+  return value ? `${value} ` : ''
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export interface CleanResult {
@@ -95,6 +131,9 @@ export interface CleanResult {
 export function cleanClaudeText(raw: string): CleanResult {
   const interrupted = /<turn_aborted>[\s\S]*?<\/turn_aborted>/i.test(raw)
   const text = raw
+    // Unwrap command clusters FIRST so <command-args> content survives; any
+    // system tags nested inside the unwrapped request are then stripped below.
+    .replace(COMMAND_CLUSTER_RE, unwrapCommandCluster)
     .replace(XML_TAG_RE, '')
     .replace(BRACKET_RE, '')
     .replace(IMAGE_ANNOTATION_RE, '')

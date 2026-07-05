@@ -21,12 +21,13 @@ import { ShareSlide } from './slides/ShareSlide'
 interface WrappedViewProps {
   sessions: Session[]
   onClose: () => void
+  onOpenPersonality?: () => void
 }
 
 const INTERACTIVE_SELECTOR =
   'button,a,input,textarea,select,[role="button"],[data-wrapped-control="true"]'
 
-export function WrappedView({ sessions, onClose }: WrappedViewProps) {
+export function WrappedView({ sessions, onClose, onOpenPersonality }: WrappedViewProps) {
   const { locale, t } = useI18n()
   const [slideIndex, setSlideIndex] = useState(0)
   const [dashboardPromptOpen, setDashboardPromptOpen] = useState(false)
@@ -132,6 +133,7 @@ export function WrappedView({ sessions, onClose }: WrappedViewProps) {
       topModel={topModel}
       usageHeadline={usageHeadline}
       onOpenDashboard={onClose}
+      onOpenPersonality={onOpenPersonality}
     />,
   ]
 

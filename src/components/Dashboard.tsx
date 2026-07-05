@@ -43,6 +43,7 @@ import {
   LONG_SESSION_MIN_TURNS,
   MIN_FINGERPRINT_SIGNAL_N,
   MIN_FINGERPRINT_TOP_SIGNALS,
+  MULTI_PROJECT_MIN_DAY_SESSIONS,
   STRUCTURED_RECENT_WINDOW_DAYS,
   type FingerprintSignal,
   type FingerprintSignalId,
@@ -757,13 +758,17 @@ function storyNarrative(story: StoryOfDay, isKorean: boolean): string {
 /** 잠정값 — 실측 보정 전 (지문 미니 lift 바 풀스케일 — 이 배수 이상은 100% 폭, UI 전용) */
 const FINGERPRINT_BAR_MAX_LIFT = 3
 
-// 분수(0~1) → 표시 문자열 변환은 이 헬퍼 3종만 사용 (lessons/_common.md L-5 — 인라인 ×100 반복 금지)
+// 분수(0~1) → 표시 문자열 변환은 이 헬퍼 4종만 사용 (lessons/_common.md L-5 — 인라인 ×100 반복 금지)
 const fmtPct0 = (fraction: number) => `${Math.round(fraction * 100)}%`
 const fmtPct1 = (fraction: number) => `${(fraction * 100).toFixed(1)}%`
 const fmtSignedPp = (fraction: number, isKorean: boolean) => {
   const pp = Math.round(fraction * 100)
   return `${pp >= 0 ? '+' : ''}${pp}${isKorean ? '%p' : 'pp'}`
 }
+// 방향 동사("늘어난/줄어든", "rose/dropped")와 병기하는 서사 전용 — 부호까지 넣으면 이중 표기가 된다
+// (ko "-5%p 줄어든" 부호·동사 중복, en "dropped -5pp" 이중부정으로 방향 오독). 영수증은 fmtSignedPp 유지.
+const fmtAbsPp = (fraction: number, isKorean: boolean) =>
+  `${Math.round(Math.abs(fraction) * 100)}${isKorean ? '%p' : 'pp'}`
 
 function fingerprintSignalLabel(id: FingerprintSignalId, isKorean: boolean): string {
   switch (id) {
@@ -777,6 +782,14 @@ function fingerprintSignalLabel(id: FingerprintSignalId, isKorean: boolean): str
       return isKorean ? '심야 비중' : 'Late-night share'
     case 'long-session-preference':
       return isKorean ? '긴 세션 선호' : 'Long-session preference'
+    case 'ai-share-shift':
+      return isKorean ? 'AI 작성 비중 변화' : 'AI-written share shift'
+    case 'delegation-size-shift':
+      return isKorean ? '지시 길이 변화' : 'Prompt-length shift'
+    case 'multi-project-days':
+      return isKorean ? '프로젝트 병행' : 'Multi-project days'
+    case 'model-mix-shift':
+      return isKorean ? '모델 믹스 변화' : 'Model-mix shift'
   }
 }
 
@@ -828,6 +841,37 @@ function fingerprintNarrative(signal: FingerprintSignal, isKorean: boolean): str
       return isKorean
         ? `긴 세션(${LONG_SESSION_MIN_TURNS}턴+)을 본인 분포 기대치의 ${lift}배로 이어가는 편이에요 (실측 ${fmtPct1(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)}, n=세션 ${signal.n}건)`
         : `Long sessions (${LONG_SESSION_MIN_TURNS}+ turns) run ${lift}x what your own length distribution would expect (actual ${fmtPct1(signal.numerator)} vs expected ${fmtPct1(signal.denominator)}, n=${signal.n} sessions)`
+    case 'ai-share-shift': {
+      // 방향 분기 — 양방향 신호는 늘어난 쪽/줄어든 쪽 서술이 달라야 한다 (delta 부호 기준).
+      // 방향은 동사가 전달하므로 %p 는 절대값(fmtAbsPp) — 부호 병기 시 이중 표기 (영수증은 fmtSignedPp)
+      const aiShareGrew = (signal.delta ?? 0) >= 0
+      return isKorean
+        ? `최근 ${STRUCTURED_RECENT_WINDOW_DAYS}일 AI가 쓰는 분량 비중이 이전보다 ${fmtAbsPp(signal.delta ?? 0, true)} ${aiShareGrew ? '늘어난' : '줄어든'} 것으로 보여요 (최근 ${fmtPct0(signal.numerator)} vs 이전 ${fmtPct0(signal.denominator)}, n=최근 ${signal.n.toLocaleString()}단어 · 이전 ${(signal.n2 ?? 0).toLocaleString()}단어)`
+        : `Looks like the AI-written share of text ${aiShareGrew ? 'rose' : 'dropped'} ${fmtAbsPp(signal.delta ?? 0, false)} over the last ${STRUCTURED_RECENT_WINDOW_DAYS} days (recent ${fmtPct0(signal.numerator)} vs prior ${fmtPct0(signal.denominator)}, n=${signal.n.toLocaleString()} recent words · ${(signal.n2 ?? 0).toLocaleString()} prior)`
+    }
+    case 'delegation-size-shift': {
+      // 방향 분기 — 배수 축이라 lift ≥ 1(길어짐) / < 1(짧아짐) 기준. 표시는 이전→최근 평균 단어 수.
+      const promptsGrew = signal.lift >= 1
+      return isKorean
+        ? `최근 ${STRUCTURED_RECENT_WINDOW_DAYS}일 지시가 평균 ${signal.denominator.toFixed(1)}단어→${signal.numerator.toFixed(1)}단어로 ${promptsGrew ? '길어진' : '짧아진'} 편이에요 (n=최근 ${signal.n.toLocaleString()}건 · 이전 ${(signal.n2 ?? 0).toLocaleString()}건)`
+        : `Your prompts look to have gotten ${promptsGrew ? 'longer' : 'shorter'} over the last ${STRUCTURED_RECENT_WINDOW_DAYS} days — avg ${signal.denominator.toFixed(1)} → ${signal.numerator.toFixed(1)} words (n=${signal.n.toLocaleString()} recent · ${(signal.n2 ?? 0).toLocaleString()} prior messages)`
+    }
+    case 'multi-project-days':
+      if (lift === null) {
+        return isKorean
+          ? `세션 ${MULTI_PROJECT_MIN_DAY_SESSIONS}개+ 인 날의 프로젝트 병행을 잴 기준선이 없어요 (실측 ${fmtPct0(signal.numerator)}, n=해당 ${signal.n}일)`
+          : `No baseline to compare multi-project days against (actual ${fmtPct0(signal.numerator)}, n=${signal.n} days with ${MULTI_PROJECT_MIN_DAY_SESSIONS}+ sessions)`
+      }
+      return isKorean
+        ? `세션 ${MULTI_PROJECT_MIN_DAY_SESSIONS}개+ 인 날엔 프로젝트를 여러 개 오가는 편이에요 — 독립 기대치의 ${lift}배 (실측 ${fmtPct0(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)}, n=해당 ${signal.n}일)`
+        : `On days with ${MULTI_PROJECT_MIN_DAY_SESSIONS}+ sessions you tend to span multiple projects — ${lift}x the independence expectation (actual ${fmtPct0(signal.numerator)} vs expected ${fmtPct1(signal.denominator)}, n=${signal.n} qualifying days)`
+    case 'model-mix-shift': {
+      // 방향 분기 — ⑥ 과 동일하게 delta 부호 기준, %p 는 절대값(fmtAbsPp — 방향은 동사가 전달)
+      const mixGrew = (signal.delta ?? 0) >= 0
+      return isKorean
+        ? `여러 모델을 오가는 날이 이전보다 ${fmtAbsPp(signal.delta ?? 0, true)} ${mixGrew ? '늘어난' : '줄어든'} 것으로 보여요 (최근 ${fmtPct0(signal.numerator)} n=${signal.n}일 vs 이전 ${fmtPct0(signal.denominator)} n=${signal.n2 ?? 0}일)`
+        : `Looks like multi-model days ${mixGrew ? 'rose' : 'dropped'} ${fmtAbsPp(signal.delta ?? 0, false)} vs your prior period (recent ${fmtPct0(signal.numerator)} of n=${signal.n} active days vs prior ${fmtPct0(signal.denominator)} of n=${signal.n2 ?? 0})`
+    }
   }
 }
 
@@ -859,6 +903,22 @@ function fingerprintReceiptNumbers(signal: FingerprintSignal, isKorean: boolean)
       return isKorean
         ? `${LONG_SESSION_MIN_TURNS}턴+ 세션 ${fmtPct1(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)} · ${liftLabel} (n=세션 ${signal.n}건)`
         : `${LONG_SESSION_MIN_TURNS}+ turn sessions ${fmtPct1(signal.numerator)} vs expected ${fmtPct1(signal.denominator)} · ${liftLabel} (n=${signal.n} sessions)`
+    case 'ai-share-shift':
+      return isKorean
+        ? `최근 ${fmtPct0(signal.numerator)} (n=${signal.n.toLocaleString()}단어) vs 이전 ${fmtPct0(signal.denominator)} (n=${(signal.n2 ?? 0).toLocaleString()}단어) · ${fmtSignedPp(signal.delta ?? 0, true)}`
+        : `recent ${fmtPct0(signal.numerator)} (n=${signal.n.toLocaleString()} words) vs prior ${fmtPct0(signal.denominator)} (n=${(signal.n2 ?? 0).toLocaleString()} words) · ${fmtSignedPp(signal.delta ?? 0, false)}`
+    case 'delegation-size-shift':
+      return isKorean
+        ? `최근 평균 ${signal.numerator.toFixed(1)}단어 (n=${signal.n.toLocaleString()}건) vs 이전 ${signal.denominator.toFixed(1)}단어 (n=${(signal.n2 ?? 0).toLocaleString()}건) · ${liftLabel}`
+        : `recent avg ${signal.numerator.toFixed(1)} words (n=${signal.n.toLocaleString()}) vs prior ${signal.denominator.toFixed(1)} (n=${(signal.n2 ?? 0).toLocaleString()}) · ${liftLabel}`
+    case 'multi-project-days':
+      return isKorean
+        ? `프로젝트 2+ 일 ${fmtPct0(signal.numerator)} vs 기대 ${fmtPct1(signal.denominator)} · ${liftLabel} (n=세션 ${MULTI_PROJECT_MIN_DAY_SESSIONS}+ ${signal.n}일)`
+        : `multi-project days ${fmtPct0(signal.numerator)} vs expected ${fmtPct1(signal.denominator)} · ${liftLabel} (n=${signal.n} days with ${MULTI_PROJECT_MIN_DAY_SESSIONS}+ sessions)`
+    case 'model-mix-shift':
+      return isKorean
+        ? `최근 ${fmtPct0(signal.numerator)} (n=${signal.n}일) vs 이전 ${fmtPct0(signal.denominator)} (n=${signal.n2 ?? 0}일) · ${fmtSignedPp(signal.delta ?? 0, true)}`
+        : `recent ${fmtPct0(signal.numerator)} (n=${signal.n} days) vs prior ${fmtPct0(signal.denominator)} (n=${signal.n2 ?? 0} days) · ${fmtSignedPp(signal.delta ?? 0, false)}`
   }
 }
 
@@ -868,20 +928,30 @@ function fingerprintReceiptLine(signal: FingerprintSignal, isKorean: boolean): s
   if (signal.viable) return numbers
   const shortfall = signal.id === 'plan-after-correction' && signal.n >= MIN_FINGERPRINT_SIGNAL_N
     ? (isKorean ? '기준선 없음 (계획 요청 마커 0건)' : 'no baseline (zero plan-marker messages)')
-    : signal.id === 'structured-shift'
-      ? (isKorean
-        ? `표본 부족 (최근 n=${signal.n} · 이전 n=${signal.n2 ?? 0} — 최소 각 ${MIN_FINGERPRINT_SIGNAL_N})`
-        : `insufficient sample (recent n=${signal.n} · prior n=${signal.n2 ?? 0} — needs ${MIN_FINGERPRINT_SIGNAL_N} each)`)
-      : (isKorean
-        ? `표본 부족 (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`
-        : `insufficient sample (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`)
+    : signal.id === 'multi-project-days' && signal.n >= MIN_FINGERPRINT_SIGNAL_N
+      // ⑧ 은 n 충족이어도 프로젝트 기록 0건이면 기대치 근거가 없다 — ③의 기준선 없음 분기와 같은 축
+      ? (isKorean ? '기준선 없음 (프로젝트 기록 0건)' : 'no baseline (zero project records)')
+      : signal.id === 'ai-share-shift'
+        // ⑥ 의 n/n2 는 단어 수인데 성립 게이트는 창별 user 메시지 수 — 단위가 달라 일반형 문구를 쓰면 거짓 영수증
+        ? (isKorean
+          ? `표본 부족 (최근/이전 창의 user 메시지 각 ${MIN_FINGERPRINT_SIGNAL_N}건 필요 — n= 은 단어 수)`
+          : `insufficient sample (needs ${MIN_FINGERPRINT_SIGNAL_N} user messages per window — n= counts words)`)
+        // 최근/이전 창 신호(②⑦⑨)는 n/n2 가 곧 게이트 표본 — 양쪽 병기
+        : (signal.delta !== null || signal.n2 !== null)
+          ? (isKorean
+            ? `표본 부족 (최근 n=${signal.n} · 이전 n=${signal.n2 ?? 0} — 최소 각 ${MIN_FINGERPRINT_SIGNAL_N})`
+            : `insufficient sample (recent n=${signal.n} · prior n=${signal.n2 ?? 0} — needs ${MIN_FINGERPRINT_SIGNAL_N} each)`)
+          : (isKorean
+            ? `표본 부족 (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`
+            : `insufficient sample (n=${signal.n} < ${MIN_FINGERPRINT_SIGNAL_N})`)
   return `${numbers} — ${shortfall}`
 }
 
 function FingerprintSignalRow({ signal, isKorean }: { signal: FingerprintSignal; isKorean: boolean }) {
   const barWidth = Math.round(Math.min(signal.rankScore / FINGERPRINT_BAR_MAX_LIFT, 1) * 100)
-  const liftBadge = signal.id === 'structured-shift'
-    ? fmtSignedPp(signal.delta ?? 0, isKorean)
+  // delta 신호(②⑥⑨)는 %p 가 주 표기 — 그 외는 배수. 양방향(⑦)의 감소 방향은 마지막 분기에서 자연히 '0.7x' 꼴
+  const liftBadge = signal.delta !== null
+    ? fmtSignedPp(signal.delta, isKorean)
     : signal.lift >= FINGERPRINT_LIFT_CAP
       ? (signal.denominator <= 0 ? (isKorean ? '기준선 없음' : 'no baseline') : '99x+')
       : `${signal.lift.toFixed(1)}x`
@@ -1320,7 +1390,7 @@ export function Dashboard({
     ? DASHBOARD_USAGE_CARD_HELP
     : 'Shows which roles your AI most often took based on recurring request patterns in your messages. Rough estimate based on keywords, not a precise classification.'
   const personaQuizLabel = hasCalibration
-    ? (isKorean ? '다시 진단' : 'Retake quiz')
+    ? (isKorean ? '정밀 진단' : 'Refine diagnosis')
     : (isKorean ? '내 페르소나 진단' : 'Diagnose persona')
   const calibratedBadgeLabel = isKorean ? '보정됨' : 'Calibrated'
 
@@ -1349,8 +1419,8 @@ export function Dashboard({
     ? '본인 과거 기준선 대비 추정이에요 — 정확한 진단은 아니에요.'
     : 'Estimated against your own past baseline — not a precise diagnosis.'
   const fingerprintTooltipDescription = isKorean
-    ? '주말 집중·구조화 변화·정정 후 계획 요청·심야 비중·긴 세션 선호 5가지 상호작용 신호를 본인 과거 기준선과 비교해 두드러진 패턴 2~3개를 보여줘요. 성격 카드(작업 스타일)·AI 역할(요청 주제)과 달리 "AI와 어떻게 협업하나"를 봐요. 키워드·시간 분포 기반 추정이에요.'
-    : 'Compares five interaction signals (weekend focus, structured-prompt shift, plan-first after corrections, late-night share, long-session preference) against your own baseline and surfaces the 2–3 that stand out. Unlike the personality card (work style) or the AI-role donut (request topics), this asks "how do you collaborate with AI". Keyword and time-distribution based estimate.'
+    ? '주말 집중·구조화 변화·정정 후 계획 요청·심야 비중·긴 세션 선호·AI 작성 비중 변화·지시 길이 변화·프로젝트 병행·모델 믹스 변화 9가지 상호작용 신호를 본인 과거 기준선과 비교해 두드러진 패턴 2~3개를 보여줘요. 성격 카드(작업 스타일)·AI 역할(요청 주제)과 달리 "AI와 어떻게 협업하나"를 봐요. 키워드·시간 분포 기반 추정이에요.'
+    : 'Compares nine interaction signals (weekend focus, structured-prompt shift, plan-first after corrections, late-night share, long-session preference, AI-written share shift, prompt-length shift, multi-project days, model-mix shift) against your own baseline and surfaces the 2–3 that stand out. Unlike the personality card (work style) or the AI-role donut (request topics), this asks "how do you collaborate with AI". Keyword and time-distribution based estimate.'
   const fingerprintEmptyCopy = fingerprint.viableCount < MIN_FINGERPRINT_TOP_SIGNALS
     ? (isKorean
       ? `지문을 수집하는 중이에요 — 신호가 ${MIN_FINGERPRINT_TOP_SIGNALS}개 이상 모이면 보여드려요 (지금 ${fingerprint.viableCount}개)`
@@ -1669,8 +1739,8 @@ export function Dashboard({
             onToggle={() => setFingerprintReceiptsOpen((prev) => !prev)}
             isKorean={isKorean}
             dateBasisTooltip={isKorean
-              ? '일 단위 수치(주말 집중·구조화 변화 구간)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
-              : 'Daily numbers (weekend focus, structured-shift windows) use your local date; monthly stats (growth section) use UTC.'}
+              ? '일 단위 수치(주말 집중, 구조화·AI 작성 비중·지시 길이·모델 믹스 변화의 최근 30일 구간, 프로젝트 병행 활동일)는 로컬 날짜 기준이고, 월 단위 통계(성장 섹션)는 UTC 기준이에요.'
+              : 'Daily numbers (weekend focus, the 30-day windows behind the structured/AI-share/prompt-length/model-mix shifts, multi-project active days) use your local date; monthly stats (growth section) use UTC.'}
           >
             {/* viable 미달 신호도 측정 현황을 그대로 표기 — 숨기지 않음 (반증가능 원칙). 수집 중 빈상태에서도 표시 */}
             {fingerprint.signals.map((signal) => (

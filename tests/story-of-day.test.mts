@@ -9,12 +9,16 @@
  * 범위: matchRetryMarker(export), buildDailyCollab, renormalizeTermWeights, scoreStoryDays
  * (docs/design/kim-feat-eval-sharpness-design-20260612-013324.md 카드 2 + 공통 데이터 정책,
  *  docs/goal/collab-fingerprint-cards.md W2)
+ * + DailyCollab 가산 필드 4종 userWords/aiWords/models/projects · sessionProjectKey
+ * (docs/goal/precision-quiz-fingerprint-signals.md W2)
  *
  * TZ 비의존: 모든 어설션은 offsetMinutes 주입 경로(KST=540)로 작성 —
  * 머신 타임존이 무엇이든 같은 결과가 나온다 (coding-rhythm.test.mts 패턴).
  */
 import assert from 'node:assert/strict'
-import { matchRetryMarker } from '../src/parser.ts'
+import { countWords, matchRetryMarker, stripMarkup } from '../src/parser.ts'
+import { buildAuthorshipRatio } from '../src/lib/authorshipRatio.ts'
+import { extractProject } from '../src/lib/personality.ts'
 import {
   buildDailyCollab,
   LANGUAGE_COUNT_NORMALIZER,
@@ -23,6 +27,7 @@ import {
   MIN_USER_MESSAGES_PER_DAY,
   renormalizeTermWeights,
   scoreStoryDays,
+  sessionProjectKey,
   STORY_TERM_WEIGHTS,
 } from '../src/lib/storyOfDay.ts'
 import type { ParsedMessage, Session, SessionSource, TokenUsage } from '../src/types.ts'
@@ -66,7 +71,11 @@ function kstMsg(
   return { role, text, timestamp: kstIso(day, hour, minute), tokens, toolUses: [] }
 }
 
-function makeSession(source: SessionSource, messages: ParsedMessage[]): Session {
+function makeSession(
+  source: SessionSource,
+  messages: ParsedMessage[],
+  overrides?: { cwd?: string; model?: string; filePath?: string }
+): Session {
   return {
     id: `s-${Math.random().toString(36).slice(2)}`,
     fileName: 'fixture.jsonl',
@@ -79,6 +88,7 @@ function makeSession(source: SessionSource, messages: ParsedMessage[]): Session 
       user: messages.filter((m) => m.role === 'user').length,
       assistant: messages.filter((m) => m.role === 'assistant').length,
     },
+    ...overrides,
   }
 }
 
@@ -273,6 +283,91 @@ test('Codex 세션 — <command-name> 텍스트가 있어도 스킬 미수집 (s
   assert.strictEqual(day.skills.size, 0)
   assert.strictEqual(day.hasClaudeSession, false)
   assert.ok(day.languages.has('Python')) // 언어 감지는 source 무관
+})
+
+// === DailyCollab 가산 필드 4종 (W2 — 지문 ⑥~⑨ 재료) =========================
+console.log('\n[DailyCollab 가산 필드 (W2)]')
+
+test('userWords/aiWords — countWords(stripMarkup) 합산, buildAuthorshipRatio 와 동일 산식 (기존 필드 무변경)', () => {
+  const userText1 = '함수 정리 부탁해요'                                  // 3단어
+  const userText2 = '<tag>무시</tag> 좋아요'                              // 태그 제거 후 2단어 (무시, 좋아요)
+  const aiText = '```js\nconst a = 1\n```\n정리했습니다 확인해 주세요'     // 코드펜스 제거 후 3단어
+  const s = makeSession('claude', [
+    kstMsg('user', userText1, '2026-06-01', 10, 0),
+    kstMsg('assistant', aiText, '2026-06-01', 10, 5),
+    kstMsg('user', userText2, '2026-06-01', 10, 10),
+  ])
+  const day = buildDailyCollab([s], OPTS).get('2026-06-01')!
+  // 산식 정합 — 나 vs AI 글 비중 카드와 동일 합산 (카드 간 수치 드리프트 방지)
+  const ratio = buildAuthorshipRatio([s])
+  assert.strictEqual(day.userWords, ratio.userWords)
+  assert.strictEqual(day.aiWords, ratio.aiWords)
+  // 호출식 고정 + 수기 검산
+  assert.strictEqual(day.userWords, countWords(stripMarkup(userText1)) + countWords(stripMarkup(userText2)))
+  assert.strictEqual(day.userWords, 5)
+  assert.strictEqual(day.aiWords, 3)
+  // 기존 필드 무변경 동시 어설션 (structuredCount 선례)
+  assert.strictEqual(day.userMessageCount, 2)
+  assert.strictEqual(day.sessionCount, 1)
+})
+
+test('models — 메시지 레벨 model 우선 + 세션 폴백 공존, 둘 다 없으면 미기록', () => {
+  const withBoth = makeSession('claude', [
+    { ...kstMsg('user', '질문', '2026-06-01', 10), model: 'opus' }, // 메시지 레벨
+    kstMsg('assistant', '응답', '2026-06-01', 10, 5),               // 세션 폴백
+  ], { model: 'sonnet' })
+  const day = buildDailyCollab([withBoth], OPTS).get('2026-06-01')!
+  assert.deepStrictEqual([...day.models].sort(), ['opus', 'sonnet'])
+  assert.strictEqual(day.userMessageCount, 1) // 기존 필드 무변경
+
+  const withNeither = makeSession('claude', [kstMsg('user', '질문', '2026-06-02', 10)])
+  const bare = buildDailyCollab([withNeither], OPTS).get('2026-06-02')!
+  assert.strictEqual(bare.models.size, 0)
+})
+
+test('projects 규칙① — cwd 있으면 extractProject(cwd), source 무관 (personality 와 동일 규칙)', () => {
+  const winCwd = 'D:\\Work\\vibe\\promptale\\src\\lib\\deep'
+  const claude = makeSession('claude', [kstMsg('user', '질문', '2026-06-01', 10)], { cwd: winCwd })
+  assert.strictEqual(sessionProjectKey(claude), extractProject(winCwd)) // 규칙 단일 소스
+  const day = buildDailyCollab([claude], OPTS).get('2026-06-01')!
+  assert.deepStrictEqual([...day.projects], ['D:/Work/vibe/promptale/src/lib']) // 앞 6뎁스
+  // Codex 도 cwd 가 있으면 규칙① 적용
+  const codex = makeSession('codex', [kstMsg('user', '질문', '2026-06-01', 11)], { cwd: '/home/u/proj' })
+  assert.strictEqual(sessionProjectKey(codex), 'home/u/proj')
+})
+
+test('projects 규칙② — cwd 없는 Claude 세션은 filePath 부모 디렉터리명 (경로 구분자 양쪽 처리)', () => {
+  const win = makeSession('claude', [kstMsg('user', '질문', '2026-06-01', 10)],
+    { filePath: 'C:\\Users\\u\\.claude\\projects\\d--Work-promptale\\a.jsonl' })
+  const posix = makeSession('claude', [kstMsg('user', '질문', '2026-06-01', 11)],
+    { filePath: '/home/u/.claude/projects/my-proj/b.jsonl' })
+  const day = buildDailyCollab([win, posix], OPTS).get('2026-06-01')!
+  assert.deepStrictEqual([...day.projects].sort(), ['d--Work-promptale', 'my-proj'])
+})
+
+test('projects 규칙③ — Codex 는 filePath 폴백 금지 (날짜 디렉터리 — 프로젝트 정보 아님)', () => {
+  const s = makeSession('codex', [kstMsg('user', '질문', '2026-06-01', 10)],
+    { filePath: '/home/u/.codex/sessions/2026/06/01/x.jsonl' })
+  assert.strictEqual(sessionProjectKey(s), null)
+  const day = buildDailyCollab([s], OPTS).get('2026-06-01')!
+  assert.strictEqual(day.projects.size, 0)
+  assert.strictEqual(day.sessionCount, 1) // 세션 자체는 정상 집계 — 프로젝트만 미기록
+})
+
+test('projects 규칙④ — cwd·filePath 둘 다 없으면 미기록 (해당 세션은 projects 비기여)', () => {
+  const s = makeSession('claude', [kstMsg('user', '질문', '2026-06-01', 10)])
+  assert.strictEqual(sessionProjectKey(s), null)
+  assert.strictEqual(buildDailyCollab([s], OPTS).get('2026-06-01')!.projects.size, 0)
+})
+
+test('projects — 자정 넘는 세션은 양쪽 날에 프로젝트 기여 (sessionCount 와 동일 귀속 축)', () => {
+  const s = makeSession('claude', [
+    { role: 'user', text: '밤 질문', timestamp: '2026-06-11T14:00:00Z', toolUses: [] },  // KST 23:00
+    { role: 'assistant', text: '응답', timestamp: '2026-06-11T16:00:00Z', toolUses: [] }, // KST 01:00 (12일)
+  ], { cwd: '/home/u/proj' })
+  const days = buildDailyCollab([s], OPTS)
+  assert.deepStrictEqual([...days.get('2026-06-11')!.projects], ['home/u/proj'])
+  assert.deepStrictEqual([...days.get('2026-06-12')!.projects], ['home/u/proj'])
 })
 
 // === renormalizeTermWeights =================================================

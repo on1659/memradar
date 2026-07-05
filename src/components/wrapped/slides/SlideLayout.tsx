@@ -85,9 +85,12 @@ export function SlideLayout({ children, gradient = 'from-bg via-bg to-bg' }: Sli
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.6 }}
-      className={`wrapped-surface absolute inset-0 flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#06060e] bg-gradient-to-br p-8 ${gradient}`}
+      className={`wrapped-surface absolute inset-0 flex flex-col items-center overflow-y-auto overflow-x-hidden bg-[#06060e] bg-gradient-to-br ${gradient}`}
     >
-      {children}
+      {/* 내부 래퍼: 콘텐츠가 뷰포트에 들어가면 중앙정렬, 넘치면(줌·작은 화면) 바깥 컨테이너가 세로 스크롤 */}
+      <div className="flex min-h-full w-full flex-col items-center justify-center p-8">
+        {children}
+      </div>
     </motion.div>
   )
 }

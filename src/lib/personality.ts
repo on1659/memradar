@@ -41,8 +41,11 @@ function sigmoid(x: number, midpoint: number, steepness: number): number {
   return 1 / (1 + Math.exp(-steepness * (x - midpoint)))
 }
 
-/** Extract project root from cwd by finding the deepest git-like boundary */
-function extractProject(cwd: string): string {
+/**
+ * Extract project root from cwd by finding the deepest git-like boundary.
+ * storyOfDay.ts(일별 projects 집계)와 공유 — 프로젝트 키 규칙 단일 소스 (의미론 재정의 금지).
+ */
+export function extractProject(cwd: string): string {
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
   // On Windows: C:/Users/alice/source/repos/foo → need at least 5-6 depth
   // On Unix: /home/alice/projects/foo → need 4 depth

@@ -785,7 +785,8 @@ if (!isStaticMode) {
 } else {
   // ─── Static HTML mode (default) ─────────────────────────────────────
 
-  await handleUpdate(await updateCheckPromise)
+  (async () => {
+    await handleUpdate(await updateCheckPromise)
 
   const outPath = process.env.MEMRADAR_OUTPUT_HTML || path.join(os.tmpdir(), 'memradar.html')
 
@@ -808,55 +809,85 @@ if (!isStaticMode) {
     process.exit(0)
   }
 
-  console.log('  Parsing sessions...')
-  const sessions = []
-  for (const file of files) {
-    try {
-      const content = fs.readFileSync(file.filePath, 'utf-8')
-      const session = detectAndParse(content, path.basename(file.filePath))
-      if (session) {
-        // 시크릿 마스킹 — 직렬화(임베드) 경계. 원본 .jsonl 은 불변, 메모리 객체만 변형.
-        // 정적 HTML 에는 원문 시크릿이 아예 없어 공유 안전 (리빌 불가가 의도).
-        // 서버 모드 API 는 무변경 — loopback 응답은 클라이언트 렌더에서 마스킹된다.
-        session.messages = session.messages.map((m) => (m.text ? { ...m, text: maskSecrets(m.text).masked } : m))
-        sessions.push(session)
+    // Pre-check: warn if total size exceeds 100MB
+    const forceStatic = process.argv.includes('--force-static')
+    if (!forceStatic) {
+      let totalSize = 0
+      for (const file of files) {
+        try {
+          totalSize += fs.statSync(file.filePath).size
+        } catch { }
       }
-    } catch {
-      // Skip unreadable files.
+      const totalMB = (totalSize / 1024 / 1024).toFixed(1)
+      if (totalSize >= 100 * 1024 * 1024) {
+        console.log()
+        console.log('  ⚠️  대용량 세션 감지 (' + totalMB + ' MB)')
+        console.log('     정적 HTML 모드는 시간이 오래 걸릴 수 있습니다.')
+        console.log('     서버 모드를 권장합니다: npx memradar@latest --server')
+        console.log('     강제 실행: npx memradar --force-static')
+        console.log('  ------------------------------')
+        process.exit(1)
+      }
     }
-  }
-  console.log(`  Parsed:    ${sessions.length}`)
 
-  const assetsDir = path.join(distDir, 'assets')
-  if (!fs.existsSync(assetsDir)) {
-    console.error('dist/assets folder not found. Run `npm run build` first.')
-    process.exit(1)
-  }
+    console.log('  Parsing sessions...')
+    const sessions = []
+    const concurrency = 32
+    for (let i = 0; i < files.length; i += concurrency) {
+      const batch = files.slice(i, i + concurrency)
+      const results = await Promise.all(batch.map(async (file) => {
+        try {
+          const content = await fs.promises.readFile(file.filePath, 'utf-8')
+          const session = detectAndParse(content, path.basename(file.filePath), { messageTextCap: 4000 })
+          if (session) {
+            // 시크릿 마스킹 — 직렬화(임베드) 경계. 원본 .jsonl 은 불변, 메모리 객체만 변형.
+            // 정적 HTML 에는 원문 시크릿이 아예 없어 공유 안전 (리빌 불가가 의도).
+            // 서버 모드 API 는 무변경 — loopback 응답은 클라이언트 렌더에서 마스킹된다.
+            session.messages = session.messages.map((m) => (m.text ? { ...m, text: maskSecrets(m.text).masked } : m))
+            return session
+          }
+          return null
+        } catch {
+          return null
+        }
+      }))
+      for (const s of results) if (s) sessions.push(s)
+      const parsed = sessions.length
+      process.stdout.write(`\r  Parsed:    ${parsed}/${files.length}`)
+    }
+    console.log()
+    console.log(`  Parsed:    ${sessions.length}`)
 
-  const assetFiles = fs.readdirSync(assetsDir)
-  const jsFile = assetFiles.find((file) => file.endsWith('.js'))
-  const cssFile = assetFiles.find((file) => file.endsWith('.css'))
+    const assetsDir = path.join(distDir, 'assets')
+    if (!fs.existsSync(assetsDir)) {
+      console.error('dist/assets folder not found. Run `npm run build` first.')
+      process.exit(1)
+    }
 
-  if (!jsFile || !cssFile) {
-    console.error('Built JS/CSS assets are missing from dist/assets. Run `npm run build` again.')
-    process.exit(1)
-  }
+    const assetFiles = fs.readdirSync(assetsDir)
+    const jsFile = assetFiles.find((file) => file.endsWith('.js'))
+    const cssFile = assetFiles.find((file) => file.endsWith('.css'))
 
-  const jsContent = fs.readFileSync(path.join(assetsDir, jsFile), 'utf-8')
-  const cssContent = fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8')
+    if (!jsFile || !cssFile) {
+      console.error('Built JS/CSS assets are missing from dist/assets. Run `npm run build` again.')
+      process.exit(1)
+    }
 
-  const skills = scanSkills()
-  const escapeScript = (str) => str.replace(/<\/script/gi, '<\\/script')
-  const safeSkills = escapeScript(JSON.stringify(skills))
-  const safeJs = escapeScript(jsContent)
+    const jsContent = fs.readFileSync(path.join(assetsDir, jsFile), 'utf-8')
+    const cssContent = fs.readFileSync(path.join(assetsDir, cssFile), 'utf-8')
 
-  // Stream-write the HTML so we never hold the full sessions array as a single
-  // string. JSON.stringify on the whole array fails with "Invalid string length"
-  // once the serialized payload approaches V8's max string length (~512MB).
-  let skipped = 0
-  const fd = fs.openSync(outPath, 'w')
-  try {
-    fs.writeSync(fd, `<!doctype html>
+    const skills = scanSkills()
+    const escapeScript = (str) => str.replace(/<\/script/gi, '<\\/script')
+    const safeSkills = escapeScript(JSON.stringify(skills))
+    const safeJs = escapeScript(jsContent)
+
+    // Stream-write the HTML so we never hold the full sessions array as a single
+    // string. JSON.stringify on the whole array fails with "Invalid string length"
+    // once the serialized payload approaches V8's max string length (~512MB).
+    let skipped = 0
+    const fd = fs.openSync(outPath, 'w')
+    try {
+      fs.writeSync(fd, `<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
@@ -866,64 +897,67 @@ if (!isStaticMode) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
     <style>`)
-    fs.writeSync(fd, cssContent)
-    fs.writeSync(fd, `</style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>window.__MEMRADAR_SESSIONS__=[`)
+      fs.writeSync(fd, cssContent)
+      fs.writeSync(fd, `</style>
+    </head>
+    <body>
+      <div id="root"></div>
+      <script>window.__MEMRADAR_SESSIONS__=[`)
 
-    for (let i = 0; i < sessions.length; i++) {
-      let serialized
-      try {
-        serialized = escapeScript(JSON.stringify(sessions[i]))
-      } catch {
-        skipped++
-        serialized = escapeScript(JSON.stringify({
-          id: sessions[i]?.id || sessions[i]?.fileName || `session-${i}`,
-          fileName: sessions[i]?.fileName || '',
-          source: sessions[i]?.source || 'unknown',
-          messages: [],
-          _truncated: true,
-        }))
+      for (let i = 0; i < sessions.length; i++) {
+        let serialized
+        try {
+          serialized = escapeScript(JSON.stringify(sessions[i]))
+        } catch {
+          skipped++
+          serialized = escapeScript(JSON.stringify({
+            id: sessions[i]?.id || sessions[i]?.fileName || `session-${i}`,
+            fileName: sessions[i]?.fileName || '',
+            source: sessions[i]?.source || 'unknown',
+            messages: [],
+            _truncated: true,
+          }))
+        }
+        if (i > 0) fs.writeSync(fd, ',')
+        fs.writeSync(fd, serialized)
       }
-      if (i > 0) fs.writeSync(fd, ',')
-      fs.writeSync(fd, serialized)
+
+      fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};</script>
+      <script type="module">`)
+      fs.writeSync(fd, safeJs)
+      fs.writeSync(fd, `</script>
+    </body>
+  </html>`)
+    } finally {
+      fs.closeSync(fd)
     }
 
-    fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};</script>
-    <script type="module">`)
-    fs.writeSync(fd, safeJs)
-    fs.writeSync(fd, `</script>
-  </body>
-</html>`)
-  } finally {
-    fs.closeSync(fd)
-  }
-
-  const sizeBytes = fs.statSync(outPath).size
-  const sizeMB = (sizeBytes / 1024 / 1024).toFixed(1)
-  console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
-  if (skipped > 0) {
-    console.log(`  Note:      ${skipped} session(s) too large to serialize — body omitted`)
-  }
-  console.log()
-  console.log(`  ⚠ 이 HTML 파일에는 세션 대화 전문이 포함돼 있어요.`)
-  console.log(`     다른 사람과 공유하기 전에 민감한 내용이 없는지 확인하세요.`)
-  const HUGE_OUTPUT_THRESHOLD = 200 * 1024 * 1024
-  const isHuge = sizeBytes > HUGE_OUTPUT_THRESHOLD
-  if (isHuge) {
+    const sizeBytes = fs.statSync(outPath).size
+    const sizeMB = (sizeBytes / 1024 / 1024).toFixed(1)
+    console.log(`  Output:    ${outPath} (${sizeMB} MB)`)
+    if (skipped > 0) {
+      console.log(`  Note:      ${skipped} session(s) too large to serialize — body omitted`)
+    }
     console.log()
-    console.log(`  ⚠ HTML이 ${sizeMB} MB로 매우 커서 브라우저에서 안 열리거나 멈출 수 있어요.`)
-    console.log(`     서버 모드를 권장합니다: npx memradar@latest --server`)
-  }
-  console.log('  ------------------------------')
-  console.log()
-
-  if (shouldOpenBrowser && !isHuge) {
-    openBrowser(outPath)
-  } else if (shouldOpenBrowser && isHuge) {
-    console.log(`  (자동 열기 생략 — 위 경로를 직접 열어보거나 서버 모드를 사용하세요)`)
+    console.log(`  ⚠ 이 HTML 파일에는 세션 대화 전문이 포함돼 있어요.`)
+    console.log(`     다른 사람과 공유하기 전에 민감한 내용이 없는지 확인하세요.`)
+    const HUGE_OUTPUT_THRESHOLD = 200 * 1024 * 1024
+    const isHuge = sizeBytes > HUGE_OUTPUT_THRESHOLD
+    if (isHuge) {
+      console.log()
+      console.log(`  ⚠ HTML이 ${sizeMB} MB로 매우 커서 브라우저에서 안 열리거나 멈플 수 있어요.`)
+      console.log(`     서버 모드를 권장합니다: npx memradar@latest --server`)
+    }
+    console.log('  ------------------------------')
     console.log()
-  }
+
+    if (shouldOpenBrowser && !isHuge) {
+      openBrowser(outPath)
+    } else if (shouldOpenBrowser && isHuge) {
+      console.log(`  (자동 열기 생략 — 위 경로를 직접 열어보거나 서버 모드를 사용하세요)`)
+      console.log()
+    }
+
+    process.exit(0)
+  })()
 }

@@ -10,6 +10,20 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-07-05-empty-session-title-tooltip-personality-cta',
+    version: 'v4.1.0',
+    date: '2026-07-05',
+    title: '스킬 세션 제목 복원 + 테마 툴팁 레이어 수정 + 전체 성향 바로가기',
+    summary: '스킬(/goal, /autogoal 등)로 시작한 대화가 대시보드에서 "(빈 세션)"으로 뜨던 문제를 고쳤어요. 이제 실제로 입력한 요청이 제목으로 보입니다. 테마 변경 버튼 툴팁이 아래 카드에 가려지던 레이어 문제도 정리했고, Wrapped 마지막 화면에서 내 전체 성향을 바로 볼 수 있는 버튼을 추가했어요.',
+    highlights: [
+      '스킬(/goal 등)로 시작한 세션 제목 복원 — "(빈 세션)" 대신 실제 입력한 요청을 제목으로 표시',
+      '제목뿐 아니라 대화 검색·내보내기·리플레이도 스킬 세션에서 함께 정상화',
+      '테마 변경 툴팁이 아래 카드에 가려지던 레이어(z-index) 문제 수정 — 상단바 스택 컨텍스트 정리',
+      'Wrapped 마지막 화면에 "내 전체 성향도 볼래요?" 바로가기 추가 — 성향 진단으로 한 번에 이동',
+    ],
+    category: 'dashboard',
+  },
+  {
     id: '2026-05-17-qa-batch-ux-improvements',
     version: 'v3.6.2',
     date: '2026-05-17',

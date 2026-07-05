@@ -70,7 +70,11 @@ export function MemradarTopBar({
 
   return (
     <>
-      <div className="animate-in mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      {/* relative z-40: .animate-in 의 forwards translateY(0) 이 stacking context 를 만들어
+          내부 z-[85] 버튼 클러스터·테마 툴팁을 auto(0) 층에 가둔다. 명시적 z 로 컨텍스트를
+          콘텐츠 섹션(0층, DOM 상 뒤) 위로 올려 툴팁이 카드에 가려지지 않게 한다.
+          포털(body 레벨 z-80/90 오버레이·패널)은 별개라 영향 없음. */}
+      <div className="animate-in relative z-40 mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-3 text-sm text-text/55">
             <a

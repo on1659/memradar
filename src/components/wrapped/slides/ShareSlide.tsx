@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { toPng } from 'html-to-image'
 import { motion } from 'framer-motion'
-import { Camera, Download, LayoutDashboard, MessageCircle, Send, Share2, X } from 'lucide-react'
+import { Camera, Download, LayoutDashboard, MessageCircle, Send, Share2, Sparkles, X } from 'lucide-react'
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { shortModelName } from '../../../lib/modelNames'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
@@ -15,6 +15,7 @@ interface Props {
   topModel: string
   usageHeadline: string
   onOpenDashboard?: () => void
+  onOpenPersonality?: () => void
 }
 
 type SharePlatform = 'threads'
@@ -26,6 +27,7 @@ export function ShareSlide({
   topModel,
   usageHeadline,
   onOpenDashboard,
+  onOpenPersonality,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
@@ -191,7 +193,7 @@ export function ShareSlide({
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
-        className="w-[356px] overflow-hidden rounded-[26px]"
+        className="w-[356px] shrink-0 overflow-hidden rounded-[26px]"
         style={{
           background: 'linear-gradient(135deg, #0c0c1a 0%, #10081e 50%, #0c0c1a 100%)',
           border: '1px solid rgba(123,108,246,0.2)',
@@ -387,6 +389,19 @@ export function ShareSlide({
           공유하기
         </button>
       </motion.div>
+
+      {onOpenPersonality && (
+        <FadeInText delay={0.85} className="mt-5">
+          <button
+            onClick={onOpenPersonality}
+            data-wrapped-control="true"
+            className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-4 py-2 text-xs font-semibold text-text-bright transition-all hover:-translate-y-0.5 hover:border-accent/60 hover:bg-accent/25"
+          >
+            <Sparkles className="h-4 w-4 text-accent" />
+            <span>내 전체 성향도 볼래요?</span>
+          </button>
+        </FadeInText>
+      )}
 
       {onOpenDashboard && (
         <FadeInText delay={0.9} className="mt-5">

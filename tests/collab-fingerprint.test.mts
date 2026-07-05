@@ -8,7 +8,8 @@
  *
  * 범위: matchPlanMarker(parser), DailyCollab.structuredCount(가산 필드), buildCollabFingerprint,
  * selectTopSignals (docs/design/kim-feat-eval-sharpness-design-20260612-013324.md 카드 3,
- * docs/goal/collab-fingerprint-cards.md W3)
+ * docs/goal/collab-fingerprint-cards.md W3) + 신호 ⑥~⑨·양방향 선별·기존 5신호 골든 회귀
+ * (docs/goal/precision-quiz-fingerprint-signals.md W2)
  *
  * TZ 비의존: 모든 어설션은 offsetMinutes 주입 경로(KST=540)로 작성 —
  * 머신 타임존이 무엇이든 같은 결과가 나온다 (story-of-day.test.mts 패턴).
@@ -24,7 +25,9 @@ import {
   MIN_FINGERPRINT_LIFT,
   MIN_FINGERPRINT_SIGNAL_N,
   MIN_FINGERPRINT_TOP_SIGNALS,
+  MIN_SHARE_SHIFT_DELTA,
   MIN_STRUCTURED_SHIFT_DELTA,
+  MULTI_PROJECT_EXPECTATION_FLOOR,
   selectTopSignals,
   type CollabFingerprint,
   type FingerprintSignal,
@@ -65,7 +68,11 @@ function kstMsg(role: 'user' | 'assistant', text: string, day: string, hour: num
   return { role, text, timestamp: kstIso(day, hour, minute), toolUses: [] }
 }
 
-function makeSession(source: SessionSource, messages: ParsedMessage[]): Session {
+function makeSession(
+  source: SessionSource,
+  messages: ParsedMessage[],
+  overrides?: { cwd?: string; model?: string; filePath?: string }
+): Session {
   return {
     id: `s-${Math.random().toString(36).slice(2)}`,
     fileName: 'fixture.jsonl',
@@ -78,6 +85,7 @@ function makeSession(source: SessionSource, messages: ParsedMessage[]): Session 
       user: messages.filter((m) => m.role === 'user').length,
       assistant: messages.filter((m) => m.role === 'assistant').length,
     },
+    ...overrides,
   }
 }
 
@@ -168,8 +176,76 @@ function longSessionPersona(shortCount: number, longCount: number): Session[] {
   return sessions
 }
 
+/**
+ * 페르소나 4 — AI 작성 비중 변화형. 이전(03-02) / 최근(06-10, 앵커) 각 1일:
+ * user 30건×5단어 + assistant 30건×(일별 인자)단어 — aiShare = ai/(user+ai) 수기 검산 가능.
+ */
+function aiSharePersona(priorAiWordsPerMsg: number, recentAiWordsPerMsg: number): Session[] {
+  const mkDay = (day: string, aiWordsPerMsg: number): Session => {
+    const msgs: ParsedMessage[] = []
+    for (let i = 0; i < 30; i++) {
+      msgs.push(kstMsg('user', wordText(5), day, 10, i))
+      msgs.push(kstMsg('assistant', wordText(aiWordsPerMsg), day, 11, i))
+    }
+    return makeSession('claude', msgs)
+  }
+  return [mkDay('2026-03-02', priorAiWordsPerMsg), mkDay('2026-06-10', recentAiWordsPerMsg)]
+}
+
+/** 페르소나 5 — 지시 길이 변화형. 이전/최근 각 1일 × user 30건×(일별 단어 수), assistant 없음 */
+function delegationPersona(priorWordsPerMsg: number, recentWordsPerMsg: number): Session[] {
+  const mkDay = (day: string, wordsPerMsg: number): Session =>
+    makeSession('claude', Array.from({ length: 30 }, (_, i) => kstMsg('user', wordText(wordsPerMsg), day, 10, i)))
+  return [mkDay('2026-03-02', priorWordsPerMsg), mkDay('2026-06-10', recentWordsPerMsg)]
+}
+
+/** 페르소나 6 — 프로젝트 병행형. 06-01부터 dayCount 일 연속, 매일 세션 2개 (cwd 2벌로 프로젝트 구성) */
+function multiProjectPersona(dayCount: number, cwds: [string, string]): Session[] {
+  const sessions: Session[] = []
+  for (let d = 0; d < dayCount; d++) {
+    const day = dayPlus('2026-06-01', d)
+    sessions.push(makeSession('claude', [kstMsg('user', PLAIN_TEXT, day, 10)], { cwd: cwds[0] }))
+    sessions.push(makeSession('claude', [kstMsg('user', PLAIN_TEXT, day, 11)], { cwd: cwds[1] }))
+  }
+  return sessions
+}
+
+/**
+ * 페르소나 7 — 모델 믹스 변화형. 이전 30일(03-02~03-31)·최근 30일(06-01~06-30, 앵커 06-30) 각 1세션/일.
+ * multi 일은 메시지 레벨 'opus' + 세션 폴백 'sonnet' 2종, 나머지는 세션 폴백 'sonnet' 단일.
+ * skipRecentDay 로 최근 활동일을 29일로 줄여 viable 경계 테스트 (앵커 06-30 은 유지 — 29 금지).
+ */
+function modelMixPersona(priorMultiDays: number, recentMultiDays: number, opts?: { skipRecentDay?: number }): Session[] {
+  const mkDay = (day: string, multi: boolean): Session => {
+    const base = kstMsg('user', PLAIN_TEXT, day, 10)
+    const msgs: ParsedMessage[] = multi
+      ? [{ ...base, model: 'opus' }, kstMsg('user', PLAIN_TEXT, day, 10, 30)]
+      : [base]
+    return makeSession('claude', msgs, { model: 'sonnet' })
+  }
+  const sessions: Session[] = []
+  for (let d = 0; d < 30; d++) sessions.push(mkDay(dayPlus('2026-03-02', d), d < priorMultiDays))
+  for (let d = 0; d < 30; d++) {
+    if (opts?.skipRecentDay === d) continue
+    sessions.push(mkDay(dayPlus('2026-06-01', d), d < recentMultiDays))
+  }
+  return sessions
+}
+
 function mkSignal(id: FingerprintSignalId, lift: number, viable = true): FingerprintSignal {
-  return { id, lift, delta: null, numerator: 0, denominator: 0, n: 30, n2: null, viable, rankScore: lift }
+  return { id, lift, delta: null, numerator: 0, denominator: 0, n: 30, n2: null, viable, bidirectional: false, rankScore: lift }
+}
+
+/** n개 단어 텍스트 — countWords(stripMarkup) 축으로 정확히 n (⑥⑦ 단어 수 픽스처) */
+function wordText(n: number): string {
+  return Array.from({ length: n }, () => '단어').join(' ')
+}
+
+/** 'YYYY-MM-DD' + offset 일 (달력 연산 — ⑨의 연속 활동일 픽스처) */
+function dayPlus(day: string, offset: number): string {
+  const d = new Date(`${day}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + offset)
+  return d.toISOString().slice(0, 10)
 }
 
 // === matchPlanMarker ========================================================
@@ -443,6 +519,212 @@ test(`viable 경계 — 세션 ${MIN_FINGERPRINT_SIGNAL_N - 1}개 미달 / ${MIN
   assert.strictEqual(sig(fpOf(longSessionPersona(16, 14)), 'long-session-preference').viable, true)
 })
 
+// === ⑥ ai-share-shift =======================================================
+console.log('\n[⑥ ai-share-shift]')
+
+test('증가 방향 — 비중 0.5→0.8, delta +30%p, n=단어 수 영수증, top 진입', () => {
+  const fp = fpOf(aiSharePersona(5, 20))
+  const signal = sig(fp, 'ai-share-shift')
+  assert.ok(Math.abs(signal.numerator - 0.8) < 1e-12)   // 600/750
+  assert.ok(Math.abs(signal.denominator - 0.5) < 1e-12) // 150/300
+  assert.ok(Math.abs((signal.delta ?? 0) - 0.3) < 1e-12)
+  assert.ok(Math.abs(signal.lift - 1.6) < 1e-9)
+  assert.ok(Math.abs(signal.rankScore - 1.6) < 1e-9)    // 정방향이 우세 — max(1.6, 0.625)
+  assert.strictEqual(signal.n, 750)                      // 최근 창 user+ai 단어
+  assert.strictEqual(signal.n2, 300)                     // 이전 창 단어
+  assert.strictEqual(signal.viable, true)
+  assert.strictEqual(signal.bidirectional, true)
+  assert.ok(fp.topSignals.some((s) => s.id === 'ai-share-shift'))
+})
+
+test('감소 방향 — lift < 1 이어도 rankScore 는 역방향 배수로 top 진입 (양방향)', () => {
+  const fp = fpOf(aiSharePersona(20, 5))
+  const signal = sig(fp, 'ai-share-shift')
+  assert.ok(Math.abs((signal.delta ?? 0) - -0.3) < 1e-12)
+  assert.ok(Math.abs(signal.lift - 0.625) < 1e-9)        // 0.5/0.8 — 감소 방향
+  assert.ok(Math.abs(signal.rankScore - 1.6) < 1e-9)     // max(0.625, 1.6)
+  assert.ok(fp.topSignals.some((s) => s.id === 'ai-share-shift'))
+})
+
+test(`viable 경계 — 최근 창 user 메시지 ${MIN_FINGERPRINT_SIGNAL_N - 1}건 미달 / ${MIN_FINGERPRINT_SIGNAL_N}건 성립 (게이트 단위는 단어가 아니라 메시지)`, () => {
+  const mk = (recentCount: number) => [
+    makeSession('claude', Array.from({ length: 30 }, (_, i) => kstMsg('user', wordText(5), '2026-03-02', 10, i))),
+    makeSession('claude', Array.from({ length: recentCount }, (_, i) => kstMsg('user', wordText(5), '2026-06-10', 10, i))),
+  ]
+  assert.strictEqual(sig(fpOf(mk(29)), 'ai-share-shift').viable, false)
+  assert.strictEqual(sig(fpOf(mk(30)), 'ai-share-shift').viable, true)
+})
+
+test('분모 0 캡 — 양쪽 창 단어 0 이어도 NaN 없이 lift/rankScore 0', () => {
+  // 텍스트가 전부 기호면 단어 0 — countWords 는 [a-z가-힣]+ 만 센다
+  const mk = (day: string) =>
+    makeSession('claude', Array.from({ length: 30 }, (_, i) => kstMsg('user', '!!! ???', day, 10, i)))
+  const signal = sig(fpOf([mk('2026-03-02'), mk('2026-06-10')]), 'ai-share-shift')
+  assert.strictEqual(signal.lift, 0)
+  assert.strictEqual(signal.rankScore, 0)
+  assert.ok(Number.isFinite(signal.numerator) && Number.isFinite(signal.denominator))
+})
+
+// === ⑦ delegation-size-shift ================================================
+console.log('\n[⑦ delegation-size-shift]')
+
+test('길어진 방향 — 평균 4→8단어, lift 2, n=창별 user 메시지 수, top 진입', () => {
+  const fp = fpOf(delegationPersona(4, 8))
+  const signal = sig(fp, 'delegation-size-shift')
+  assert.ok(Math.abs(signal.numerator - 8) < 1e-12)
+  assert.ok(Math.abs(signal.denominator - 4) < 1e-12)
+  assert.strictEqual(signal.delta, null)                 // 배수 축 신호 — %p 없음
+  assert.ok(Math.abs(signal.lift - 2) < 1e-9)
+  assert.ok(Math.abs(signal.rankScore - 2) < 1e-9)
+  assert.strictEqual(signal.n, 30)
+  assert.strictEqual(signal.n2, 30)
+  assert.strictEqual(signal.viable, true)
+  assert.strictEqual(signal.bidirectional, true)
+  assert.ok(fp.topSignals.some((s) => s.id === 'delegation-size-shift'))
+})
+
+test('짧아진 방향 — 평균 8→2단어, lift 0.25 이지만 rankScore 4 로 top 진입 (양방향)', () => {
+  const fp = fpOf(delegationPersona(8, 2))
+  const signal = sig(fp, 'delegation-size-shift')
+  assert.ok(Math.abs(signal.lift - 0.25) < 1e-9)
+  assert.ok(Math.abs(signal.rankScore - 4) < 1e-9)       // max(0.25, 8/2)
+  assert.ok(fp.topSignals.some((s) => s.id === 'delegation-size-shift'))
+})
+
+test(`viable 경계 — 최근 창 user 메시지 ${MIN_FINGERPRINT_SIGNAL_N - 1}건 미달 / ${MIN_FINGERPRINT_SIGNAL_N}건 성립`, () => {
+  const mk = (recentCount: number) => [
+    makeSession('claude', Array.from({ length: 30 }, (_, i) => kstMsg('user', wordText(4), '2026-03-02', 10, i))),
+    makeSession('claude', Array.from({ length: recentCount }, (_, i) => kstMsg('user', wordText(8), '2026-06-10', 10, i))),
+  ]
+  assert.strictEqual(sig(fpOf(mk(29)), 'delegation-size-shift').viable, false)
+  assert.strictEqual(sig(fpOf(mk(30)), 'delegation-size-shift').viable, true)
+})
+
+// === ⑧ multi-project-days ===================================================
+console.log('\n[⑧ multi-project-days]')
+
+test('수기 검산 — 매일 2프로젝트 30일: 실측 1.0, 독립 기대 0.5 (p=½ 2벌, k=2), lift 2, top 진입', () => {
+  const fp = fpOf(multiProjectPersona(30, ['/home/u/alpha', '/home/u/beta']))
+  const signal = sig(fp, 'multi-project-days')
+  assert.strictEqual(signal.numerator, 1)
+  assert.ok(Math.abs(signal.denominator - 0.5) < 1e-12)  // 1 − (0.5² + 0.5²)
+  assert.ok(Math.abs(signal.lift - 2) < 1e-9)
+  assert.strictEqual(signal.n, 30)
+  assert.strictEqual(signal.n2, null)
+  assert.strictEqual(signal.viable, true)
+  assert.strictEqual(signal.bidirectional, false)        // 증가 방향만 (v1 rank 정책)
+  assert.ok(fp.topSignals.some((s) => s.id === 'multi-project-days'))
+})
+
+test('기대치 = 대상일별 세션 수 가중 — k=2/k=3 혼합 + 세션 1개 날은 비대상', () => {
+  const day1 = '2026-06-01'
+  const day2 = '2026-06-02'
+  const day3 = '2026-06-03'
+  const cwdA = '/home/u/alpha'
+  const cwdB = '/home/u/beta'
+  const sessions = [
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day1, 10)], { cwd: cwdA }),
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day1, 11)], { cwd: cwdB }),
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day2, 10)], { cwd: cwdA }),
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day2, 11)], { cwd: cwdA }),
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day2, 12)], { cwd: cwdB }),
+    makeSession('claude', [kstMsg('user', PLAIN_TEXT, day3, 10)], { cwd: cwdA }), // 세션 1개 — 비대상
+  ]
+  const signal = sig(fpOf(sessions), 'multi-project-days')
+  // 분포: alpha 4/6, beta 2/6. E = mean(1 − ((4/6)² + (2/6)²), 1 − ((4/6)³ + (2/6)³)) = mean(4/9, 2/3) = 5/9
+  assert.strictEqual(signal.n, 2)
+  assert.strictEqual(signal.numerator, 1)
+  assert.ok(Math.abs(signal.denominator - 5 / 9) < 1e-12)
+  assert.ok(Math.abs(signal.lift - 9 / 5) < 1e-9)
+})
+
+test('기대치 floor — 전 세션 단일 프로젝트면 기대 0 → floor 로 하한, 실측 0 이라 lift 0', () => {
+  const signal = sig(fpOf(multiProjectPersona(30, ['/home/u/alpha', '/home/u/alpha'])), 'multi-project-days')
+  assert.strictEqual(signal.numerator, 0)                // 프로젝트 1종 — 병행일 0
+  assert.strictEqual(signal.denominator, MULTI_PROJECT_EXPECTATION_FLOOR)
+  assert.strictEqual(signal.lift, 0)
+  assert.strictEqual(signal.viable, true)                // n 충족 + 기대치 근거 있음 (floor)
+})
+
+test('분모 0 캡 — 프로젝트 기록 0건이면 n 충족해도 viable 미달, NaN 없음', () => {
+  const sessions: Session[] = []
+  for (let d = 0; d < 30; d++) {
+    const day = dayPlus('2026-06-01', d)
+    sessions.push(makeSession('claude', [kstMsg('user', PLAIN_TEXT, day, 10)]))  // cwd·filePath 없음
+    sessions.push(makeSession('claude', [kstMsg('user', PLAIN_TEXT, day, 11)]))
+  }
+  const signal = sig(fpOf(sessions), 'multi-project-days')
+  assert.strictEqual(signal.n, 30)
+  assert.strictEqual(signal.denominator, 0)
+  assert.strictEqual(signal.viable, false)
+  assert.strictEqual(signal.lift, 0)                     // 분자도 0 — CAP 아님
+  assert.ok(Number.isFinite(signal.lift) && Number.isFinite(signal.rankScore))
+})
+
+test(`viable 경계 — 세션 2+ 일 ${MIN_FINGERPRINT_SIGNAL_N - 1}일 미달 / ${MIN_FINGERPRINT_SIGNAL_N}일 성립`, () => {
+  const cwds: [string, string] = ['/home/u/alpha', '/home/u/beta']
+  const under = sig(fpOf(multiProjectPersona(29, cwds)), 'multi-project-days')
+  assert.strictEqual(under.n, 29)
+  assert.strictEqual(under.viable, false)
+  const exact = sig(fpOf(multiProjectPersona(30, cwds)), 'multi-project-days')
+  assert.strictEqual(exact.n, 30)
+  assert.strictEqual(exact.viable, true)
+})
+
+// === ⑨ model-mix-shift ======================================================
+console.log('\n[⑨ model-mix-shift]')
+
+test('증가 방향 — 모델 2+일 비율 0.2→0.5, delta +30%p, n=창별 활동일, top 진입', () => {
+  const fp = fpOf(modelMixPersona(6, 15))
+  const signal = sig(fp, 'model-mix-shift')
+  assert.ok(Math.abs(signal.numerator - 0.5) < 1e-12)    // 최근 15/30
+  assert.ok(Math.abs(signal.denominator - 0.2) < 1e-12)  // 이전 6/30
+  assert.ok(Math.abs((signal.delta ?? 0) - 0.3) < 1e-12)
+  assert.ok(Math.abs(signal.lift - 2.5) < 1e-9)
+  assert.ok(Math.abs(signal.rankScore - 2.5) < 1e-9)
+  assert.strictEqual(signal.n, 30)
+  assert.strictEqual(signal.n2, 30)
+  assert.strictEqual(signal.viable, true)
+  assert.strictEqual(signal.bidirectional, true)
+  assert.ok(fp.topSignals.some((s) => s.id === 'model-mix-shift'))
+})
+
+test('감소 방향 — 0.5→0.2, lift 0.4 이지만 rankScore 2.5 로 top 진입 (양방향)', () => {
+  const fp = fpOf(modelMixPersona(15, 6))
+  const signal = sig(fp, 'model-mix-shift')
+  assert.ok(Math.abs((signal.delta ?? 0) - -0.3) < 1e-12)
+  assert.ok(Math.abs(signal.lift - 0.4) < 1e-9)
+  assert.ok(Math.abs(signal.rankScore - 2.5) < 1e-9)
+  assert.ok(fp.topSignals.some((s) => s.id === 'model-mix-shift'))
+})
+
+test('모델 폴백 — 메시지 레벨 model 과 세션 폴백이 한 날에 섞이면 2종으로 집계 (multi 일 성립 경로)', () => {
+  // modelMixPersona 의 multi 일 구성 그대로 1일만 — ⑨ 분자 재료의 폴백 경로 검증
+  const day = '2026-06-01'
+  const base = kstMsg('user', PLAIN_TEXT, day, 10)
+  const s = makeSession('claude', [{ ...base, model: 'opus' }, kstMsg('user', PLAIN_TEXT, day, 10, 30)], { model: 'sonnet' })
+  const signal = sig(fpOf([s]), 'model-mix-shift')
+  assert.strictEqual(signal.numerator, 1)                // 활동 1일 중 1일이 모델 2+
+  assert.strictEqual(signal.viable, false)               // 활동일 1 < 30 — 정직하게 미달
+})
+
+test(`viable 경계 — 최근 활동일 ${MIN_FINGERPRINT_SIGNAL_N - 1}일 미달 / ${MIN_FINGERPRINT_SIGNAL_N}일 성립 (이전 30일 고정)`, () => {
+  const under = sig(fpOf(modelMixPersona(6, 15, { skipRecentDay: 3 })), 'model-mix-shift')
+  assert.strictEqual(under.n, 29)
+  assert.strictEqual(under.viable, false)
+  const exact = sig(fpOf(modelMixPersona(6, 15)), 'model-mix-shift')
+  assert.strictEqual(exact.n, 30)
+  assert.strictEqual(exact.viable, true)
+})
+
+test('결정성 — 같은 입력이면 같은 출력 (신규 신호 포함 전체 deepStrictEqual)', () => {
+  assert.deepStrictEqual(fpOf(modelMixPersona(6, 15)), fpOf(modelMixPersona(6, 15)))
+  assert.deepStrictEqual(
+    fpOf(multiProjectPersona(30, ['/home/u/alpha', '/home/u/beta'])),
+    fpOf(multiProjectPersona(30, ['/home/u/alpha', '/home/u/beta']))
+  )
+})
+
 // === selectTopSignals — 정렬·동률·임계 ======================================
 console.log('\n[selectTopSignals]')
 
@@ -483,13 +765,37 @@ test(`② delta 최소폭 가드 — 비율비 lift 충족이어도 |delta| < ${
   assert.deepStrictEqual(selectTopSignals([mkSignal('weekend-focus', 2.0)]).map((s) => s.id), ['weekend-focus'])
 })
 
+test('② 증가 방향만 유지 — 단방향 delta 신호의 음수 delta 는 게이트 교체 후에도 top 제외 (회귀 0)', () => {
+  const decreasing = { ...mkSignal('structured-shift', 2.0), delta: -0.2, rankScore: 2.0 }
+  assert.deepStrictEqual(selectTopSignals([decreasing]).map((s) => s.id), [])
+})
+
+test(`rankScore 게이트 — 양방향은 lift < ${MIN_FINGERPRINT_LIFT} 이어도 역방향 배수(rankScore)로 통과, 단방향은 불통과`, () => {
+  const bidiDecrease = { ...mkSignal('delegation-size-shift', 0.7), bidirectional: true, rankScore: 1 / 0.7 }
+  const uniDecrease = { ...mkSignal('weekend-focus', 0.7), rankScore: 0.7 }
+  assert.deepStrictEqual(selectTopSignals([bidiDecrease]).map((s) => s.id), ['delegation-size-shift'])
+  assert.deepStrictEqual(selectTopSignals([uniDecrease]).map((s) => s.id), [])
+})
+
+test(`양방향 delta 가드 — |delta| ≥ ${MIN_SHARE_SHIFT_DELTA} 면 양쪽 방향 통과, 미만이면 양쪽 다 탈락 (⑨ 이중 가드)`, () => {
+  const mkMix = (delta: number) =>
+    ({ ...mkSignal('model-mix-shift', 2.0), bidirectional: true, delta, rankScore: 2.0 })
+  assert.deepStrictEqual(selectTopSignals([mkMix(MIN_SHARE_SHIFT_DELTA)]).map((s) => s.id), ['model-mix-shift'])
+  assert.deepStrictEqual(selectTopSignals([mkMix(-MIN_SHARE_SHIFT_DELTA)]).map((s) => s.id), ['model-mix-shift'])
+  assert.deepStrictEqual(selectTopSignals([mkMix(MIN_SHARE_SHIFT_DELTA - 0.01)]).map((s) => s.id), [])
+  assert.deepStrictEqual(selectTopSignals([mkMix(-(MIN_SHARE_SHIFT_DELTA - 0.01))]).map((s) => s.id), [])
+})
+
 // === buildCollabFingerprint — 구조·빈상태 ===================================
 console.log('\n[buildCollabFingerprint 구조/빈상태]')
 
-test('signals 는 고정 순서 ①→⑤ 5종 전부 — viable 미달 포함 (영수증 정직 표기)', () => {
+test('signals 는 고정 순서 ①→⑨ 9종 전부 — viable 미달 포함 (영수증 정직 표기), ①~⑤ 접두 불변', () => {
   const fp = fpOf(weekendNightPersona())
   assert.deepStrictEqual(fp.signals.map((s) => s.id), FINGERPRINT_SIGNAL_ORDER)
-  assert.strictEqual(fp.signals.length, 5)
+  assert.strictEqual(fp.signals.length, 9)
+  assert.deepStrictEqual(FINGERPRINT_SIGNAL_ORDER.slice(0, 5), [
+    'weekend-focus', 'structured-shift', 'plan-after-correction', 'late-night-share', 'long-session-preference',
+  ])
 })
 
 test(`빈상태 — viable < ${MIN_FINGERPRINT_TOP_SIGNALS} 이면 topSignals 도 ${MIN_FINGERPRINT_TOP_SIGNALS} 미만 (지문 수집 중)`, () => {
@@ -528,12 +834,90 @@ test('페르소나 2벌(주말 심야형 vs 구조화 상승형) — topSignals 
   assert.notDeepStrictEqual(aIds, bIds)
 })
 
-test('Codex-only 픽스처 — 신호 5종은 스킬 비의존, Claude 페르소나와 동일 수치 (비붕괴)', () => {
+test('Codex-only 픽스처 — 신호는 스킬 비의존, Claude 페르소나와 동일 수치 (비붕괴)', () => {
   const claude = fpOf(weekendNightPersona('claude'))
   const codex = fpOf(weekendNightPersona('codex'))
   assert.deepStrictEqual(codex.signals, claude.signals)
   assert.deepStrictEqual(codex.topSignals.map((s) => s.id), claude.topSignals.map((s) => s.id))
   assert.ok(codex.viableCount >= MIN_FINGERPRINT_TOP_SIGNALS)
+})
+
+// === 기존 5신호 골든 회귀 (W2 확장 전 수치 캡처 — 2026-07-03) ================
+// 신호 ⑥~⑨ 추가·selectTopSignals 게이트 교체(lift → rankScore) 전의 실행 결과를 그대로 고정.
+// 기존 5신호는 동일 입력 → 동일 수치·동일 topSignals 이어야 한다 (goal Must-Preserve).
+console.log('\n[기존 5신호 골든 회귀]')
+
+type LegacySignalGolden = {
+  id: FingerprintSignalId
+  lift: number
+  delta: number | null
+  numerator: number
+  denominator: number
+  n: number
+  n2: number | null
+  viable: boolean
+  rankScore: number
+}
+
+function legacyProjection(fp: CollabFingerprint) {
+  return {
+    signals: fp.signals.slice(0, 5).map(
+      ({ id, lift, delta, numerator, denominator, n, n2, viable, rankScore }): LegacySignalGolden =>
+        ({ id, lift, delta, numerator, denominator, n, n2, viable, rankScore })
+    ),
+    topSignals: fp.topSignals.map((s) => s.id),
+    totalUserMessages: fp.totalUserMessages,
+  }
+}
+
+test('주말 심야형 — ①~⑤ 수치·topSignals 골든 일치', () => {
+  assert.deepStrictEqual(legacyProjection(fpOf(weekendNightPersona())), {
+    signals: [
+      { id: 'weekend-focus', lift: 11, delta: null, numerator: 1, denominator: 0.09090909090909091, n: 30, n2: null, viable: true, rankScore: 11 },
+      { id: 'structured-shift', lift: 0, delta: 0, numerator: 0, denominator: 0, n: 66, n2: 0, viable: false, rankScore: 0 },
+      { id: 'plan-after-correction', lift: 0, delta: null, numerator: 0, denominator: 0, n: 0, n2: null, viable: false, rankScore: 0 },
+      { id: 'late-night-share', lift: 4.8, delta: null, numerator: 1, denominator: 0.20833333333333334, n: 66, n2: null, viable: true, rankScore: 4.8 },
+      { id: 'long-session-preference', lift: 0, delta: null, numerator: 0, denominator: 0.1621049443313762, n: 10, n2: null, viable: false, rankScore: 0 },
+    ],
+    topSignals: ['weekend-focus', 'late-night-share'],
+    totalUserMessages: 66,
+  })
+})
+
+test('구조화 상승형 — ①~⑤ 수치·topSignals 골든 일치', () => {
+  assert.deepStrictEqual(legacyProjection(fpOf(structuredPlanPersona())), {
+    signals: [
+      { id: 'weekend-focus', lift: 0, delta: null, numerator: 0, denominator: 0.26666666666666666, n: 103, n2: null, viable: true, rankScore: 0 },
+      { id: 'structured-shift', lift: 1.6, delta: 0.15000000000000002, numerator: 0.4, denominator: 0.25, n: 100, n2: 40, viable: true, rankScore: 1.6 },
+      { id: 'plan-after-correction', lift: 2.6133333333333333, delta: null, numerator: 1, denominator: 0.38265306122448983, n: 30, n2: null, viable: true, rankScore: 2.6133333333333333 },
+      { id: 'late-night-share', lift: 0, delta: null, numerator: 0, denominator: 0.20833333333333334, n: 140, n2: null, viable: true, rankScore: 0 },
+      { id: 'long-session-preference', lift: 0, delta: null, numerator: 0, denominator: 0.125, n: 20, n2: null, viable: false, rankScore: 0 },
+    ],
+    topSignals: ['plan-after-correction', 'structured-shift'],
+    totalUserMessages: 140,
+  })
+})
+
+test('긴 세션 선호형 — ①~⑤ 수치·topSignals 골든 일치', () => {
+  assert.deepStrictEqual(legacyProjection(fpOf(longSessionPersona(16, 14))), {
+    signals: [
+      { id: 'weekend-focus', lift: 0, delta: null, numerator: 0, denominator: 30, n: 1, n2: null, viable: false, rankScore: 0 },
+      { id: 'structured-shift', lift: 0, delta: 0, numerator: 0, denominator: 0, n: 406, n2: 0, viable: false, rankScore: 0 },
+      { id: 'plan-after-correction', lift: 0, delta: null, numerator: 0, denominator: 0, n: 0, n2: null, viable: false, rankScore: 0 },
+      { id: 'late-night-share', lift: 0, delta: null, numerator: 0, denominator: 0.20833333333333334, n: 406, n2: null, viable: true, rankScore: 0 },
+      { id: 'long-session-preference', lift: 3.7333333333333334, delta: null, numerator: 0.4666666666666667, denominator: 0.125, n: 30, n2: null, viable: true, rankScore: 3.7333333333333334 },
+    ],
+    topSignals: ['long-session-preference'],
+    totalUserMessages: 406,
+  })
+})
+
+test('기존 5신호는 전부 단방향(bidirectional=false) — v1 rank 정책 유지', () => {
+  for (const fixture of [weekendNightPersona(), structuredPlanPersona(), longSessionPersona(16, 14)]) {
+    for (const signal of fpOf(fixture).signals.slice(0, 5)) {
+      assert.strictEqual(signal.bidirectional, false, `${signal.id} 가 양방향으로 바뀜`)
+    }
+  }
 })
 
 // === 결과 보고 =============================================================

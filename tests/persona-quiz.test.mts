@@ -24,6 +24,7 @@ import {
   type Answer,
   type CategoryId,
   type QuizState,
+  type QuizRun,
   type Calibration,
 } from '../src/lib/personaQuiz.ts'
 import type { UsageCategory } from '../src/lib/usageProfile.ts'
@@ -178,6 +179,109 @@ test('짝수 N: N 쌍·각 카테고리 정확히 2회', () => {
   }
 })
 
+// === generateBalancedPairs — exclude (unseen-first) ========================
+section('generateBalancedPairs exclude (unseen-first)')
+
+// exclude 파라미터 도입 전(v2 구현)에 캡처한 골든 출력 — 4번째 인자 미전달 시
+// 기존 호출 결과가 바이트 단위로 동일해야 한다(regression 0).
+const GOLDEN_SEED_7 = JSON.parse(
+  '[{"index":1,"leftCategory":"c1","rightCategory":"c2","leftStatement":"c1_s2","rightStatement":"c2_s1"},{"index":2,"leftCategory":"c5","rightCategory":"c9","leftStatement":"c5_s2","rightStatement":"c9_s1"},{"index":3,"leftCategory":"c7","rightCategory":"c3","leftStatement":"c7_s2","rightStatement":"c3_s1"},{"index":4,"leftCategory":"c9","rightCategory":"c8","leftStatement":"c9_s1","rightStatement":"c8_s1"},{"index":5,"leftCategory":"c4","rightCategory":"c6","leftStatement":"c4_s1","rightStatement":"c6_s2"},{"index":6,"leftCategory":"c2","rightCategory":"c7","leftStatement":"c2_s2","rightStatement":"c7_s1"},{"index":7,"leftCategory":"c3","rightCategory":"c4","leftStatement":"c3_s2","rightStatement":"c4_s2"},{"index":8,"leftCategory":"c6","rightCategory":"c8","leftStatement":"c6_s2","rightStatement":"c8_s2"},{"index":9,"leftCategory":"c1","rightCategory":"c5","leftStatement":"c1_s2","rightStatement":"c5_s2"}]',
+)
+const GOLDEN_SEED_42 = JSON.parse(
+  '[{"index":1,"leftCategory":"c6","rightCategory":"c8","leftStatement":"c6_s2","rightStatement":"c8_s1"},{"index":2,"leftCategory":"c3","rightCategory":"c1","leftStatement":"c3_s1","rightStatement":"c1_s2"},{"index":3,"leftCategory":"c9","rightCategory":"c5","leftStatement":"c9_s1","rightStatement":"c5_s2"},{"index":4,"leftCategory":"c8","rightCategory":"c1","leftStatement":"c8_s1","rightStatement":"c1_s1"},{"index":5,"leftCategory":"c3","rightCategory":"c5","leftStatement":"c3_s1","rightStatement":"c5_s1"},{"index":6,"leftCategory":"c7","rightCategory":"c2","leftStatement":"c7_s2","rightStatement":"c2_s2"},{"index":7,"leftCategory":"c4","rightCategory":"c2","leftStatement":"c4_s1","rightStatement":"c2_s1"},{"index":8,"leftCategory":"c9","rightCategory":"c7","leftStatement":"c9_s2","rightStatement":"c7_s1"},{"index":9,"leftCategory":"c4","rightCategory":"c6","leftStatement":"c4_s2","rightStatement":"c6_s1"}]',
+)
+
+test('exclude 미전달 → v2 구현 골든 출력과 동일 (regression 0)', () => {
+  assert.deepStrictEqual(generateBalancedPairs(NINE_CATS, NINE_STMTS, 7), GOLDEN_SEED_7)
+  assert.deepStrictEqual(generateBalancedPairs(NINE_CATS, NINE_STMTS, 42), GOLDEN_SEED_42)
+})
+
+test('exclude 빈 집합/무관 텍스트 → 미전달과 동일 출력', () => {
+  for (const seed of [1, 7, 42, 999, 31337]) {
+    const base = generateBalancedPairs(NINE_CATS, NINE_STMTS, seed)
+    assert.deepStrictEqual(
+      generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, new Set<string>()),
+      base,
+      `seed ${seed}: 빈 exclude 는 미전달과 동일해야 함`,
+    )
+    assert.deepStrictEqual(
+      generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, new Set(['풀에_없는_진술'])),
+      base,
+      `seed ${seed}: 무관 텍스트 exclude 는 미전달과 동일해야 함`,
+    )
+  }
+})
+
+test('제외 진술은 출제되지 않음 (부분집합 샘플링) — 여러 시드', () => {
+  // 각 카테고리 풀 2개 중 _s1 을 전부 제외 → 모든 진술이 _s2 여야 한다.
+  const exclude = new Set(NINE_CATS.map((c) => `${c}_s1`))
+  for (const seed of [1, 7, 42, 123, 999, 2026, 31337, 0, 88888]) {
+    const pairs = generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, exclude)
+    for (const p of pairs) {
+      assert.ok(!exclude.has(p.leftStatement), `seed ${seed}: 제외 진술 출제 (${p.leftStatement})`)
+      assert.ok(!exclude.has(p.rightStatement), `seed ${seed}: 제외 진술 출제 (${p.rightStatement})`)
+      assert.ok(p.leftStatement.endsWith('_s2'))
+      assert.ok(p.rightStatement.endsWith('_s2'))
+    }
+  }
+})
+
+test('풀 소진 시 전체 풀 폴백 (에러 없음)', () => {
+  // 모든 진술을 제외 → 부분집합이 빔 → 전체 풀에서 뽑는다(unseen-first 폴백).
+  const excludeAll = new Set<string>()
+  for (const c of NINE_CATS) for (const s of NINE_STMTS[c]!) excludeAll.add(s)
+  for (const seed of [1, 7, 42, 999]) {
+    const pairs = generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, excludeAll)
+    assert.strictEqual(pairs.length, 9)
+    for (const p of pairs) {
+      assert.ok(NINE_STMTS[p.leftCategory]!.includes(p.leftStatement))
+      assert.ok(NINE_STMTS[p.rightCategory]!.includes(p.rightStatement))
+    }
+  }
+})
+
+test('일부 카테고리만 소진 → 해당 카테고리만 전체 풀 폴백', () => {
+  // c1 만 풀 전체 제외, 나머지는 _s1 제외 → c1 은 아무 진술, 나머지는 _s2 만.
+  const exclude = new Set<string>(['c1_s1', 'c1_s2'])
+  for (const c of NINE_CATS) if (c !== 'c1') exclude.add(`${c}_s1`)
+  for (const seed of [1, 7, 42, 999]) {
+    const pairs = generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, exclude)
+    for (const p of pairs) {
+      for (const [cat, stmt] of [
+        [p.leftCategory, p.leftStatement],
+        [p.rightCategory, p.rightStatement],
+      ] as const) {
+        if (cat === 'c1') {
+          assert.ok(NINE_STMTS.c1!.includes(stmt), `seed ${seed}: c1 폴백 실패 (${stmt})`)
+        } else {
+          assert.ok(stmt.endsWith('_s2'), `seed ${seed}: '${cat}' 제외 진술 출제 (${stmt})`)
+        }
+      }
+    }
+  }
+})
+
+test('exclude 전달 시에도 불변조건 유지 — 2회 등장/left≠right/시드 결정성', () => {
+  const exclude = new Set(NINE_CATS.map((c) => `${c}_s1`))
+  for (const seed of [1, 7, 42, 123, 999, 2026, 31337]) {
+    const pairs = generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, exclude)
+    const counts: Record<string, number> = {}
+    for (const c of NINE_CATS) counts[c] = 0
+    for (const p of pairs) {
+      counts[p.leftCategory]++
+      counts[p.rightCategory]++
+      assert.notStrictEqual(p.leftCategory, p.rightCategory, `seed ${seed}: self-pair`)
+    }
+    for (const c of NINE_CATS) assert.strictEqual(counts[c], 2, `seed ${seed}: '${c}' 등장 ${counts[c]}회`)
+    // 같은 입력(seed + exclude) → 같은 출력.
+    assert.deepStrictEqual(
+      generateBalancedPairs(NINE_CATS, NINE_STMTS, seed, new Set(exclude)),
+      pairs,
+      `seed ${seed}: exclude 포함 결정성 위반`,
+    )
+  }
+})
+
 // === normalizeTopShare =====================================================
 section('normalizeTopShare')
 
@@ -291,6 +395,38 @@ test('calibration.finalScore == finalDistribution (재정규화 후 일관)', ()
   for (const c of cats) {
     approx(calibration[c]!.finalScore, finalDistribution[c]!)
   }
+})
+
+test('2-run 병합 answers → appearances 4 반영 (정밀 진단 pickRate 분모)', () => {
+  // run1: a vs b 2회 — a 선택 1 + skip 1 → run1 단독이면 pickRate_a = 1/2 = 0.5 (weight 0)
+  const run1: Answer[] = [
+    { leftCategory: 'a', rightCategory: 'b', chosen: 'left' },
+    { leftCategory: 'a', rightCategory: 'b', chosen: 'skip' },
+  ]
+  // run2: a vs b 2회 — a 선택 2
+  const run2: Answer[] = [
+    { leftCategory: 'a', rightCategory: 'b', chosen: 'left' },
+    { leftCategory: 'a', rightCategory: 'b', chosen: 'left' },
+  ]
+  const raw = { a: 1, b: 1 } // auto: a=0.5, b=0.5
+  const cats = ['a', 'b']
+
+  // run1 단독 — 대조군: pickRate_a = 0.5, weight 0.
+  const solo = computeCalibration(run1, raw, cats)
+  approx(solo.calibration.a!.pickRate, 0.5)
+  approx(solo.calibration.a!.weight, 0)
+
+  // 병합(정밀 진단): a appearances=4, picks=3 → pickRate=0.75 (분모가 2→4 로 증가)
+  const merged = computeCalibration([...run1, ...run2], raw, cats)
+  approx(merged.calibration.a!.pickRate, 0.75)
+  approx(merged.calibration.a!.sharpness, 0.5)
+  approx(merged.calibration.a!.weight, 0.5)
+  // b: appearances=4, picks=0 → pickRate=0, sharpness=1, weight=min(1, 0.6)
+  approx(merged.calibration.b!.pickRate, 0)
+  approx(merged.calibration.b!.weight, MAX_CALIBRATION_WEIGHT)
+  // final: a = 0.5*0.5 + 0.75*0.5 = 0.625, b = 0.5*0.4 + 0 = 0.2 → 합 0.825 재정규화
+  approx(merged.finalDistribution.a!, 0.625 / 0.825)
+  approx(merged.finalDistribution.b!, 0.2 / 0.825)
 })
 
 // === applyCalibration ======================================================
@@ -563,9 +699,10 @@ test('렌즈 없는(미지의) job → general 폴백', () => {
 })
 
 // === 저장 마이그레이션 (personaQuizStorage) ================================
-section('저장 v1→v2 마이그레이션')
+section('저장 v3 스키마 + v2/v1 → v3 마이그레이션')
 
-const STORAGE_KEY_V2 = 'memradar.personaQuiz.v2'
+const STORAGE_KEY_V3 = 'memradar.personaQuiz.v3'
+const LEGACY_KEY_V2 = 'memradar.personaQuiz.v2'
 const LEGACY_KEY_V1 = 'memradar.personaQuiz.v1'
 
 function sampleCalibration(): Calibration {
@@ -579,10 +716,9 @@ function sampleFinalDistribution(): Record<CategoryId, number> {
   return { feature: 0.4, debug: 0.6 }
 }
 
-test('v2 라운드트립 (job 포함)', () => {
-  memStorage.clear()
-  const state: QuizState = {
-    version: PERSONA_QUIZ_VERSION,
+function sampleV2Payload() {
+  return {
+    version: 2,
     job: 'designer',
     ts: '2026-06-04T00:00:00.000Z',
     seed: 12345,
@@ -590,13 +726,74 @@ test('v2 라운드트립 (job 포함)', () => {
     calibration: sampleCalibration(),
     finalDistribution: sampleFinalDistribution(),
   }
+}
+
+function sampleV3State(): QuizState {
+  const runs: QuizRun[] = [
+    {
+      seed: 111,
+      ts: '2026-06-04T00:00:00.000Z',
+      answers: [{ leftCategory: 'feature', rightCategory: 'debug', chosen: 'left' }],
+    },
+    {
+      seed: 222,
+      ts: '2026-07-01T00:00:00.000Z',
+      answers: [{ leftCategory: 'debug', rightCategory: 'feature', chosen: 'skip' }],
+    },
+  ]
+  return {
+    version: PERSONA_QUIZ_VERSION,
+    job: 'designer',
+    ts: '2026-07-01T00:00:00.000Z',
+    runs,
+    seenStatements: ['진술 A', '진술 B'],
+    calibration: sampleCalibration(),
+    finalDistribution: sampleFinalDistribution(),
+  }
+}
+
+test('v3 라운드트립 (runs/seenStatements 포함)', () => {
+  memStorage.clear()
+  const state = sampleV3State()
   savePersonaQuiz(state)
   const loaded = loadPersonaQuiz()
-  assert.ok(loaded, 'v2 로드 성공')
+  assert.ok(loaded, 'v3 로드 성공')
   assert.deepStrictEqual(loaded, state)
 })
 
-test('v1 페이로드 → job=general·version 2 로 마이그레이션 (regression 0)', () => {
+test('v2 페이로드 → v3 마이그레이션 (runs[0] 래핑, seenStatements=[])', () => {
+  memStorage.clear()
+  const v2 = sampleV2Payload()
+  memStorage.setItem(LEGACY_KEY_V2, JSON.stringify(v2))
+  const loaded = loadPersonaQuiz()
+  assert.ok(loaded, 'v2 → 마이그레이션 로드 성공')
+  assert.strictEqual(loaded!.version, PERSONA_QUIZ_VERSION, 'version 3 으로 승격')
+  assert.strictEqual(loaded!.job, 'designer', 'job 보존')
+  assert.strictEqual(loaded!.ts, v2.ts, 'ts 보존')
+  assert.deepStrictEqual(
+    loaded!.runs,
+    [{ seed: v2.seed, ts: v2.ts, answers: v2.answers }],
+    '단일 run 이 runs[0] 으로 래핑되어야 함',
+  )
+  assert.deepStrictEqual(loaded!.seenStatements, [], 'seenStatements 는 빈 배열로 시작')
+  assert.deepStrictEqual(loaded!.calibration, v2.calibration, 'calibration 보존')
+  assert.deepStrictEqual(loaded!.finalDistribution, v2.finalDistribution, 'finalDistribution 보존')
+})
+
+test('v2 마이그레이션 후 write-through 로 v3 키 생성·v2 키 제거', () => {
+  memStorage.clear()
+  memStorage.setItem(LEGACY_KEY_V2, JSON.stringify(sampleV2Payload()))
+  loadPersonaQuiz()
+  assert.ok(memStorage.has(STORAGE_KEY_V3), 'v3 키가 write-through 로 생성되어야 함')
+  assert.ok(!memStorage.has(LEGACY_KEY_V2), 'LEGACY v2 키는 제거되어야 함')
+  // write-through 이후 재로드도 동일 상태 (v3 경로).
+  const reloaded = loadPersonaQuiz()
+  assert.ok(reloaded)
+  assert.strictEqual(reloaded!.version, PERSONA_QUIZ_VERSION)
+  assert.strictEqual(reloaded!.runs.length, 1)
+})
+
+test('v1 → v3 체인 (job=general 주입 + runs[0] 래핑 + v1 키 제거)', () => {
   memStorage.clear()
   const v1 = {
     version: 1,
@@ -609,52 +806,91 @@ test('v1 페이로드 → job=general·version 2 로 마이그레이션 (regress
   memStorage.setItem(LEGACY_KEY_V1, JSON.stringify(v1))
   const loaded = loadPersonaQuiz()
   assert.ok(loaded, 'v1 → 마이그레이션 로드 성공')
-  assert.strictEqual(loaded!.version, PERSONA_QUIZ_VERSION, 'version 2 로 승격')
+  assert.strictEqual(loaded!.version, PERSONA_QUIZ_VERSION, 'version 3 으로 승격')
   assert.strictEqual(loaded!.job, 'general', 'job=general 주입')
-  // finalDistribution / answers 보존
+  assert.deepStrictEqual(
+    loaded!.runs,
+    [{ seed: v1.seed, ts: v1.ts, answers: v1.answers }],
+    'v1 단일 run 이 runs[0] 으로 래핑되어야 함',
+  )
+  assert.deepStrictEqual(loaded!.seenStatements, [])
   assert.deepStrictEqual(loaded!.finalDistribution, v1.finalDistribution, 'finalDistribution 보존')
-  assert.deepStrictEqual(loaded!.answers, v1.answers, 'answers 보존')
+  assert.ok(memStorage.has(STORAGE_KEY_V3), 'v3 키 write-through 생성')
+  assert.ok(!memStorage.has(LEGACY_KEY_V1), 'LEGACY v1 키 제거')
 })
 
-test('마이그레이션 후 write-through 로 v2 키 생성·LEGACY 제거', () => {
-  memStorage.clear()
-  const v1 = {
-    version: 1,
-    ts: '2026-05-01T00:00:00.000Z',
-    seed: 777,
-    answers: [],
-    calibration: sampleCalibration(),
-    finalDistribution: sampleFinalDistribution(),
-  }
-  memStorage.setItem(LEGACY_KEY_V1, JSON.stringify(v1))
-  loadPersonaQuiz()
-  assert.ok(memStorage.has(STORAGE_KEY_V2), 'v2 키가 write-through 로 생성되어야 함')
-  assert.ok(!memStorage.has(LEGACY_KEY_V1), 'LEGACY v1 키는 제거되어야 함')
-})
-
-test('v2 부재 + v1 부재 → null', () => {
+test('v3·v2·v1 모두 부재 → null', () => {
   memStorage.clear()
   assert.strictEqual(loadPersonaQuiz(), null)
 })
 
-test('v2 페이로드 job 무효 → null (스키마 엄격), v1 폴백 없음', () => {
+test('손상/미지 페이로드 → null (방어 파서)', () => {
+  const base = sampleV3State()
+
+  // JSON 깨짐
   memStorage.clear()
-  const bad = {
-    version: 2,
-    job: 'frontend', // 무효
-    ts: '2026-06-04T00:00:00.000Z',
-    seed: 1,
-    answers: [],
-    calibration: sampleCalibration(),
-    finalDistribution: sampleFinalDistribution(),
-  }
-  memStorage.setItem(STORAGE_KEY_V2, JSON.stringify(bad))
-  assert.strictEqual(loadPersonaQuiz(), null, '무효 job 은 거부')
+  memStorage.setItem(STORAGE_KEY_V3, '{not json')
+  assert.strictEqual(loadPersonaQuiz(), null, 'JSON 깨짐은 null')
+
+  // 미지 버전
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ ...base, version: 99 }))
+  assert.strictEqual(loadPersonaQuiz(), null, '미지 버전은 null')
+
+  // runs 가 배열이 아님
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ ...base, runs: 'nope' }))
+  assert.strictEqual(loadPersonaQuiz(), null, 'runs 비배열은 null')
+
+  // runs 원소 무효 (seed 가 문자열)
+  memStorage.clear()
+  memStorage.setItem(
+    STORAGE_KEY_V3,
+    JSON.stringify({ ...base, runs: [{ seed: 'x', ts: 't', answers: [] }] }),
+  )
+  assert.strictEqual(loadPersonaQuiz(), null, 'run.seed 문자열은 null')
+
+  // runs 원소 무효 (answers 원소 무효)
+  memStorage.clear()
+  memStorage.setItem(
+    STORAGE_KEY_V3,
+    JSON.stringify({ ...base, runs: [{ seed: 1, ts: 't', answers: [{ chosen: 'nope' }] }] }),
+  )
+  assert.strictEqual(loadPersonaQuiz(), null, '무효 answer 는 null')
+
+  // seenStatements 원소 무효 (숫자 혼입)
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ ...base, seenStatements: ['ok', 5] }))
+  assert.strictEqual(loadPersonaQuiz(), null, 'seenStatements 비문자열 혼입은 null')
+
+  // job 무효
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ ...base, job: 'frontend' }))
+  assert.strictEqual(loadPersonaQuiz(), null, '무효 job 은 null')
 })
 
-test('v2 무효 + v1 유효 → v1 마이그레이션 폴백', () => {
+test('runs 빈 배열 → null (완료 run 없는 상태는 의미상 무효)', () => {
+  // 리뷰 지적: runs:[] 가 유효로 통과하면 refine intro 가 "지금까지 0회 · 0문항"으로 렌더된다.
   memStorage.clear()
-  memStorage.setItem(STORAGE_KEY_V2, JSON.stringify({ version: 2, job: 'bogus' }))
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ ...sampleV3State(), runs: [] }))
+  assert.strictEqual(loadPersonaQuiz(), null, 'runs 빈 배열은 null')
+})
+
+test('v3 무효 + v2 유효 → v2 마이그레이션 폴백', () => {
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ version: 3, job: 'bogus' }))
+  memStorage.setItem(LEGACY_KEY_V2, JSON.stringify(sampleV2Payload()))
+  const loaded = loadPersonaQuiz()
+  assert.ok(loaded, 'v3 무효면 v2 폴백')
+  assert.strictEqual(loaded!.version, PERSONA_QUIZ_VERSION)
+  assert.strictEqual(loaded!.job, 'designer')
+  assert.strictEqual(loaded!.runs.length, 1)
+})
+
+test('v3 무효 + v2 무효 + v1 유효 → v1 마이그레이션 폴백', () => {
+  memStorage.clear()
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify({ version: 3 }))
+  memStorage.setItem(LEGACY_KEY_V2, JSON.stringify({ version: 2, job: 'bogus' }))
   const v1 = {
     version: 1,
     ts: '2026-05-01T00:00:00.000Z',
@@ -665,16 +901,19 @@ test('v2 무효 + v1 유효 → v1 마이그레이션 폴백', () => {
   }
   memStorage.setItem(LEGACY_KEY_V1, JSON.stringify(v1))
   const loaded = loadPersonaQuiz()
-  assert.ok(loaded, 'v2 무효면 v1 폴백')
+  assert.ok(loaded, 'v3/v2 무효면 v1 폴백')
   assert.strictEqual(loaded!.job, 'general')
+  assert.strictEqual(loaded!.runs.length, 1)
 })
 
-test('clearPersonaQuiz 는 v2·v1 키 둘 다 제거', () => {
+test('clearPersonaQuiz 는 v3·v2·v1 키 전부 제거', () => {
   memStorage.clear()
-  memStorage.setItem(STORAGE_KEY_V2, JSON.stringify({ version: 2, job: 'general' }))
+  memStorage.setItem(STORAGE_KEY_V3, JSON.stringify(sampleV3State()))
+  memStorage.setItem(LEGACY_KEY_V2, JSON.stringify({ version: 2, job: 'general' }))
   memStorage.setItem(LEGACY_KEY_V1, JSON.stringify({ version: 1 }))
   clearPersonaQuiz()
-  assert.ok(!memStorage.has(STORAGE_KEY_V2), 'v2 제거')
+  assert.ok(!memStorage.has(STORAGE_KEY_V3), 'v3 제거')
+  assert.ok(!memStorage.has(LEGACY_KEY_V2), 'v2 제거')
   assert.ok(!memStorage.has(LEGACY_KEY_V1), 'v1 제거')
 })
 

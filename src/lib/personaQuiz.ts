@@ -45,17 +45,27 @@ export interface CalibrationResult {
   finalDistribution: Record<CategoryId, number>
 }
 
+/** 완료된 검사 1회분 (시드 + 응답). v3 부터 run 단위로 누적한다. */
+export interface QuizRun {
+  seed: number
+  ts: string
+  answers: Answer[]
+}
+
 export interface QuizState {
   version: number
   job: JobLens
+  /** 마지막 완료 run 의 시각. */
   ts: string
-  seed: number
-  answers: Answer[]
+  /** 완료된 run 누적 (정밀 진단 — 병합 answers 로 보정 재계산). */
+  runs: QuizRun[]
+  /** 이미 출제된 진술 텍스트 누적 (dedup) — unseen-first 샘플링용. */
+  seenStatements: string[]
   calibration: Calibration
   finalDistribution: Record<CategoryId, number>
 }
 
-export const PERSONA_QUIZ_VERSION = 2
+export const PERSONA_QUIZ_VERSION = 3
 
 /** 보정 가중치 상한 (설계 공식). */
 export const MAX_CALIBRATION_WEIGHT = 0.6
@@ -86,18 +96,36 @@ function shuffleInPlace<T>(arr: T[], rand: () => number): void {
 }
 
 /**
+ * 카테고리 풀에서 진술 1개를 뽑는다.
+ * exclude(이미 출제된 진술 텍스트)를 뺀 부분집합에서 뽑되, 부분집합이 비면
+ * 전체 풀로 폴백한다(풀 소진 시에도 에러 없이 진행 — unseen-first).
+ * rand 호출은 정확히 1회 — exclude 미전달 시 기존 동작과 완전 동일.
+ */
+function drawStatement(
+  pool: string[],
+  rand: () => number,
+  exclude?: ReadonlySet<string>,
+): string {
+  const unseen = exclude && exclude.size > 0 ? pool.filter((s) => !exclude.has(s)) : pool
+  const from = unseen.length > 0 ? unseen : pool
+  return from[Math.floor(rand() * from.length)]!
+}
+
+/**
  * 9 카테고리 각각 정확히 2회 등장하는 균등 페어 9쌍을 결정적으로 생성한다.
  * 같은 카테고리가 한 페어에 들어가지 않도록(left≠right) 보장한다.
  *
  * @param categoryIds 카테고리 id 목록 (N개)
  * @param statements  카테고리별 진술 풀 (각 ≥ 1개)
  * @param seed        결정적 시드
- * @returns N개 페어 (각 카테고리 정확히 2회 등장)
+ * @param exclude     이미 출제된 진술 텍스트 집합 (unseen-first — 부분집합 소진 시 전체 풀 폴백)
+ * @returns N개 페어 (각 카테고리 정확히 2회 등장). 같은 입력(ids/statements/seed/exclude) → 같은 출력.
  */
 export function generateBalancedPairs(
   categoryIds: ReadonlyArray<CategoryId>,
   statements: Readonly<Record<CategoryId, string[]>>,
   seed: number,
+  exclude?: ReadonlySet<string>,
 ): Pair[] {
   const n = categoryIds.length
   if (n < 2) {
@@ -165,8 +193,8 @@ export function generateBalancedPairs(
     if (!rightPool || rightPool.length === 0) {
       throw new Error(`카테고리 '${rightCat}' 진술 없음`)
     }
-    const leftStmt = leftPool[Math.floor(rand() * leftPool.length)]!
-    const rightStmt = rightPool[Math.floor(rand() * rightPool.length)]!
+    const leftStmt = drawStatement(leftPool, rand, exclude)
+    const rightStmt = drawStatement(rightPool, rand, exclude)
     pairs.push({
       index: i / 2 + 1,
       leftCategory: leftCat,
@@ -217,8 +245,9 @@ export function normalizeTopShare(
  *
  * 주의: skip 처리 — eval-sharpness 의 computeStats 는 분모에서 skip 을 제외하지만,
  * 본 보정은 설계 문서 정의("appearances 는 skip 포함, pick 은 아님")를 따라
- * pickRate 분모를 appearances(2회 등장 전체)로 둔다. 모든 카테고리가 정확히
- * 2회 등장하므로 appearances 는 항상 2.
+ * pickRate 분모를 appearances(등장 전체)로 둔다. run 1회당 모든 카테고리가
+ * 정확히 2회 등장하므로, 정밀 진단으로 여러 run 의 answers 를 병합해 넘기면
+ * appearances 는 2 → 4 → 6 … 으로 자연 증가한다(공식 자체는 무변경).
  */
 export function computeCalibration(
   answers: ReadonlyArray<Answer>,

@@ -275,6 +275,7 @@ function App() {
       <WrappedView
         sessions={sessions}
         onClose={() => navigate({ type: 'dashboard' })}
+        onOpenPersonality={() => navigate({ type: 'personality' })}
       />
     )
   }
