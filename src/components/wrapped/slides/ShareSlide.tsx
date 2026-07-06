@@ -396,7 +396,7 @@ export function ShareSlide({
             className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/15 px-4 py-2 text-xs font-semibold text-text-bright transition-all hover:-translate-y-0.5 hover:border-accent/60 hover:bg-accent/25"
           >
             <Sparkles className="h-4 w-4 text-accent" />
-            <span>내 성향 진단 해볼래요?</span>
+            <span>정밀 진단 해볼래요?</span>
           </button>
         </FadeInText>
       )}
