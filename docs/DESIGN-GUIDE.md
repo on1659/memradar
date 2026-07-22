@@ -991,7 +991,7 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 | 성격 8종 정의 | `src/lib/personality.ts` | 53-126, 185-202 |
 | 사용 카테고리 9종 정의 | `src/lib/usageProfile.ts` | (USAGE_CATEGORIES 배열) |
 | 사용 카테고리 렌더링 | `src/components/PersonalityView.tsx` | PersonalitySections |
-| 훅 활동 카드 (자주 쓴 스킬 슬롯 대체) | `src/components/Dashboard.tsx` (`HookActivityCard`) | 팝오버·top-5·empty-state |
+| 훅 활동 카드 (자주 쓴 스킬 슬롯 대체) | `src/components/Dashboard.tsx` (`HookActivityCard`) | 팝오버·top-2(높이 정합)·empty-state |
 
 ---
 

@@ -1280,9 +1280,12 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
         }
       })
       .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
+      // 표시 행 수는 옆 analytics 카드(세션 길이·단어)의 자연 높이에 맞춘다 —
+      // 너무 많으면 grid align-stretch 로 옆 카드에 공백이 생긴다. 전체는 툴팁/팝오버로.
+      .slice(0, 2)
   }, [hooks.byHook])
   const maxGroupTotal = groups[0]?.total || 1
+  const hiddenGroupCount = Math.max(0, hooks.uniqueHooks - groups.length)
 
   const fmtMs = (ms: number | null) =>
     ms == null ? '' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
@@ -1415,9 +1418,9 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
               </span>
             )}
           </div>
-          <p className="mb-2 text-[10px] text-text/40">{isKorean ? '기록이 남은 실행 기준' : 'Based on recorded executions'}</p>
+          <p className="mb-1 text-[10px] text-text/40">{isKorean ? '가장 활발한 훅 · 기록 기준' : 'Most active · recorded'}{hiddenGroupCount > 0 ? (isKorean ? ` · 외 ${hiddenGroupCount}개` : ` · +${hiddenGroupCount}`) : ''}</p>
 
-          <ul className="flex flex-col gap-2.5 py-0.5">
+          <ul className="flex flex-col gap-2">
             {groups.map((group) => {
               const scripts = group.rows.length > 1
                 ? group.rows.map((r, i) => ({ name: subScriptLabel(r, i), count: hookRowTotal(r.counts) }))
