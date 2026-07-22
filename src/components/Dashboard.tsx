@@ -1255,13 +1255,30 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
       arr.push(row)
       map.set(row.hookName, arr)
     }
+    const emptyCounts = (): HookOutcomeCounts => ({ success: 0, denied: 0, blockingError: 0, nonBlockingError: 0, cancelled: 0, timedOut: 0, summaryOnly: 0 })
     return [...map.entries()]
-      .map(([hookName, rows]) => ({
-        hookName,
-        rows: [...rows].sort((a, b) => hookRowTotal(b.counts) - hookRowTotal(a.counts)),
-        total: rows.reduce((s, r) => s + hookRowTotal(r.counts), 0),
-        isStop: rows.some((r) => r.hookEvent === 'Stop' || r.hookName === 'Stop'),
-      }))
+      .map(([hookName, rows]) => {
+        // hookName 당 여러 commandKey(스크립트)를 한 행으로 집계 — 인라인 sub-row 폭발 방지.
+        // 스크립트별 상세는 hover 툴팁에서 짧은 이름으로 보여준다.
+        const sorted = [...rows].sort((a, b) => hookRowTotal(b.counts) - hookRowTotal(a.counts))
+        const counts = sorted.reduce((acc, r) => {
+          acc.success += r.counts.success; acc.denied += r.counts.denied
+          acc.blockingError += r.counts.blockingError; acc.nonBlockingError += r.counts.nonBlockingError
+          acc.cancelled += r.counts.cancelled; acc.timedOut += r.counts.timedOut; acc.summaryOnly += r.counts.summaryOnly
+          return acc
+        }, emptyCounts())
+        const durSamples = sorted.filter((r) => r.avgDurationMs != null)
+        const avgDurationMs = durSamples.length ? durSamples.reduce((s, r) => s + (r.avgDurationMs as number), 0) / durSamples.length : null
+        return {
+          hookName,
+          rows: sorted,
+          counts,
+          avgDurationMs,
+          lastSeen: sorted.reduce((m, r) => (r.lastSeen > m ? r.lastSeen : m), ''),
+          total: sorted.reduce((s, r) => s + hookRowTotal(r.counts), 0),
+          isStop: rows.some((r) => r.hookEvent === 'Stop' || r.hookName === 'Stop'),
+        }
+      })
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
   }, [hooks.byHook])
@@ -1271,10 +1288,17 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
     ms == null ? '' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
   const fmtDate = (iso: string) => (iso ? new Date(iso).toLocaleDateString(isKorean ? 'ko-KR' : 'en-US') : '')
 
-  const subLabel = (row: HookAggregateRow, index: number): string => {
-    const masked = commandByKey.get(row.commandKey)
-    if (masked) return masked
-    return (isKorean ? '스크립트 ' : 'Script ') + String.fromCharCode(65 + (index % 26))
+  // 커맨드에서 짧은 스크립트명(basename)만 뽑는다 — 긴 command 원문 라벨 오버플로 방지
+  const scriptName = (cmd: string | undefined): string | null => {
+    if (!cmd) return null
+    const m = cmd.match(/[/\\]([A-Za-z0-9._-]+\.(?:mjs|cjs|js|ts|sh|py|rb|ps1))\b/)
+    if (m) return m[1]
+    const first = (cmd.trim().split(/\s+/)[0] || '').replace(/^["']|["']$/g, '')
+    return first.split(/[/\\]/).pop() || cmd.slice(0, 20)
+  }
+  const subScriptLabel = (row: HookAggregateRow, index: number): string => {
+    const short = scriptName(commandByKey.get(row.commandKey))
+    return short ?? (isKorean ? '스크립트 ' : 'Script ') + String.fromCharCode(65 + (index % 26))
   }
 
   function OutcomeChips({ counts }: { counts: HookOutcomeCounts }) {
@@ -1296,7 +1320,7 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
     )
   }
 
-  function RowBar({ label, counts, total, avgDurationMs, lastSeen, isStop, groupMax }: {
+  function RowBar({ label, counts, total, avgDurationMs, lastSeen, isStop, groupMax, scripts }: {
     label: string
     counts: HookOutcomeCounts
     total: number
@@ -1304,12 +1328,13 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
     lastSeen: string
     isStop: boolean
     groupMax: number
+    scripts?: { name: string; count: number }[]
   }) {
     const width = Math.max(6, (total / (groupMax || 1)) * 100)
     return (
       <div className="group relative cursor-default">
         <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
-          <span className="truncate font-medium text-text-bright" title={label}>{label}</span>
+          <span className="min-w-0 truncate font-medium text-text-bright" title={label}>{label}</span>
           <span className="shrink-0 tabular-nums text-text/50">{total}{isKorean ? '회' : ''}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
@@ -1329,6 +1354,16 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
               counts.summaryOnly ? `${isKorean ? '요약만' : 'summary-only'} ${counts.summaryOnly}` : '',
             ].filter(Boolean).join(' · ')}
           </span>
+          {scripts && scripts.length > 1 && (
+            <div className="mt-1.5 border-t border-border/40 pt-1.5">
+              {scripts.map((s) => (
+                <div key={s.name} className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate text-text/60">{s.name}</span>
+                  <span className="shrink-0 tabular-nums text-text/45">{s.count}{isKorean ? '회' : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {avgDurationMs != null && (
             <span className="mt-1 block text-text/50">
               {isKorean ? `평균 ${fmtMs(avgDurationMs)} · 기록 있는 실행 기준` : `avg ${fmtMs(avgDurationMs)} · recorded runs only`}
@@ -1384,49 +1419,21 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
 
           <ul className="flex flex-col gap-2.5 py-0.5">
             {groups.map((group) => {
-              if (group.rows.length === 1) {
-                const row = group.rows[0]
-                return (
-                  <li key={group.hookName}>
-                    <RowBar
-                      label={group.hookName}
-                      counts={row.counts}
-                      total={group.total}
-                      avgDurationMs={row.avgDurationMs}
-                      lastSeen={row.lastSeen}
-                      isStop={group.isStop}
-                      groupMax={maxGroupTotal}
-                    />
-                  </li>
-                )
-              }
-              const subMax = Math.max(...group.rows.map((r) => hookRowTotal(r.counts)), 1)
+              const scripts = group.rows.length > 1
+                ? group.rows.map((r, i) => ({ name: subScriptLabel(r, i), count: hookRowTotal(r.counts) }))
+                : undefined
               return (
                 <li key={group.hookName}>
-                  <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
-                    <span className="truncate font-medium text-text-bright" title={group.hookName}>
-                      {group.hookName}
-                      {group.isStop && <span className="ml-1 text-[9px] text-text/40">{isKorean ? '· 전체 집계' : '· aggregated'}</span>}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-text/50">{group.total}{isKorean ? '회' : ''}</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
-                    <div className="h-full rounded-full bg-violet/40" style={{ width: `${Math.max(6, (group.total / maxGroupTotal) * 100)}%` }} />
-                  </div>
-                  <div className="mt-1.5 space-y-1.5 border-l border-border/50 pl-2.5">
-                    {group.rows.map((row, i) => (
-                      <RowBar
-                        key={row.commandKey}
-                        label={subLabel(row, i)}
-                        counts={row.counts}
-                        total={hookRowTotal(row.counts)}
-                        avgDurationMs={row.avgDurationMs}
-                        lastSeen={row.lastSeen}
-                        isStop={group.isStop}
-                        groupMax={subMax}
-                      />
-                    ))}
-                  </div>
+                  <RowBar
+                    label={group.hookName}
+                    counts={group.counts}
+                    total={group.total}
+                    avgDurationMs={group.avgDurationMs}
+                    lastSeen={group.lastSeen}
+                    isStop={group.isStop}
+                    groupMax={maxGroupTotal}
+                    scripts={scripts}
+                  />
                 </li>
               )
             })}
