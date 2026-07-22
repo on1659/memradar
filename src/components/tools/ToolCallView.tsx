@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { ChevronRight, AlertTriangle } from 'lucide-react'
-import type { ToolCall } from '../../types'
+import type { ToolCall, HookExecutionDetail } from '../../types'
 import { ToolDefaultIcon, TOOL_ICONS } from '../../icons'
 import { Truncate } from './Truncate'
 import { maskSecrets, useSecretMask } from '../../lib/secretMask'
 import { SecretMaskToggle } from '../SecretMaskToggle'
+import { HookEventView } from './HookEventView'
 
 export interface ExpandSignal {
   expanded: boolean
@@ -14,6 +15,10 @@ export interface ExpandSignal {
 interface ToolCallViewProps {
   call: ToolCall
   expandSignal?: ExpandSignal
+  /** tier-2: PreToolUse/denied 훅 실행 — 입력 위에 중첩 (SessionView toolUseID 조인) */
+  preHooks?: HookExecutionDetail[]
+  /** tier-2: PostToolUse 훅 실행 — 결과 아래에 중첩 */
+  postHooks?: HookExecutionDetail[]
 }
 
 function basename(p: string): string {
@@ -210,7 +215,7 @@ function bodyFor(call: ToolCall) {
   }
 }
 
-export function ToolCallView({ call, expandSignal }: ToolCallViewProps) {
+export function ToolCallView({ call, expandSignal, preHooks, postHooks }: ToolCallViewProps) {
   const [expanded, setExpanded] = useState(expandSignal?.expanded ?? true)
   const [lastSignalKey, setLastSignalKey] = useState(expandSignal?.key ?? -1)
   // Sync with parent signal when its key changes (global expand/collapse).
@@ -234,8 +239,22 @@ export function ToolCallView({ call, expandSignal }: ToolCallViewProps) {
       />
       {expanded && (
         <>
+          {preHooks && preHooks.length > 0 && (
+            <div className="space-y-1.5 border-b border-border/40 px-3 py-2">
+              {preHooks.map((ev, k) => (
+                <HookEventView key={`pre-${ev.toolUseID}-${k}`} event={ev} />
+              ))}
+            </div>
+          )}
           {bodyFor(call)}
           {call.result && <ResultBlock content={call.result.content} isError={isError} />}
+          {postHooks && postHooks.length > 0 && (
+            <div className="space-y-1.5 border-t border-border/40 px-3 py-2">
+              {postHooks.map((ev, k) => (
+                <HookEventView key={`post-${ev.toolUseID}-${k}`} event={ev} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

@@ -167,7 +167,7 @@ Tailwind 기본값을 기준으로 사용처를 고정한다.
 --color-amber: #fbbf24;  /* 토큰·비용·검색 하이라이트 */
 --color-rose:  #f472b6;  /* 에러·경고 계열 */
 --color-cyan:   #22d3ee;  /* 분석·인사이트, Axis Scope */
---color-violet: #a78bfa;  /* Personality Slide accent, TopSkills 바 차트 */
+--color-violet: #a78bfa;  /* Personality Slide accent, 훅 활동 카드 accent */
 ```
 
 ---
@@ -914,6 +914,7 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 - 카드는 시각적으로 분리돼 보이게 한다. 테두리가 시각적으로 합쳐져 그룹을 가짜로 만드는 건 금지.
 - 동일 높이 카드가 같은 행을 공유해도 되지만, 내용 정렬은 카드 유형에 따라 달라진다.
 - **도구(tool) 분석 지표는 메인 대시보드와 Code Report 흐름에서 숨긴다.** 전용 고급 분석 영역이 생길 때만 노출.
+- **훅 활동 카드는 이 규칙의 예외가 아니다 — "훅 실행 기록 관측"이지 "도구 사용 분석"이 아니다.** `자주 쓴 스킬` 슬롯을 대체하며(`docs/goal/hooks-analytics.md` D5), 훅이 남긴 실행 기록(성공·차단·실패·취소·시간초과·요약만)만 집계한다. 조용히 통과(허용)한 실행은 기록이 없어 세지 않으며, 도구 사용 빈도 분석과는 별개 축이다 — 이 슬롯 결정은 재론하지 않는다.
 
 ### 10.2 카드 내용 정렬
 
@@ -990,7 +991,7 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 | 성격 8종 정의 | `src/lib/personality.ts` | 53-126, 185-202 |
 | 사용 카테고리 9종 정의 | `src/lib/usageProfile.ts` | (USAGE_CATEGORIES 배열) |
 | 사용 카테고리 렌더링 | `src/components/PersonalityView.tsx` | PersonalitySections |
-| TopSkills 바 차트 | `src/components/TopSkills.tsx` | 전체 |
+| 훅 활동 카드 (자주 쓴 스킬 슬롯 대체) | `src/components/Dashboard.tsx` (`HookActivityCard`) | 팝오버·top-5·empty-state |
 
 ---
 

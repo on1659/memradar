@@ -31,7 +31,7 @@
     "preview": "vite preview",
     "test:cli": "node tests/harness-cli.mjs",
     "test:e2e": "playwright test",
-    "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:persona && npm run test:growth && npm run test:rhythm && npm run test:story && npm run test:fingerprint && npm run test:coaching && npm run test:modelintensity && npm run test:authorship && npm run test:cleantext && npm run test:secretmask && npm run test:scansecrets && npm run test:e2e",
+    "test:harness": "npm run lint && npm run build && npm run test:cli && npm run test:persona && npm run test:growth && npm run test:rhythm && npm run test:story && npm run test:fingerprint && npm run test:coaching && npm run test:modelintensity && npm run test:authorship && npm run test:cleantext && npm run test:secretmask && npm run test:scansecrets && npm run test:hooks && npm run test:e2e",
     "test": "npm run test:harness",
     "test:eval": "npx tsx scripts/test-eval-and-report.mts",
     "validate:eval": "npx tsx scripts/validate-eval-samples.mts",
@@ -48,6 +48,7 @@
     "test:authorship": "npx tsx tests/authorship-ratio.test.mts",
     "test:cleantext": "npx tsx tests/clean-claude-text.test.mts",
     "test:secretmask": "npx tsx tests/secret-mask.test.mts",
+    "test:hooks": "npx tsx tests/hook-events.test.mts",
     "test:scansecrets": "npx tsx tests/scan-secrets.test.mts",
     "scan:secrets": "npx tsx scripts/scan-secrets.mts"
   },

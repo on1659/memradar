@@ -7,6 +7,8 @@ import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { exec, spawn } from 'node:child_process'
 import { maskSecrets } from './lib/secretMask.mjs'
+import { createHookCollector } from './lib/hookExtract.mjs'
+import { scanHooks, matchHookEntries, buildHookTelemetryRows, toPublicHookEntries, toServerHookEntries } from './lib/hookScan.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'))
@@ -335,12 +337,18 @@ function parseClaudeJsonl(text, fileName, options = {}) {
   let cwd = ''
   let version = ''
   let model = ''
+  // 훅 텔레메트리 수집 — src/parser.ts 와 동일 위치(role-drop 가드 직전) 배선.
+  // light 경로는 페이로드-프리 summary 만 계산한다 (includeDetail 없음).
+  const hookCollector = createHookCollector()
 
   for (const line of lines) {
     try {
       const raw = JSON.parse(line)
       if (raw.type === 'file-history-snapshot') continue
       if (raw.isMeta || raw.isSidechain) continue
+      // 서브에이전트(sidechain) 훅은 위에서 제외됨 — 훅 집계는 부모 세션 것만
+      // 다룬다(파서가 sidechain 을 전량 제외하는 것과 일관, 의도적). src/parser.ts 와 동일.
+      hookCollector.collect(raw)
       if (!raw.message?.role) continue
 
       const textContent = extractText(raw.message.content)
@@ -406,6 +414,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
     cachedInput: (accumulator.cachedInput || 0) + (message.tokens?.cachedInput || 0),
   }), { input: 0, output: 0, cachedInput: 0 })
 
+  const { summary: hookSummary } = hookCollector.finalize()
+
   return {
     id: sessionId || fileName,
     fileName,
@@ -421,6 +431,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
       user: merged.filter((message) => message.role === 'user').length,
       assistant: merged.filter((message) => message.role === 'assistant').length,
     },
+    // 페이로드-프리 tier-1 집계 — 훅 레코드가 없으면 필드 생략 (임베드 크기)
+    ...(hookSummary ? { hookSummary } : {}),
   }
 }
 
@@ -700,12 +712,29 @@ if (!isStaticMode) {
     }
   }
 
+  // 훅 설정 인벤토리 + 관측 매칭 — light 캐시(hookSummary)와 대조해
+  // observed/confidence 를 서버에서 계산한다. command 는 toServerHookEntries
+  // 가 직렬화 경계에서 maskSecrets 적용 (loopback 응답 전용, 외부 전송 없음).
+  async function handleHooks(_req, res) {
+    try {
+      const cache = await getLightCache()
+      const { entries, errors } = scanHooks()
+      const matched = matchHookEntries(entries, buildHookTelemetryRows(cache.sessions), process.cwd())
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify({ entries: toServerHookEntries(matched), errors }))
+    } catch (err) {
+      res.statusCode = 500
+      res.end('Failed: ' + (err?.message || 'unknown'))
+    }
+  }
+
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname
 
     if (pathname === '/api/sessions') return handleSessions(req, res)
     if (pathname === '/api/session-content') return handleSessionContent(req, res)
     if (pathname === '/api/light-sessions') return handleLightSessions(req, res)
+    if (pathname === '/api/hooks') return handleHooks(req, res)
     if (pathname === '/api/skills') {
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(JSON.stringify(scanSkills()))
@@ -881,6 +910,17 @@ if (!isStaticMode) {
     const safeSkills = escapeScript(JSON.stringify(skills))
     const safeJs = escapeScript(jsContent)
 
+    // 훅 설정 인벤토리 (공개 형태) — command 원문/filePath/timeout 미포함.
+    // 정적 HTML 은 공유될 수 있으므로 비가역 다이제스트(commandKey)만 싣는다.
+    let safeHooks = '[]'
+    try {
+      const { entries: hookEntries } = scanHooks()
+      const matchedHooks = matchHookEntries(hookEntries, buildHookTelemetryRows(sessions), process.cwd())
+      safeHooks = escapeScript(JSON.stringify(toPublicHookEntries(matchedHooks)))
+    } catch {
+      safeHooks = '[]'
+    }
+
     // Stream-write the HTML so we never hold the full sessions array as a single
     // string. JSON.stringify on the whole array fails with "Invalid string length"
     // once the serialized payload approaches V8's max string length (~512MB).
@@ -922,7 +962,7 @@ if (!isStaticMode) {
         fs.writeSync(fd, serialized)
       }
 
-      fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};</script>
+      fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};window.__MEMRADAR_HOOKS__=${safeHooks};</script>
       <script type="module">`)
       fs.writeSync(fd, safeJs)
       fs.writeSync(fd, `</script>

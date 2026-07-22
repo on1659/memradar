@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { scanHooks, matchHookEntries, toServerHookEntries } from './cli/lib/hookScan.mjs'
 
 function sessionApiPlugin(): Plugin {
   const claudeDir = process.env.MEMRADAR_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
@@ -198,6 +199,20 @@ function sessionApiPlugin(): Plugin {
       server.middlewares.use('/api/skills', (_req: IncomingMessage, res: ServerResponse) => {
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(scanSkills()))
+      })
+
+      // cli/index.mjs `/api/hooks` 의 dev 미러 (단일 소스 cli/lib/hookScan.mjs).
+      // dev 서버는 세션을 파싱하지 않으므로 텔레메트리 매칭 대상이 없다 —
+      // observed 는 전부 false 로 내려간다 (UI 개발용 미러라는 한계 명시).
+      server.middlewares.use('/api/hooks', (_req: IncomingMessage, res: ServerResponse) => {
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const { entries, errors } = scanHooks()
+          const matched = matchHookEntries(entries, [], process.cwd())
+          res.end(JSON.stringify({ entries: toServerHookEntries(matched), errors }))
+        } catch {
+          res.end(JSON.stringify({ entries: [], errors: [] }))
+        }
       })
 
       server.middlewares.use('/api/sessions', (_req: IncomingMessage, res: ServerResponse) => {

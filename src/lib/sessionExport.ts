@@ -251,6 +251,33 @@ function roleLabel(role: 'user' | 'assistant', source: Session['source']): strin
   return source === 'codex' ? 'Codex' : 'Claude'
 }
 
+// ─── 훅 실행 요약 (페이로드-프리) ───────────────────────────────────────────
+//
+// export v1 은 hookSummary(집계 행)만 싣는다 — command/stdout/stderr 는
+// 타입 차원에서 존재하지 않아 구조적으로 누출 불가 (hooks-analytics D7).
+//
+
+/**
+ * 세션 훅 요약을 export 용 한 줄 텍스트 배열로 직렬화.
+ * hookSummary 부재(구버전 산출물·Codex·훅 없음) 시 빈 배열 — 호출부는 섹션 생략.
+ */
+export function buildHookSummaryLines(session: Session): string[] {
+  const rows = session.hookSummary?.rows
+  if (!rows || rows.length === 0) return []
+  return rows.map((row) => {
+    const parts: string[] = []
+    if (row.counts.success > 0) parts.push(`성공 ${row.counts.success}`)
+    if (row.counts.denied > 0) parts.push(`차단 ${row.counts.denied}`)
+    if (row.counts.blockingError > 0) parts.push(`차단 에러 ${row.counts.blockingError}`)
+    if (row.counts.nonBlockingError > 0) parts.push(`실패 ${row.counts.nonBlockingError}`)
+    if (row.counts.cancelled > 0) parts.push(`취소 ${row.counts.cancelled}`)
+    if (row.counts.timedOut > 0) parts.push(`시간초과 ${row.counts.timedOut}`)
+    if (row.counts.summaryOnly > 0) parts.push(`요약만 ${row.counts.summaryOnly}`)
+    const tally = parts.length > 0 ? parts.join(' · ') : '기록 0'
+    return `${row.hookName} (${row.hookEvent}) — ${tally}`
+  })
+}
+
 // ─── (1) 마크다운 (.md) ─────────────────────────────────────────────────────
 
 /**
@@ -339,6 +366,9 @@ export function buildMarkdown(session: Session, messages: ParsedMessage[]): stri
   const startedAt = session.startTime ? new Date(session.startTime).toLocaleString('ko-KR') : '-'
   const modelLabel = session.model ? shortModelName(session.model) : '-'
 
+  // 훅 실행 요약 — 페이로드-프리 집계 라인만 (command/stdout 구조적 부재)
+  const hookLines = buildHookSummaryLines(session)
+
   const header = [
     `# ${title}`,
     '',
@@ -346,6 +376,9 @@ export function buildMarkdown(session: Session, messages: ParsedMessage[]): stri
     `- 소스: ${sourceLabel}`,
     `- 모델: ${modelLabel}`,
     `- 메시지 수: ${totalMessages}`,
+    ...(hookLines.length > 0
+      ? ['', '## 훅 실행 기록', '', ...hookLines.map((line) => `- ${line}`)]
+      : []),
     '',
     '---',
     '',
@@ -660,6 +693,19 @@ html, body {
   background: rgba(255, 90, 90, 0.08);
   border: 1px solid rgba(255, 90, 90, 0.2);
 }
+.hook-summary {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(151, 163, 182, 0.18);
+  font-size: 11px;
+  color: rgba(151, 163, 182, 0.75);
+}
+.hook-summary-title {
+  font-weight: 600;
+  color: #edf2fb;
+  margin-bottom: 4px;
+}
+.hook-summary li { margin: 2px 0 2px 16px; }
 .footer {
   margin-top: 28px;
   text-align: center;
@@ -814,6 +860,14 @@ export function buildHtmlChat(session: Session, messages: ParsedMessage[]): stri
     })
     .join('\n')
 
+  // 훅 실행 요약 블록 — 페이로드-프리 집계만 (hooks-analytics D7)
+  const hookLines = buildHookSummaryLines(session)
+  const hookSummaryHtml = hookLines.length > 0
+    ? `<div class="hook-summary"><div class="hook-summary-title">훅 실행 기록</div><ul>${hookLines
+        .map((line) => `<li>${escapeHtml(line)}</li>`)
+        .join('')}</ul></div>`
+    : ''
+
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -829,6 +883,7 @@ export function buildHtmlChat(session: Session, messages: ParsedMessage[]): stri
     <div class="meta">
       ${metaParts.join('\n      ')}
     </div>
+    ${hookSummaryHtml}
   </section>
   <section class="messages">
 ${messagesHtml}
@@ -1081,6 +1136,17 @@ html, body {
   border-color: #fecaca;
   color: #991b1b;
 }
+.hook-summary {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.hook-summary-title {
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2px;
+}
+.hook-summary li { margin: 2px 0 2px 18px; }
 .footer {
   margin-top: 36px;
   padding-top: 14px;
@@ -1154,6 +1220,14 @@ export function buildHtmlMarkdown(session: Session, messages: ParsedMessage[]): 
     })
     .join('\n')
 
+  // 훅 실행 요약 블록 — 페이로드-프리 집계만 (hooks-analytics D7)
+  const hookLines = buildHookSummaryLines(session)
+  const hookSummaryHtml = hookLines.length > 0
+    ? `<div class="hook-summary"><div class="hook-summary-title">훅 실행 기록</div><ul>${hookLines
+        .map((line) => `<li>${escapeHtml(line)}</li>`)
+        .join('')}</ul></div>`
+    : ''
+
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -1172,6 +1246,7 @@ export function buildHtmlMarkdown(session: Session, messages: ParsedMessage[]): 
       <span><strong>모델</strong>${escapeHtml(modelLabel)}</span>
       <span><strong>메시지</strong>${totalMessages}</span>
     </div>
+    ${hookSummaryHtml}
   </header>
 ${messagesHtml}
   <footer class="footer">memradar export</footer>

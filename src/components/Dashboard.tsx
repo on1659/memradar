@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowLeftRight,
   BarChart3,
@@ -18,10 +19,11 @@ import {
   Timer,
   TrendingUp,
   Users,
+  Webhook,
 } from 'lucide-react'
-import { PERSONALITY_ICONS, ROLE_ICONS, ToolDefaultIcon, type RoleIconKey } from '../icons'
+import { PERSONALITY_ICONS, ROLE_ICONS, type RoleIconKey } from '../icons'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { Session, SessionSource, Stats } from '../types'
+import type { HookAggregateRow, HookConfigServerEntry, HookOutcomeCounts, HookStats, Session, SessionSource, Stats } from '../types'
 import { computeStats, toLocalDayKey } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
@@ -1124,6 +1126,405 @@ function ModelIntensityBars({ models, isKorean }: { models: ModelIntensity[]; is
   )
 }
 
+// ── 훅 활동 카드 (docs/goal/hooks-analytics.md D5) ────────────────────────────
+// TopSkillsCard 를 대체. stats.hooks (Session.hookSummary 집계)로 top-5 훅을
+// 보여주고, 하단 팝오버에서 설정(scanHooks) 대 관측을 대조한다.
+// violet accent 유지 · 단색 카운트 바 + 결과 칩 (스택 세그먼트 금지) ·
+// 모든 문구 isKorean 삼항(양쪽 브랜치). 정적 모드는 window.__MEMRADAR_HOOKS__,
+// 서버 모드는 /api/hooks 를 소비하고, 업로드 모드는 팝오버 pill 을 숨긴다.
+
+interface HookCardConfigEntry {
+  event: string
+  matcher: string | null
+  observed: boolean
+  confidence: 'command' | 'event' | null
+  /** 정적: sourceLabel (이미 한국어 라벨) */
+  provenance?: string
+  /** 서버: source id — 렌더 시 라벨 매핑 */
+  source?: string
+  /** 서버: maskSecrets 적용된 command */
+  command?: string
+  /** 서버: 서브행 라벨 매핑용 다이제스트들 */
+  commandKeys?: string[]
+  /** 정적: 단일 다이제스트 */
+  commandKey?: string
+}
+
+function hookRowTotal(c: HookOutcomeCounts): number {
+  return c.success + c.denied + c.blockingError + c.nonBlockingError + c.cancelled + c.timedOut + c.summaryOnly
+}
+
+function serverSourceLabel(source: string | undefined, isKorean: boolean): string {
+  switch (source) {
+    case 'managed': return isKorean ? '관리형 설정' : 'Managed settings'
+    case 'user': return isKorean ? '사용자 설정' : 'User settings'
+    case 'project': return isKorean ? '프로젝트 설정' : 'Project settings'
+    case 'project-local': return isKorean ? '프로젝트 로컬 설정' : 'Project (local) settings'
+    case 'plugin': return isKorean ? '플러그인' : 'Plugin'
+    default: return isKorean ? '설정' : 'Config'
+  }
+}
+
+function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boolean }) {
+  // 정적 전역은 앱 JS 이전에 주입되므로 렌더 시점에 동기 확보 — useState 초기화로
+  // 읽는다(effect 내부 동기 setState 회피). 서버/업로드는 effect 에서 비동기 폴백.
+  const [config, setConfig] = useState<{ entries: HookCardConfigEntry[]; available: boolean } | null>(() => {
+    const staticHooks = typeof window !== 'undefined' ? window.__MEMRADAR_HOOKS__ : undefined
+    if (staticHooks === undefined) return null
+    return {
+      entries: staticHooks.map((e) => ({
+        event: e.event,
+        matcher: e.matcher,
+        observed: e.observed,
+        confidence: e.confidence,
+        provenance: e.sourceLabel,
+        commandKey: e.commandKey,
+      })),
+      available: true,
+    }
+  })
+  const [popoverAnchor, setPopoverAnchor] = useState<DOMRect | null>(null)
+  const popoverOpen = popoverAnchor !== null
+
+  // 정적 전역이 없을 때만 서버 /api/hooks 로 폴백. 실패 시 업로드 모드(available:false).
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.__MEMRADAR_HOOKS__ !== undefined) return
+    let cancelled = false
+    fetch('/api/hooks')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unavailable'))))
+      .then((data: { entries?: HookConfigServerEntry[] }) => {
+        if (cancelled) return
+        const entries: HookCardConfigEntry[] = (data.entries ?? []).map((e) => ({
+          event: e.event,
+          matcher: e.matcher,
+          observed: e.observed,
+          confidence: e.confidence,
+          source: e.source,
+          command: e.command,
+          commandKeys: e.commandKeys,
+        }))
+        setConfig({ entries, available: true })
+      })
+      .catch(() => {
+        if (!cancelled) setConfig({ entries: [], available: false })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 팝오버 Escape / 바깥 클릭 닫기 (테마피커 레이어 선례)
+  useEffect(() => {
+    if (!popoverOpen || typeof document === 'undefined') return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setPopoverAnchor(null)
+    }
+    function onDown(e: MouseEvent) {
+      const t = e.target as Element
+      if (t.closest('[data-hooks-popover]') || t.closest('[data-hooks-pill]')) return
+      setPopoverAnchor(null)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [popoverOpen])
+
+  const configEntries = useMemo(() => config?.entries ?? [], [config])
+  const configCount = configEntries.length
+  const observedConfigCount = configEntries.filter((e) => e.observed).length
+  const showPill = (config?.available ?? false) && configCount > 0
+  const uploadMode = config !== null && !config.available
+
+  const commandByKey = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const e of configEntries) {
+      if (!e.command) continue
+      const keys = e.commandKeys ?? (e.commandKey ? [e.commandKey] : [])
+      for (const k of keys) m.set(k, e.command)
+    }
+    return m
+  }, [configEntries])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, HookAggregateRow[]>()
+    for (const row of hooks.byHook) {
+      const arr = map.get(row.hookName) ?? []
+      arr.push(row)
+      map.set(row.hookName, arr)
+    }
+    return [...map.entries()]
+      .map(([hookName, rows]) => ({
+        hookName,
+        rows: [...rows].sort((a, b) => hookRowTotal(b.counts) - hookRowTotal(a.counts)),
+        total: rows.reduce((s, r) => s + hookRowTotal(r.counts), 0),
+        isStop: rows.some((r) => r.hookEvent === 'Stop' || r.hookName === 'Stop'),
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5)
+  }, [hooks.byHook])
+  const maxGroupTotal = groups[0]?.total || 1
+
+  const fmtMs = (ms: number | null) =>
+    ms == null ? '' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
+  const fmtDate = (iso: string) => (iso ? new Date(iso).toLocaleDateString(isKorean ? 'ko-KR' : 'en-US') : '')
+
+  const subLabel = (row: HookAggregateRow, index: number): string => {
+    const masked = commandByKey.get(row.commandKey)
+    if (masked) return masked
+    return (isKorean ? '스크립트 ' : 'Script ') + String.fromCharCode(65 + (index % 26))
+  }
+
+  function OutcomeChips({ counts }: { counts: HookOutcomeCounts }) {
+    const fail = counts.blockingError + counts.nonBlockingError
+    const chips: { key: string; label: string; cls: string }[] = []
+    if (counts.success) chips.push({ key: 'ok', label: `${isKorean ? '성공' : 'ok'} ${counts.success}`, cls: 'border-green/25 bg-green/10 text-green/80' })
+    if (counts.denied) chips.push({ key: 'denied', label: `${isKorean ? '차단' : 'blocked'} ${counts.denied}`, cls: 'border-amber/30 bg-amber/10 text-amber' })
+    if (fail) chips.push({ key: 'fail', label: `${isKorean ? '실패' : 'fail'} ${fail}`, cls: 'border-rose/30 bg-rose/10 text-rose' })
+    if (counts.cancelled) chips.push({ key: 'cancel', label: `${isKorean ? '취소' : 'cancelled'} ${counts.cancelled}`, cls: 'border-text/15 bg-text/8 text-text/55' })
+    if (counts.timedOut) chips.push({ key: 'timeout', label: `${isKorean ? '시간초과' : 'timeout'} ${counts.timedOut}`, cls: 'border-amber/25 bg-amber/8 text-amber/80' })
+    if (counts.summaryOnly) chips.push({ key: 'summary', label: `${isKorean ? '요약만' : 'summary'} ${counts.summaryOnly}`, cls: 'border-text/12 bg-text/6 text-text/45' })
+    if (chips.length === 0) return null
+    return (
+      <div className="flex flex-wrap gap-1">
+        {chips.map((c) => (
+          <span key={c.key} className={`rounded-full border px-1.5 py-0.5 text-[9px] font-medium tabular-nums ${c.cls}`}>{c.label}</span>
+        ))}
+      </div>
+    )
+  }
+
+  function RowBar({ label, counts, total, avgDurationMs, lastSeen, isStop, groupMax }: {
+    label: string
+    counts: HookOutcomeCounts
+    total: number
+    avgDurationMs: number | null
+    lastSeen: string
+    isStop: boolean
+    groupMax: number
+  }) {
+    const width = Math.max(6, (total / (groupMax || 1)) * 100)
+    return (
+      <div className="group relative cursor-default">
+        <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+          <span className="truncate font-medium text-text-bright" title={label}>{label}</span>
+          <span className="shrink-0 tabular-nums text-text/50">{total}{isKorean ? '회' : ''}</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
+          <div className="h-full rounded-full bg-violet/70 transition-all duration-300 group-hover:brightness-110" style={{ width: `${width}%` }} />
+        </div>
+        <div className="mt-1"><OutcomeChips counts={counts} /></div>
+        <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-60 rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[10px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <span className="block font-semibold text-text-bright">{label}{isStop ? (isKorean ? ' · 전체 집계' : ' · aggregated') : ''}</span>
+          <span className="mt-1 block text-text/70">
+            {[
+              counts.success ? `${isKorean ? '성공' : 'ok'} ${counts.success}` : '',
+              counts.denied ? `${isKorean ? '차단' : 'blocked'} ${counts.denied}` : '',
+              counts.blockingError ? `${isKorean ? '차단오류' : 'blocking'} ${counts.blockingError}` : '',
+              counts.nonBlockingError ? `${isKorean ? '비차단오류' : 'non-blocking'} ${counts.nonBlockingError}` : '',
+              counts.cancelled ? `${isKorean ? '취소' : 'cancelled'} ${counts.cancelled}` : '',
+              counts.timedOut ? `${isKorean ? '시간초과' : 'timeout'} ${counts.timedOut}` : '',
+              counts.summaryOnly ? `${isKorean ? '요약만' : 'summary-only'} ${counts.summaryOnly}` : '',
+            ].filter(Boolean).join(' · ')}
+          </span>
+          {avgDurationMs != null && (
+            <span className="mt-1 block text-text/50">
+              {isKorean ? `평균 ${fmtMs(avgDurationMs)} · 기록 있는 실행 기준` : `avg ${fmtMs(avgDurationMs)} · recorded runs only`}
+            </span>
+          )}
+          {lastSeen && (
+            <span className="mt-1 block text-text/40">{isKorean ? `최근 ${fmtDate(lastSeen)}` : `last ${fmtDate(lastSeen)}`}</span>
+          )}
+          {isStop && (
+            <span className="mt-1 block text-text/40">{isKorean ? 'Stop 원장 기반 전체 집계' : 'Aggregated from the Stop ledger'}</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const hasHookData = hooks.hasHookData
+
+  return (
+    <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-hooks relative flex flex-col">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
+        <Webhook className="h-4 w-4 text-violet" aria-hidden="true" />
+        {isKorean ? '훅 활동' : 'Hook Activity'}
+        <DashboardHoverTooltip
+          align="left"
+          tooltipWidthClass="w-64"
+          description={isKorean
+            ? '훅이 조용히 통과(허용)한 실행은 세션 기록에 남지 않아 집계되지 않아요. 여기 수치는 성공·차단·실패처럼 기록이 남은 실행만, 관측된 기간에 한해 센 값이에요.'
+            : "Hooks that silently allow an action leave no record, so they aren't counted. These numbers reflect only executions that left a record (success, blocked, failed, ...) within the observed window."}
+        >
+          <CircleHelp className="h-3.5 w-3.5 text-text/35" aria-hidden="true" />
+        </DashboardHoverTooltip>
+      </h2>
+
+      {hasHookData ? (
+        <>
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-violet/25 bg-violet/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-violet">
+              {isKorean ? `관측 ${hooks.totalObserved}` : `Observed ${hooks.totalObserved}`}
+            </span>
+            {hooks.deniedTotal > 0 && (
+              <span className="rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-amber">
+                {isKorean ? `차단 ${hooks.deniedTotal}` : `Blocked ${hooks.deniedTotal}`}
+              </span>
+            )}
+            {hooks.failureTotal > 0 && (
+              <span className="rounded-full border border-rose/30 bg-rose/10 px-2 py-0.5 text-[10px] font-medium tabular-nums text-rose">
+                {isKorean ? `실패 ${hooks.failureTotal}` : `Failed ${hooks.failureTotal}`}
+              </span>
+            )}
+          </div>
+          <p className="mb-2 text-[10px] text-text/40">{isKorean ? '기록이 남은 실행 기준' : 'Based on recorded executions'}</p>
+
+          <ul className="flex flex-col gap-2.5 py-0.5">
+            {groups.map((group) => {
+              if (group.rows.length === 1) {
+                const row = group.rows[0]
+                return (
+                  <li key={group.hookName}>
+                    <RowBar
+                      label={group.hookName}
+                      counts={row.counts}
+                      total={group.total}
+                      avgDurationMs={row.avgDurationMs}
+                      lastSeen={row.lastSeen}
+                      isStop={group.isStop}
+                      groupMax={maxGroupTotal}
+                    />
+                  </li>
+                )
+              }
+              const subMax = Math.max(...group.rows.map((r) => hookRowTotal(r.counts)), 1)
+              return (
+                <li key={group.hookName}>
+                  <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
+                    <span className="truncate font-medium text-text-bright" title={group.hookName}>
+                      {group.hookName}
+                      {group.isStop && <span className="ml-1 text-[9px] text-text/40">{isKorean ? '· 전체 집계' : '· aggregated'}</span>}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-text/50">{group.total}{isKorean ? '회' : ''}</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
+                    <div className="h-full rounded-full bg-violet/40" style={{ width: `${Math.max(6, (group.total / maxGroupTotal) * 100)}%` }} />
+                  </div>
+                  <div className="mt-1.5 space-y-1.5 border-l border-border/50 pl-2.5">
+                    {group.rows.map((row, i) => (
+                      <RowBar
+                        key={row.commandKey}
+                        label={subLabel(row, i)}
+                        counts={row.counts}
+                        total={hookRowTotal(row.counts)}
+                        avgDurationMs={row.avgDurationMs}
+                        lastSeen={row.lastSeen}
+                        isStop={group.isStop}
+                        groupMax={subMax}
+                      />
+                    ))}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      ) : configCount > 0 && hooks.eligibleSessions > 0 ? (
+        <div className="flex flex-1 flex-col justify-center gap-2 py-2">
+          <p className="text-sm text-text/55">
+            {isKorean ? '설정된 훅은 있지만 기록된 실행이 아직 없어요.' : 'Hooks are configured, but no executions have been recorded yet.'}
+          </p>
+          <p className="text-[11px] leading-relaxed text-text/40">
+            {isKorean
+              ? '훅이 조용히 통과하면 기록이 남지 않아요. 아래에서 설정된 훅과 관측 여부를 확인할 수 있어요.'
+              : 'Silently-allowed hooks leave no record. See the configured hooks and their observation status below.'}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col justify-center py-6">
+          <p className="text-sm text-text/40">
+            {uploadMode
+              ? (isKorean ? '업로드한 세션에서는 훅 실행 기록을 찾지 못했어요.' : 'No hook executions found in the uploaded sessions.')
+              : hooks.eligibleSessions === 0
+                ? (isKorean ? 'Claude Code 세션이 없어 훅 활동을 보여줄 수 없어요.' : 'No Claude Code sessions, so there is no hook activity to show.')
+                : (isKorean ? '훅 실행 기록이 아직 없어요.' : 'No hook executions recorded yet.')}
+          </p>
+        </div>
+      )}
+
+      {showPill && (
+        <div className="mt-auto pt-3">
+          <button
+            type="button"
+            data-hooks-pill
+            onClick={(e) => setPopoverAnchor(popoverOpen ? null : e.currentTarget.getBoundingClientRect())}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-bg-hover/40 px-2.5 py-1 text-[10px] text-text/60 transition-colors hover:border-violet/30 hover:text-text-bright"
+          >
+            {isKorean ? `설정 ${configCount}개 · 관측 ${observedConfigCount}개` : `${configCount} configured · ${observedConfigCount} observed`}
+          </button>
+        </div>
+      )}
+
+      {popoverOpen && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="dashboard-overlay pointer-events-none bg-black/20 backdrop-blur-[1px]" />
+          <div
+            data-hooks-popover
+            className="dashboard-popover w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border bg-bg-card p-3 shadow-2xl animate-in"
+            style={(() => {
+              const width = Math.min(384, window.innerWidth - 32)
+              let left = popoverAnchor.left
+              if (left + width > window.innerWidth - 16) left = window.innerWidth - 16 - width
+              if (left < 16) left = 16
+              return { left, bottom: window.innerHeight - popoverAnchor.top + 8 }
+            })()}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-text-bright">{isKorean ? '설정된 훅' : 'Configured hooks'}</span>
+              <span className="text-[10px] tabular-nums text-text/45">
+                {isKorean ? `설정 ${configCount} · 관측 ${observedConfigCount}` : `${configCount} configured · ${observedConfigCount} observed`}
+              </span>
+            </div>
+            <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+              {configEntries.map((e, i) => (
+                <li key={`${e.event}-${e.matcher ?? ''}-${i}`} className="rounded-lg border border-border/60 bg-bg/40 px-2.5 py-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[11px] font-medium text-text-bright">
+                      {e.event}{e.matcher && e.matcher !== '*' ? ` · ${e.matcher}` : ''}
+                    </span>
+                    {e.observed ? (
+                      <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] ${e.confidence === 'command' ? 'border-green/25 bg-green/10 text-green/80' : 'border-amber/25 bg-amber/10 text-amber/80'}`}>
+                        {e.confidence === 'command' ? (isKorean ? '명령 일치' : 'command match') : (isKorean ? '이벤트 수준 추정' : 'event-level')}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full border border-text/15 bg-text/8 px-1.5 py-0.5 text-[9px] text-text/50">
+                        {isKorean ? '기록된 실행 없음' : 'no recorded run'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-text/45">
+                    <span className="shrink-0">{e.provenance ?? serverSourceLabel(e.source, isKorean)}</span>
+                    {e.command && <code className="truncate font-mono text-text/40">{e.command}</code>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[10px] leading-relaxed text-text/35">
+              {isKorean
+                ? '조용히 통과한 훅은 기록이 남지 않아 "기록된 실행 없음"으로 보일 수 있어요. 관측된 기간에 한정된 값이에요.'
+                : 'Silently-allowed hooks leave no record and may show as "no recorded run". Scoped to the observed window.'}
+            </p>
+          </div>
+        </>,
+        document.body,
+      )}
+    </div>
+  )
+}
+
 export function Dashboard({
   sessions,
   onSelectSession,
@@ -2081,14 +2482,8 @@ export function Dashboard({
       </div>
 
       <div className="dashboard-analytics-grid">
-        {/* 위 행: 자주 쓴 스킬 · 세션 길이 · 자주 쓴 단어 (2026-06-14 사용자 요청으로 AI 사용 행과 상하 교체) */}
-        <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-skills">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
-            <ToolDefaultIcon className="h-4 w-4 text-violet" aria-hidden="true" />
-            자주 쓴 스킬
-          </h2>
-          <GenericDonutChart data={stats.topSkills} centerLabel="스킬" />
-        </div>
+        {/* 위 행: 훅 활동(자주 쓴 스킬 슬롯 대체, D5) · 세션 길이 · 자주 쓴 단어 */}
+        <HookActivityCard hooks={stats.hooks} isKorean={isKorean} />
 
         <div className="dashboard-card dashboard-card-tight animate-in dashboard-analytics-card dashboard-analytics-card-session-length">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">

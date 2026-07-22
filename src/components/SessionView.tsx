@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Clock, Copy, Download, Play } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { ArrowLeft, Check, ChevronDown, ChevronUp, Clock, Copy, Download, Play, Webhook } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { Session, ParsedMessage } from '../types'
+import type { Session, ParsedMessage, HookExecutionDetail } from '../types'
 import { shortModelName } from '../lib/modelNames'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { getSourceColor, calculateSessionCost } from '../lib/tokenPricing'
@@ -16,8 +16,9 @@ import {
 } from '../lib/sessionExport'
 import { mdComponents } from './markdown'
 import { useI18n } from '../i18n'
-import { parseJsonl } from '../parser'
+import { parseJsonl, collectHookExecutions } from '../parser'
 import { ToolCallView, type ExpandSignal } from './tools/ToolCallView'
+import { HookEventView } from './tools/HookEventView'
 import { SYSTEM_ICONS } from '../icons'
 import { maskSecrets, useSecretMask } from '../lib/secretMask'
 import { SecretMaskToggle } from './SecretMaskToggle'
@@ -259,6 +260,59 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
   const totalToolCalls = messages.reduce((acc, m) => acc + (m.toolCalls?.length ?? 0), 0)
   const [allToolsExpanded, setAllToolsExpanded] = useState(false)
   const [expandSignalKey, setExpandSignalKey] = useState(0)
+  // 훅 표시 (tier-2, 서버 heavy parse 전용 로컬 상태 — Session 에 절대 할당 금지)
+  const [hookExecutions, setHookExecutions] = useState<HookExecutionDetail[] | null>(null)
+  const [showHooks, setShowHooks] = useState(false)
+  const [hookTallyOpen, setHookTallyOpen] = useState(false)
+  // tier-1 (전 모드): payload-free 요약. 훅 레코드 없으면 rows 부재 → 세그먼트 생략.
+  const hookRows = session.hookSummary?.rows ?? []
+  const hookExecCount = hookRows.reduce(
+    (acc, r) =>
+      acc + r.counts.success + r.counts.denied + r.counts.blockingError +
+      r.counts.nonBlockingError + r.counts.cancelled + r.counts.timedOut + r.counts.summaryOnly,
+    0,
+  )
+
+  // tier-2 조인 — toolUseID 가 렌더된 tool call 과 일치하면 도구 스코프,
+  // 아니면 세션 스코프(타임스탬프 위치). 훅 표시 OFF 면 빈 구조.
+  const callIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of messages) for (const c of m.toolCalls ?? []) set.add(c.id)
+    return set
+  }, [messages])
+
+  const { toolPreHooks, toolPostHooks, sessionScopedHooks } = useMemo(() => {
+    const pre = new Map<string, HookExecutionDetail[]>()
+    const post = new Map<string, HookExecutionDetail[]>()
+    const scoped: HookExecutionDetail[] = []
+    if (showHooks && hookExecutions) {
+      for (const ev of hookExecutions) {
+        if (ev.toolUseID && callIds.has(ev.toolUseID)) {
+          const bucket = ev.hookEvent === 'PostToolUse' ? post : pre
+          const arr = bucket.get(ev.toolUseID) ?? []
+          arr.push(ev)
+          bucket.set(ev.toolUseID, arr)
+        } else {
+          scoped.push(ev)
+        }
+      }
+      scoped.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0))
+    }
+    return { toolPreHooks: pre, toolPostHooks: post, sessionScopedHooks: scoped }
+  }, [showHooks, hookExecutions, callIds])
+
+  // 세션 스코프 훅을 메시지 블록 사이 타임스탬프 위치에 배치 (독립 행)
+  const sessionHooksLayout = useMemo(() => {
+    const buckets: HookExecutionDetail[][] = messages.map(() => [])
+    const trailing: HookExecutionDetail[] = []
+    let mi = 0
+    for (const ev of sessionScopedHooks) {
+      while (mi < messages.length && messages[mi].timestamp && messages[mi].timestamp < ev.timestamp) mi++
+      if (mi < messages.length) buckets[mi].push(ev)
+      else trailing.push(ev)
+    }
+    return { buckets, trailing }
+  }, [messages, sessionScopedHooks])
   const expandSignal: ExpandSignal = { expanded: allToolsExpanded, key: expandSignalKey }
   const toggleAllTools = () => {
     setAllToolsExpanded((v) => !v)
@@ -293,6 +347,8 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
 
   useEffect(() => {
     setEnrichedMessages(null)
+    setHookExecutions(null)
+    setShowHooks(false)
     const isServerMode = !window.__MEMRADAR_SESSIONS__
     if (!isServerMode || !session.filePath || session.source !== 'claude') return
     let cancelled = false
@@ -303,7 +359,11 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
         if (!r.ok) return
         const text = await r.text()
         const parsed = parseJsonl(text, session.fileName, { includeToolDetails: true })
-        if (parsed && !cancelled) setEnrichedMessages(parsed.messages)
+        if (parsed && !cancelled) {
+          setEnrichedMessages(parsed.messages)
+          // tier-2: collector executions 는 SessionView 로컬 상태로만 보유
+          setHookExecutions(collectHookExecutions(text))
+        }
       } catch {
         // ignore — fallback to light data
       } finally {
@@ -476,18 +536,80 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
       {enrichLoading && (
         <div className="mb-2 text-[11px] text-text/40">도구 호출 상세 로딩 중…</div>
       )}
-      {totalToolCalls > 0 && (
-        <div className="mb-2 flex items-center justify-between text-[11px] text-text/55">
-          <span className="flex items-center gap-1.5">
-            <SYSTEM_ICONS.toolGlyph className="h-3.5 w-3.5 text-text/45" aria-hidden="true" />
-            도구 호출 {totalToolCalls}개
+      {(totalToolCalls > 0 || hookExecCount > 0) && (
+        <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-text/55">
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            {totalToolCalls > 0 && (
+              <span className="flex items-center gap-1.5">
+                <SYSTEM_ICONS.toolGlyph className="h-3.5 w-3.5 text-text/45" aria-hidden="true" />
+                도구 호출 {totalToolCalls}개
+              </span>
+            )}
+            {hookExecCount > 0 && (
+              <>
+                {totalToolCalls > 0 && <span className="text-text/30">·</span>}
+                <button
+                  type="button"
+                  onClick={() => setHookTallyOpen((v) => !v)}
+                  className="flex items-center gap-1.5 text-text/55 transition-colors hover:text-text-bright"
+                  aria-expanded={hookTallyOpen}
+                >
+                  <Webhook className="h-3.5 w-3.5 text-violet/70" aria-hidden="true" />
+                  훅 실행 {hookExecCount}회
+                  {hookTallyOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+              </>
+            )}
           </span>
-          <button
-            onClick={toggleAllTools}
-            className="rounded-md border border-border/60 bg-bg-hover/40 px-2 py-1 text-[10px] text-text/70 hover:bg-bg-hover hover:text-text-bright transition-colors"
-          >
-            {allToolsExpanded ? '모두 접기' : '모두 펼치기'}
-          </button>
+          <div className="flex items-center gap-2">
+            {hookExecutions && hookExecutions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHooks((v) => !v)}
+                className={`rounded-md border px-2 py-1 text-[10px] transition-colors ${showHooks ? 'border-violet/40 bg-violet/10 text-violet' : 'border-border/60 bg-bg-hover/40 text-text/70 hover:bg-bg-hover hover:text-text-bright'}`}
+              >
+                {showHooks ? '훅 숨기기' : '훅 표시'}
+              </button>
+            )}
+            {totalToolCalls > 0 && (
+              <button
+                onClick={toggleAllTools}
+                className="rounded-md border border-border/60 bg-bg-hover/40 px-2 py-1 text-[10px] text-text/70 hover:bg-bg-hover hover:text-text-bright transition-colors"
+              >
+                {allToolsExpanded ? '모두 접기' : '모두 펼치기'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {hookTallyOpen && hookRows.length > 0 && (
+        <div className="mb-3 rounded-lg border border-border/60 bg-bg-card/40 p-3">
+          <div className="mb-2 text-[10px] uppercase tracking-wider text-text/35">훅 실행 집계</div>
+          <ul className="space-y-1.5">
+            {hookRows.map((r, i) => {
+              const total =
+                r.counts.success + r.counts.denied + r.counts.blockingError +
+                r.counts.nonBlockingError + r.counts.cancelled + r.counts.timedOut + r.counts.summaryOnly
+              const parts = [
+                r.counts.success ? `성공 ${r.counts.success}` : '',
+                r.counts.denied ? `차단 ${r.counts.denied}` : '',
+                r.counts.blockingError + r.counts.nonBlockingError ? `실패 ${r.counts.blockingError + r.counts.nonBlockingError}` : '',
+                r.counts.cancelled ? `취소 ${r.counts.cancelled}` : '',
+                r.counts.timedOut ? `시간초과 ${r.counts.timedOut}` : '',
+                r.counts.summaryOnly ? `요약만 ${r.counts.summaryOnly}` : '',
+              ].filter(Boolean).join(' · ')
+              return (
+                <li key={`${r.hookName}-${r.hookEvent}-${r.commandKey}-${i}`} className="flex items-baseline justify-between gap-3 text-[11px]">
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                    <span className="truncate font-mono font-medium text-text-bright">{r.hookName}</span>
+                    <span className="shrink-0 rounded border border-text/12 px-1 py-px text-[9px] text-text/45">{r.hookEvent}</span>
+                  </span>
+                  <span className="shrink-0 text-text/50">{parts}</span>
+                  <span className="shrink-0 tabular-nums text-text/40">{total}회</span>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
       <div className="space-y-3">
@@ -499,8 +621,15 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
           const copyText = buildMessageMarkdown(msg, session.source)
           const hasCopyTarget = copyText.length > 0
           return (
+            <Fragment key={i}>
+              {showHooks && sessionHooksLayout.buckets[i] && sessionHooksLayout.buckets[i].length > 0 && (
+                <div className="space-y-1.5">
+                  {sessionHooksLayout.buckets[i].map((ev, k) => (
+                    <HookEventView key={`sh-${i}-${k}`} event={ev} />
+                  ))}
+                </div>
+              )}
             <div
-              key={i}
               ref={(el) => {
                 if (el) messageRefs.current.set(i, el)
                 else messageRefs.current.delete(i)
@@ -572,7 +701,13 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 {msg.toolCalls && msg.toolCalls.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {msg.toolCalls.map((call, j) => (
-                      <ToolCallView key={call.id || j} call={call} expandSignal={expandSignal} />
+                      <ToolCallView
+                        key={call.id || j}
+                        call={call}
+                        expandSignal={expandSignal}
+                        preHooks={showHooks && call.id ? toolPreHooks.get(call.id) : undefined}
+                        postHooks={showHooks && call.id ? toolPostHooks.get(call.id) : undefined}
+                      />
                     ))}
                   </div>
                 ) : msg.toolUses.length > 0 ? (
@@ -589,8 +724,16 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                 ) : null}
               </div>
             </div>
+            </Fragment>
           )
         })}
+        {showHooks && sessionHooksLayout.trailing.length > 0 && (
+          <div className="space-y-1.5">
+            {sessionHooksLayout.trailing.map((ev, k) => (
+              <HookEventView key={`sh-tail-${k}`} event={ev} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

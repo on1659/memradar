@@ -261,7 +261,7 @@ body {
   min-height: 14.75rem;
 }
 
-.dashboard-analytics-card-skills,
+.dashboard-analytics-card-hooks,
 .dashboard-analytics-card-session-length {
   min-height: 13rem;
 }
@@ -611,7 +611,7 @@ body {
     grid-column: 1 / span 2;
   }
 
-  .dashboard-analytics-card-skills,
+  .dashboard-analytics-card-hooks,
   .dashboard-analytics-card-session-length {
     grid-column: span 1;
   }
@@ -668,7 +668,7 @@ body {
 
   /* 분석 1행 — 스킬 · 세션 길이 · 자주 쓴 단어(span 2). DOM 순서가 먼저라 1행에 배치됨
      (2026-06-14 사용자 요청으로 'AI 사용' 행과 상하 교체) */
-  .dashboard-analytics-card-skills {
+  .dashboard-analytics-card-hooks {
     grid-column: 1 / span 1;
   }
 

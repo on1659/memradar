@@ -1,4 +1,5 @@
-import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage, ToolCall, ToolResult } from './types'
+import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage, ToolCall, ToolResult, HookStats, HookAggregateRow, HookExecutionDetail } from './types'
+import { createHookCollector } from './lib/hookExtract'
 
 export interface ParseOptions {
   includeToolDetails?: boolean
@@ -61,6 +62,10 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
   let model = ''
   const includeToolDetails = !!options.includeToolDetails
   const toolCallById = new Map<string, ToolCall>()
+  // 훅 텔레메트리 수집 — role-drop 가드 직전에 매 라인 collect (D1).
+  // summary(페이로드-프리)는 무조건 계산해 Session.hookSummary 로 붙는다 —
+  // 업로드 경로도 옵션 없이 tier-1 을 얻는다 (Provider.parse 시그니처 불변).
+  const hookCollector = createHookCollector()
 
   for (const line of lines) {
     try {
@@ -69,6 +74,9 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
       if (raw.type === 'file-history-snapshot') continue
       if (raw.isMeta) continue
       if (raw.isSidechain) continue
+      // 서브에이전트(sidechain) 훅은 위에서 제외됨 — 훅 집계는 부모 세션 것만
+      // 다룬다(파서가 sidechain 콘텐츠를 전량 제외하는 것과 일관, 의도적).
+      hookCollector.collect(raw)
       if (!raw.message?.role) continue
 
       const text = extractText(raw.message.content)
@@ -170,6 +178,8 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
     { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 } satisfies TokenUsage
   )
 
+  const { summary: hookSummary } = hookCollector.finalize()
+
   return {
     id: sessionId || fileName,
     fileName,
@@ -185,7 +195,32 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
       user: messages.filter((m) => m.role === 'user').length,
       assistant: messages.filter((m) => m.role === 'assistant').length,
     },
+    // undefined 면 필드 자체를 생략 (정적 임베드 직렬화 크기 + 버전 톨러런스)
+    ...(hookSummary ? { hookSummary } : {}),
   }
+}
+
+/**
+ * tier-2 훅 실행 상세 수집 (서버 heavy parse 전용).
+ *
+ * parseJsonl 과 동일한 라인 가드(file-history-snapshot/isMeta/isSidechain)를
+ * 거쳐 collector 만 돌린다. 반환값은 절대 Session 에 할당하지 말 것 —
+ * SessionView 의 로컬 상태로만 보관한다 (구조적 프라이버시, D6/D7).
+ */
+export function collectHookExecutions(text: string): HookExecutionDetail[] {
+  const collector = createHookCollector({ includeDetail: true })
+  for (const line of text.trim().split('\n')) {
+    try {
+      const raw: RawMessage = JSON.parse(line)
+      if (raw.type === 'file-history-snapshot') continue
+      if (raw.isMeta) continue
+      if (raw.isSidechain) continue
+      collector.collect(raw)
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return collector.finalize().executions ?? []
 }
 
 const STOP_WORDS = new Set([
@@ -503,6 +538,98 @@ export function buildGrowth(sessions: Session[]): Stats['growth'] {
   }
 }
 
+/**
+ * 훅 활동 집계 (docs/goal/hooks-analytics.md D2).
+ *
+ * mjs/TS 경계 계약: Session.hookSummary 만 소비한다 — raw 레코드 재해석 금지.
+ * cli/index.mjs(plain JS)가 만든 세션과 src/parser.ts 가 만든 세션이 동일한
+ * summary 스키마를 방출하므로, 정적 모드(브라우저 computeStats)에서도 결과가
+ * 같다. errorRate 류 비율 지표 금지 — sessionsWithHooks/eligibleSessions 만.
+ */
+export function buildHookStats(sessions: Session[]): HookStats {
+  const byKey = new Map<string, HookAggregateRow & { durationMsSum: number; durationMsCount: number }>()
+  let sessionsWithHooks = 0
+  let eligibleSessions = 0
+
+  for (const session of sessions) {
+    if (session.source !== 'claude') continue
+    eligibleSessions++
+    const rows = session.hookSummary?.rows
+    if (!rows || rows.length === 0) continue
+    sessionsWithHooks++
+
+    for (const row of rows) {
+      const key = `${row.hookName}\u0000${row.hookEvent}\u0000${row.commandKey}`
+      let agg = byKey.get(key)
+      if (!agg) {
+        agg = {
+          hookName: row.hookName,
+          hookEvent: row.hookEvent,
+          commandKey: row.commandKey,
+          counts: { success: 0, denied: 0, blockingError: 0, nonBlockingError: 0, cancelled: 0, timedOut: 0, summaryOnly: 0 },
+          avgDurationMs: null,
+          lastSeen: '',
+          hasSystemMessage: false,
+          additionalContextCount: 0,
+          encodingDamaged: false,
+          durationMsSum: 0,
+          durationMsCount: 0,
+        }
+        byKey.set(key, agg)
+      }
+      agg.counts.success += row.counts.success
+      agg.counts.denied += row.counts.denied
+      agg.counts.blockingError += row.counts.blockingError
+      agg.counts.nonBlockingError += row.counts.nonBlockingError
+      agg.counts.cancelled += row.counts.cancelled
+      agg.counts.timedOut += row.counts.timedOut
+      agg.counts.summaryOnly += row.counts.summaryOnly
+      agg.durationMsSum += row.durationMsSum
+      agg.durationMsCount += row.durationMsCount
+      if (row.lastSeen > agg.lastSeen) agg.lastSeen = row.lastSeen
+      if (row.hasSystemMessage) agg.hasSystemMessage = true
+      agg.additionalContextCount += row.additionalContextCount
+      if (row.encodingDamaged) agg.encodingDamaged = true
+    }
+  }
+
+  let totalObserved = 0
+  let deniedTotal = 0
+  let failureTotal = 0
+  const uniqueNames = new Set<string>()
+
+  const byHook: HookAggregateRow[] = [...byKey.values()]
+    .map(({ durationMsSum, durationMsCount, ...agg }) => ({
+      ...agg,
+      avgDurationMs: durationMsCount > 0 ? durationMsSum / durationMsCount : null,
+    }))
+    .sort((a, b) => {
+      const totalOf = (r: HookAggregateRow) =>
+        r.counts.success + r.counts.denied + r.counts.blockingError + r.counts.nonBlockingError +
+        r.counts.cancelled + r.counts.timedOut + r.counts.summaryOnly
+      return totalOf(b) - totalOf(a) || a.hookName.localeCompare(b.hookName) || a.commandKey.localeCompare(b.commandKey)
+    })
+
+  for (const row of byHook) {
+    totalObserved += row.counts.success + row.counts.denied + row.counts.blockingError +
+      row.counts.nonBlockingError + row.counts.cancelled + row.counts.timedOut + row.counts.summaryOnly
+    deniedTotal += row.counts.denied
+    failureTotal += row.counts.blockingError + row.counts.nonBlockingError
+    uniqueNames.add(row.hookName)
+  }
+
+  return {
+    hasHookData: byHook.length > 0,
+    totalObserved,
+    deniedTotal,
+    failureTotal,
+    sessionsWithHooks,
+    eligibleSessions,
+    uniqueHooks: uniqueNames.size,
+    byHook,
+  }
+}
+
 export function computeStats(sessions: Session[]): Stats {
   const hourlyActivity = new Array(24).fill(0)
   const dailyActivity: Record<string, number> = {}
@@ -511,7 +638,6 @@ export function computeStats(sessions: Session[]): Stats {
   const toolsUsed: Record<string, number> = {}
   const userWordCount: Record<string, number> = {}
   const assistantWordCount: Record<string, number> = {}
-  const skillCount: Record<string, number> = {}
   let totalMessages = 0
 
   for (const session of sessions) {
@@ -543,12 +669,6 @@ export function computeStats(sessions: Session[]): Stats {
         if (w.length < 2 || STOP_WORDS.has(w)) continue
         wc[w] = (wc[w] || 0) + 1
       }
-
-      if (msg.role === 'user') {
-        for (const name of extractSkillNames(msg.text)) {
-          skillCount[name] = (skillCount[name] || 0) + 1
-        }
-      }
     }
   }
 
@@ -562,10 +682,6 @@ export function computeStats(sessions: Session[]): Stats {
   const topWords = toTop30(allWordCount)
   const topWordsUser = toTop30(userWordCount)
   const topWordsAssistant = toTop30(assistantWordCount)
-
-  const topSkills = Object.entries(skillCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
 
   const SESSION_BUCKETS: [string, number, number][] = [
     ['1-5턴', 1, 5],
@@ -613,12 +729,12 @@ export function computeStats(sessions: Session[]): Stats {
     topWords,
     topWordsUser,
     topWordsAssistant,
-    topSkills,
     sessionLengthDist,
     longestSession,
     busiestDay,
     dailyTokens,
     busiestTokenDay,
     growth: buildGrowth(sessions),
+    hooks: buildHookStats(sessions),
   }
 }

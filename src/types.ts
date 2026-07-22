@@ -1,4 +1,16 @@
+import type { SessionHookSummary, HookOutcomeCounts } from '../cli/lib/hookExtract.mjs'
+
 export type SessionSource = 'claude' | 'codex'
+
+// 훅 텔레메트리 스키마의 단일 소스는 cli/lib/hookExtract.d.mts (mjs/TS 경계 계약).
+// src 소비자는 types.ts 를 통해 동일 타입을 쓴다 — 이중 정의 금지.
+export type {
+  HookOutcome,
+  HookOutcomeCounts,
+  HookSummaryRow,
+  SessionHookSummary,
+  HookExecutionDetail,
+} from '../cli/lib/hookExtract.mjs'
 
 export interface TokenUsage {
   input: number
@@ -77,6 +89,12 @@ export interface Session {
   model?: string
   totalTokens: TokenUsage
   messageCount: { user: number; assistant: number }
+  /**
+   * 훅 실행 페이로드-프리 집계 (tier-1, 전 모드).
+   * 훅 레코드가 없는 세션·Codex 세션·구버전 산출물에는 필드 자체가 없다 —
+   * 소비자는 absent 를 no-data 로 관용 처리해야 한다 (버전 톨러런스).
+   */
+  hookSummary?: SessionHookSummary
 }
 
 export interface GrowthStats {
@@ -111,11 +129,75 @@ export interface Stats {
   topWords: [string, number][]
   topWordsUser: [string, number][]
   topWordsAssistant: [string, number][]
-  topSkills: [string, number][]
   sessionLengthDist: [string, number][]
   longestSession: Session | null
   busiestDay: string
   dailyTokens: Record<string, number>
   busiestTokenDay: string
   growth: GrowthStats
+  hooks: HookStats
+}
+
+// ── 훅 활동 집계 (docs/goal/hooks-analytics.md D2) ───────────────────────────
+
+/** buildHookStats 의 코퍼스 단위 집계 행 — (hookName, hookEvent, commandKey) 키 */
+export interface HookAggregateRow {
+  hookName: string
+  hookEvent: string
+  commandKey: string
+  counts: HookOutcomeCounts
+  /** durationMsCount=0 이면 null — "기록 있는 실행 기준" 스코프 명시용 */
+  avgDurationMs: number | null
+  lastSeen: string
+  hasSystemMessage: boolean
+  additionalContextCount: number
+  encodingDamaged: boolean
+}
+
+/**
+ * Stats.hooks — Session.hookSummary 만 소비해 계산한다 (raw 레코드 금지).
+ * errorRate 류의 비율 지표는 금지 — sessionsWithHooks/eligibleSessions 만 허용.
+ */
+export interface HookStats {
+  hasHookData: boolean
+  /** 기록이 남은 실행 총합 (성공+거부+차단+실패+취소+시간초과+요약만) */
+  totalObserved: number
+  deniedTotal: number
+  /** blockingError + nonBlockingError (denied 별도, cancelled/timedOut/summaryOnly 제외) */
+  failureTotal: number
+  sessionsWithHooks: number
+  /** Claude 세션 수만 — Codex 는 훅 텔레메트리 자체가 없다 */
+  eligibleSessions: number
+  /** 서로 다른 hookName 수 */
+  uniqueHooks: number
+  byHook: HookAggregateRow[]
+}
+
+// ── 훅 설정 인벤토리 와이어 포맷 (D4) ────────────────────────────────────────
+
+/**
+ * 정적 임베드 `window.__MEMRADAR_HOOKS__` 엔트리 — command 원문·filePath·
+ * timeout 절대 금지 (공유 가능한 단일 HTML 에 실린다).
+ */
+export interface HookConfigPublicEntry {
+  event: string
+  matcher: string | null
+  sourceLabel: string
+  observed: boolean
+  confidence: 'command' | 'event' | null
+  commandKey: string
+}
+
+/** 서버 `/api/hooks` 엔트리 — command 는 maskSecrets 적용된 마스킹본 (loopback 전용) */
+export interface HookConfigServerEntry {
+  event: string
+  matcher: string | null
+  /** maskSecrets 적용본 */
+  command: string
+  source: string
+  filePath: string
+  observed: boolean
+  confidence: 'command' | 'event' | null
+  /** 후보 다이제스트들 — byHook 행의 commandKey 와 매핑해 서브행 라벨에 사용 */
+  commandKeys: string[]
 }

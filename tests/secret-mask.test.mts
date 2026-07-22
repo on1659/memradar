@@ -162,6 +162,71 @@ test('credential 휴리스틱: JSON 따옴표 키 — client_secret', () => {
   assert.equal(r.masked, '{"client_secret": "[REDACTED:credential]"}')
 })
 
+// === D11 확장 — 훅 command 표면 대표 시크릿 (hooks-analytics) ================
+section('D11 확장 — 웹훅 URL / userinfo / Authorization 헤더')
+
+test('slack-webhook: services 경로 통째 마스킹', () => {
+  const url = 'https://hooks.slack.com/services/T00000001/B00000001/faketesttoken1234567890'
+  const r = maskSecrets(`curl -X POST ${url} -d ok`)
+  assert.equal(r.masked, 'curl -X POST [REDACTED:slack-webhook] -d ok')
+  assert.deepEqual(kinds(`curl ${url}`), ['slack-webhook'])
+})
+
+test('slack-webhook: workflows/triggers 변형도 매칭', () => {
+  assert.deepEqual(kinds('https://hooks.slack.com/workflows/T1/W1/1234567890'), ['slack-webhook'])
+  assert.deepEqual(kinds('https://hooks.slack.com/triggers/T1/12345/abcdefgh'), ['slack-webhook'])
+})
+
+test('discord-webhook: id/token 마스킹 (discordapp 변형 포함)', () => {
+  const r = maskSecrets('curl https://discord.com/api/webhooks/123456789012345678/aaaaaaaabbbbbbbbccccccccdddddddd')
+  assert.equal(r.masked, 'curl [REDACTED:discord-webhook]')
+  assert.deepEqual(kinds('https://discordapp.com/api/webhooks/123456789012345678/aaaaaaaabbbbbbbbccccccccdddddddd'), ['discord-webhook'])
+})
+
+test('ntfy-topic: 토픽 URL 마스킹, 문서 경로는 오탐 제외', () => {
+  assert.deepEqual(kinds('curl -d hi https://ntfy.sh/my-private-alerts-42'), ['ntfy-topic'])
+  assertUntouched('see https://ntfy.sh/docs for setup')
+  assertUntouched('open https://ntfy.sh/app in a browser')
+})
+
+test('url-userinfo: scheme://user:pass@host 의 userinfo 만 마스킹 (host 보존)', () => {
+  const r = maskSecrets('psql postgres://admin:s3cretpass@db.internal:5432/main')
+  assert.equal(r.masked, 'psql postgres://[REDACTED:url-userinfo]@db.internal:5432/main')
+  assert.deepEqual(r.hits, [{ kind: 'url-userinfo' }])
+})
+
+test('url-userinfo: 플레이스홀더 비밀번호는 보존', () => {
+  assertUntouched('postgres://user:${DB_PASSWORD}@host/db')
+})
+
+test('url-userinfo: userinfo 없는 URL(포트 포함)은 비매칭', () => {
+  assertUntouched('curl https://db.internal:5432/health')
+  assertUntouched('https://fonts.googleapis.com/css2?family=Noto')
+})
+
+test('auth-token: Authorization: token <값> 헤더 값 마스킹', () => {
+  const r = maskSecrets('curl -H "Authorization: token n0tRealToken12345678" api.github.com')
+  assert.equal(r.masked, 'curl -H "Authorization: token [REDACTED:auth-token]" api.github.com')
+})
+
+test('auth-token: 산문의 일반 단어 token 은 비매칭 (헤더 문맥 한정)', () => {
+  assertUntouched('the token abcdefabcdefabcdef12 was rotated last week')
+})
+
+test('D11 확장 멱등성 — 재적용 시 hits 0', () => {
+  const text = [
+    'https://hooks.slack.com/services/T00000001/B00000001/faketesttoken1234567890',
+    'https://discord.com/api/webhooks/123456789012345678/aaaaaaaabbbbbbbbccccccccdddddddd',
+    'https://ntfy.sh/my-private-alerts-42',
+    'postgres://admin:s3cretpass@db.internal/main',
+    'Authorization: token n0tRealToken12345678',
+  ].join('\n')
+  const once = maskSecrets(text)
+  const twice = maskSecrets(once.masked)
+  assert.equal(twice.masked, once.masked)
+  assert.equal(twice.hits.length, 0)
+})
+
 // === 음성 — 오탐 가드 =======================================================
 section('음성 — 오탐 가드')
 

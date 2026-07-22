@@ -29,6 +29,9 @@
 // kind            | 형태
 // ────────────────|───────────────────────────────────────────────────────────
 // private-key     | -----BEGIN … PRIVATE KEY----- ~ -----END … PRIVATE KEY-----
+// slack-webhook   | https://hooks.slack.com/services|workflows|triggers/…
+// discord-webhook | https://discord(app).com/api/webhooks/<id>/<token>
+// ntfy-topic      | https://ntfy.sh/<topic> (토픽 명 = 곧 발행 권한)
 // anthropic-key   | sk-ant- 접두
 // openai-key      | sk- 접두
 // github-token    | ghp_/gho_/ghu_/ghs_/ghr_ 또는 github_pat_ 접두
@@ -39,15 +42,23 @@
 // gitlab-token    | glpat- 접두
 // jwt             | eyJ 로 시작하는 3세그먼트
 // bearer-token    | `Bearer <토큰>` (jwt 매칭 후 잔여만 — 아래 BEARER_RE 별도 단계)
+// auth-token      | `Authorization: token <토큰>` 헤더 값 (BEARER_RE 와 같은 단계)
+// url-userinfo    | scheme://user:pass@host 의 userinfo (별도 단계, host 보존)
 //
 // 순서 의존성 (위에서 아래로 적용):
 // - private-key 가 최우선 — PEM 본문(base64)이 다른 패턴에 부분 매칭되기 전에 통째로 처리
+// - webhook URL 3종은 키 패턴들보다 먼저 — URL 경로 조각이 토큰 패턴에 부분
+//   매칭되기 전에 URL 통째로 처리 (훅 command 표면의 대표 시크릿 형태)
 // - anthropic-key(sk-ant-)는 openai-key(sk-)의 부분집합이라 먼저 검사
 // - jwt 는 bearer-token 보다 먼저 — `Bearer <jwt>` 는 jwt 로 분류
 //   (bearer-token 은 이 배열이 아니라 패턴 루프 뒤 BEARER_RE 단계에서 처리)
 //
 const SECRET_PATTERNS = [
   { kind: 'private-key', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
+  { kind: 'slack-webhook', re: /\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9/_-]{8,}/g },
+  { kind: 'discord-webhook', re: /\bhttps:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\d{5,}\/[A-Za-z0-9_-]{20,}/g },
+  // ntfy.sh 는 토픽 명이 곧 발행 권한 — 문서/앱 경로(docs/app/account/settings)는 제외
+  { kind: 'ntfy-topic', re: /\bhttps:\/\/ntfy\.sh\/(?!(?:docs|app|account|settings)\b)[A-Za-z0-9_-]{3,64}\b/g },
   { kind: 'anthropic-key', re: /\bsk-ant-[A-Za-z0-9_-]{16,}\b/g },
   { kind: 'openai-key', re: /\bsk-[A-Za-z0-9_-]{16,}\b/g },
   { kind: 'github-token', re: /\b(?:(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g },
@@ -71,6 +82,23 @@ const SECRET_PATTERNS = [
 //   트레이드오프: 숫자가 전혀 없는 불투명 토큰은 놓친다 — 고신뢰 우선·미탐 허용 원칙.
 //
 const BEARER_RE = /(Bearer\s+)([A-Za-z0-9_\-.~+/]{20,}=*)/g
+
+// ─── auth-token (별도 단계) ──────────────────────────────────────────────────
+//
+// `Authorization: token <값>` 헤더 (GitHub API 등 훅 command 의 curl 헤더 형태).
+// 산문의 일반 단어 "token" 오탐을 막기 위해 Authorization 헤더 문맥으로 한정.
+// BEARER_RE 와 동일한 가드(isGuardedValue + 숫자 1개 이상)를 적용한다.
+//
+const AUTH_TOKEN_RE = /(Authorization['"]?\s*[:=]\s*['"]?token\s+)([A-Za-z0-9_\-.~+/]{16,}=*)/gi
+
+// ─── url-userinfo (별도 단계) ────────────────────────────────────────────────
+//
+// `scheme://user:pass@host` 의 userinfo 전체를 가린다 (scheme/host 는 보존 —
+// 어디로 보내는지는 읽혀야 진단이 된다). user 에 ':' '@' 불가, pass 에 '@' 불가.
+// 멱등 가드: 치환 결과(`[REDACTED:url-userinfo]`)에는 콜론이 있지만 user 파트
+// 패턴이 '['/']' 를 허용하지 않아 재매칭되지 않는다.
+//
+const URL_USERINFO_RE = /([a-z][a-z0-9+.-]*:\/\/)([^/\s:@[\]]+):([^/\s@[\]]+)@/gi
 
 // ─── credential 할당 휴리스틱 ────────────────────────────────────────────────
 //
@@ -150,6 +178,17 @@ export function maskSecrets(text, opts) {
     )
     return `${prefix}[REDACTED:bearer-token]`
   })
+  masked = masked.replace(AUTH_TOKEN_RE, (match, prefix, token, offset) => {
+    if (isGuardedValue(token)) return match
+    // BEARER 와 동일 — 숫자 없는 값은 산문 가능성이 높아 제외
+    if (!/[0-9]/.test(token)) return match
+    hits.push(
+      detailed
+        ? { kind: 'auth-token', value: token, index: offset + prefix.length, length: token.length }
+        : { kind: 'auth-token' },
+    )
+    return `${prefix}[REDACTED:auth-token]`
+  })
   masked = masked.replace(CREDENTIAL_RE, (match, prefix, value, offset) => {
     if (isGuardedValue(value)) return match
     // 치환되는 부분은 value 뿐 — index 는 prefix 길이만큼 뒤.
@@ -159,6 +198,17 @@ export function maskSecrets(text, opts) {
         : { kind: 'credential' },
     )
     return `${prefix}[REDACTED:credential]`
+  })
+  masked = masked.replace(URL_USERINFO_RE, (match, scheme, user, pass, offset) => {
+    // 플레이스홀더 비밀번호(`${DB_PASS}` 등)는 그대로 둔다
+    if (isGuardedValue(pass)) return match
+    const userinfo = `${user}:${pass}`
+    hits.push(
+      detailed
+        ? { kind: 'url-userinfo', value: userinfo, index: offset + scheme.length, length: userinfo.length }
+        : { kind: 'url-userinfo' },
+    )
+    return `${scheme}[REDACTED:url-userinfo]@`
   })
   return { masked, hits }
 }

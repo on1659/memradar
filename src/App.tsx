@@ -10,12 +10,18 @@ import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import { useI18n } from './i18n'
 import { SYSTEM_ICONS } from './icons'
-import type { Session } from './types'
+import type { Session, HookConfigPublicEntry } from './types'
 
 declare global {
   interface Window {
     __MEMRADAR_SESSIONS__?: Session[]
     __MEMRADAR_SKILLS__?: Record<string, string>
+    /**
+     * 정적 임베드 훅 설정 인벤토리 (cli/index.mjs 주입). 서버/업로드 모드에는
+     * 없다 — Dashboard 훅 카드가 이 전역을 소비하거나(정적) `/api/hooks`
+     * 로 폴백한다(서버). 소비자 없이 죽지 않게 카드에서 실제로 읽는다.
+     */
+    __MEMRADAR_HOOKS__?: HookConfigPublicEntry[]
   }
 }
 
