@@ -1271,7 +1271,9 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-bright">
         <Webhook className="h-4 w-4 text-violet" aria-hidden="true" />
         {isKorean ? '훅 활동' : 'Hook Activity'}
-        <DashboardHoverTooltip align="left" tooltipWidthClass="w-64" title={summaryLine} description={caveat}>
+        {/* 폭 주의: analytics 카드는 294px. 트리거가 제목 뒤(ko ~88px, en ~128px)라
+            w-64(256px)면 카드를 51px 넘친다. 두 로케일 모두 들어가는 w-40 로 고정. */}
+        <DashboardHoverTooltip align="left" tooltipWidthClass="w-40" title={summaryLine} description={caveat}>
           <CircleHelp className="h-3.5 w-3.5 text-text/35" aria-hidden="true" />
         </DashboardHoverTooltip>
         {showPill && (
