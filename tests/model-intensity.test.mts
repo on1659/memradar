@@ -86,7 +86,7 @@ test('세션당 평균 턴/토큰 — 토큰 공식 input+output+cachedInput', (
   assert.strictEqual(out[0].avgTokens, 275)
 })
 
-test('여러 모델 그룹화 + 세션 수 내림차순 정렬', () => {
+test('여러 모델 그룹화 — 평균 토큰 동률이면 세션 수 내림차순', () => {
   const out = buildModelIntensity([
     session('model-a', 2, { input: 10, output: 10 }),
     session('model-b', 2, { input: 10, output: 10 }),
@@ -94,9 +94,33 @@ test('여러 모델 그룹화 + 세션 수 내림차순 정렬', () => {
     session('model-b', 2, { input: 10, output: 10 }),
   ])
   assert.strictEqual(out.length, 2)
-  assert.strictEqual(out[0].model, 'model-b') // 세션 3개
+  assert.strictEqual(out[0].model, 'model-b') // avgTokens 동률(20) → 세션 3개가 앞
   assert.strictEqual(out[0].sessionCount, 3)
   assert.strictEqual(out[1].model, 'model-a')
+})
+
+test('표시 정렬은 막대 축(평균 토큰) 내림차순 — 세션 수가 많아도 막대가 짧으면 아래로', () => {
+  // 선별(상위 N)은 세션 수 기준이지만, 표시는 막대 길이 축을 따른다.
+  // 정렬을 세션 수 우선으로 되돌리는 뮤턴트는 여기서 즉시 깨진다.
+  const out = buildModelIntensity([
+    session('many-short', 2, { input: 10, output: 10 }),   // 3세션, 평균 20토큰
+    session('many-short', 2, { input: 10, output: 10 }),
+    session('many-short', 2, { input: 10, output: 10 }),
+    session('few-long', 2, { input: 500, output: 500 }),   // 1세션, 평균 1000토큰
+  ])
+  assert.deepStrictEqual(out.map((m) => m.model), ['few-long', 'many-short'])
+})
+
+test('선별은 세션 수 우선 — limit 초과 시 1세션짜리 특이 평균이 자리를 뺏지 않는다', () => {
+  // 5칸 정원: 세션 2개짜리 모델 5종 + 세션 1개·거대 평균 1종 → 후자는 선별 탈락.
+  const sessions = ['a', 'b', 'c', 'd', 'e'].flatMap((m) => [
+    session(`model-${m}`, 1, { input: 50, output: 50 }),
+    session(`model-${m}`, 1, { input: 50, output: 50 }),
+  ])
+  sessions.push(session('model-outlier', 1, { input: 99999, output: 99999 }))
+  const out = buildModelIntensity(sessions)
+  assert.strictEqual(out.length, 5)
+  assert.strictEqual(out.some((m) => m.model === 'model-outlier'), false)
 })
 
 test('그룹 키는 dominant — session.model(first-wins)과 다르면 dominant 쪽으로 묶인다', () => {

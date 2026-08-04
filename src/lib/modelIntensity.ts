@@ -34,10 +34,17 @@ export interface ModelIntensity {
 }
 
 /**
- * 세션을 dominant 모델별로 그룹화해 세션당 평균 user 턴·토큰을 산출. 세션 수 내림차순 정렬 후 상위 limit.
+ * 세션을 dominant 모델별로 그룹화해 세션당 평균 user 턴·토큰을 산출.
  * 모델 미상인 세션은 제외 (의미 있는 비교 대상 아님). 세션 0이면 빈 배열.
  * 혼합 세션은 주 사용 모델 한 곳에만 계상된다 — 그래야 카드가 인쇄하는 "세션 N개" 합이
  * 총 세션 수를 넘지 않는다 (중복 계상 시 라벨이 거짓이 됨).
+ *
+ * 정렬은 2단계다:
+ *  - 선별: 세션 수 내림차순 상위 limit — 카드는 "많이 쓴 모델들"의 강도를 비교하는 것이지,
+ *    1세션짜리 특이 평균이 자리를 차지하게 두지 않는다 (표본 크기 우선).
+ *  - 표시: 평균 토큰 내림차순 — 막대 길이가 이 축이므로 막대가 위에서 아래로 줄어들게.
+ *    선별 축과 표시 축을 분리해 "세션 수는 많은데 막대는 짧은" 행이 위에 끼는 들쭉함을 없앤다.
+ *  동률은 세션 수 → 모델명 순으로 결정적.
  */
 export function buildModelIntensity(sessions: Session[], limit = 5): ModelIntensity[] {
   const groups = new Map<string, { sessionCount: number; totalTurns: number; totalTokens: number }>()
@@ -63,6 +70,7 @@ export function buildModelIntensity(sessions: Session[], limit = 5): ModelIntens
       avgUserTurns: group.sessionCount > 0 ? group.totalTurns / group.sessionCount : 0,
       avgTokens: group.sessionCount > 0 ? group.totalTokens / group.sessionCount : 0,
     }))
-    .sort((a, b) => b.sessionCount - a.sessionCount || b.avgTokens - a.avgTokens)
+    .sort((a, b) => b.sessionCount - a.sessionCount || b.avgTokens - a.avgTokens || a.model.localeCompare(b.model))
     .slice(0, limit)
+    .sort((a, b) => b.avgTokens - a.avgTokens || b.sessionCount - a.sessionCount || a.model.localeCompare(b.model))
 }
