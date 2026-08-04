@@ -416,7 +416,9 @@ export function ReplayView({ session, onBack }: ReplayViewProps) {
                   <div className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-wide text-text/50">
                     <span>{isUser ? t('replay.you') : session.source === 'codex' ? 'Codex' : 'Claude'}</span>
                   </div>
-                  <div className={`text-sm leading-7 ${isUser ? 'text-text-bright' : 'text-text'}`}>
+                  {/* break-words — 긴 경로·URL·해시처럼 끊길 곳 없는 토큰이 카드 밖으로
+                      삐져나가 화면 가로 스크롤을 만드는 것을 막는다 (SessionView 와 동일 규칙) */}
+                  <div className={`text-sm leading-7 break-words ${isUser ? 'text-text-bright' : 'text-text'}`}>
                     <MessageBody text={cleaned} isTyping={isTypingTarget} charsVisible={charsVisible} />
                     {showCaret && <span className="inline-block w-[2px] h-4 align-middle bg-accent animate-pulse ml-0.5" />}
                   </div>
