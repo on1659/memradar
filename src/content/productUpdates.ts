@@ -10,6 +10,20 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-08-04-intensity-sort-updates-detail',
+    version: 'v4.2.1',
+    date: '2026-08-04',
+    title: '사용 강도 막대 정렬 + 새소식 상세 보기',
+    summary:
+      '모델별 사용 강도 막대가 막대 길이(평균 토큰) 순서로 내려가도록 정렬을 고쳤어요. 새소식은 왼쪽 상세 + 오른쪽 버전 목록의 2단 구성으로 바뀌어, 각 버전의 변경 내용을 잘림 없이 전부 볼 수 있습니다.',
+    highlights: [
+      '모델별 사용 강도 — 막대 축(평균 토큰) 내림차순 정렬, 세션 수 기준 상위 5 선별은 유지',
+      '새소식 팝오버 2단 구성 — 오른쪽에서 버전 선택, 왼쪽에 요약·하이라이트 전문',
+      '모바일은 세로 스택(상세 위·목록 아래)으로 자동 전환',
+    ],
+    category: 'dashboard',
+  },
+  {
     id: '2026-08-03-model-attribution-per-response',
     version: 'v4.2.0',
     date: '2026-08-03',
