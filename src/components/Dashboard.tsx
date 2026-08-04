@@ -54,6 +54,7 @@ import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
 import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
 import { sumModelResponses } from '../lib/modelAttribution'
+import { hookEventGloss } from '../lib/hookEventGlossary'
 import { SessionModelBadge } from './SessionModelBadge'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { maskSecrets } from '../lib/secretMask'
@@ -1322,8 +1323,18 @@ function HookActivityCard({ hooks, isKorean }: { hooks: HookStats; isKorean: boo
               {configEntries.map((e, i) => (
                 <li key={`${e.event}-${e.matcher ?? ''}-${i}`} className="rounded-lg border border-border/60 bg-bg/40 px-2.5 py-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[11px] font-medium text-text-bright">
-                      {e.event}{e.matcher && e.matcher !== '*' ? ` · ${e.matcher}` : ''}
+                    {/*
+                      이벤트명 hover 설명 — 시점 의미는 hookEventGlossary 단일 소스.
+                      ul 이 overflow-y-auto 클립 박스라 위(bottom-full)로 펼치면 첫 행에서
+                      잘린다 — 아래(top-full)로 펼친다. named group (조상 group 오발화 방지).
+                    */}
+                    <span className="group/hookcfg relative inline-flex min-w-0 cursor-help">
+                      <span className="truncate text-[11px] font-medium text-text-bright">
+                        {e.event}{e.matcher && e.matcher !== '*' ? ` · ${e.matcher}` : ''}
+                      </span>
+                      <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-56 whitespace-normal rounded-lg border border-border bg-bg-card px-2.5 py-2 text-left text-[10px] font-normal leading-4 text-text/80 opacity-0 shadow-xl transition-opacity group-hover/hookcfg:opacity-100">
+                        {hookEventGloss(e.event, isKorean ? 'ko' : 'en')}
+                      </span>
                     </span>
                     {e.observed ? (
                       <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] ${e.confidence === 'command' ? 'border-green/25 bg-green/10 text-green/80' : 'border-amber/25 bg-amber/10 text-amber/80'}`}>

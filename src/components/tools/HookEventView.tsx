@@ -4,6 +4,7 @@ import type { HookExecutionDetail } from '../../types'
 import { Truncate } from './Truncate'
 import { useSecretMask } from '../../lib/secretMask'
 import { SecretMaskToggle } from '../SecretMaskToggle'
+import { hookEventGloss } from '../../lib/hookEventGlossary'
 
 // 훅 실행 상세 행 (docs/goal/hooks-analytics.md D6) — ToolCallView 패턴.
 // 접힌 행 = 결과 배지 + exitCode + durationMs. 펼침 = command/stdout/stderr/
@@ -67,7 +68,23 @@ export function HookEventView({ event }: HookEventViewProps) {
         <ChevronRight className={`h-3 w-3 flex-shrink-0 text-text/40 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         <Webhook className="h-3 w-3 flex-shrink-0 text-violet" aria-hidden="true" />
         <span className="flex-shrink-0 font-mono text-[10px] font-semibold text-text-bright">{event.hookName}</span>
-        <span className="flex-shrink-0 rounded border border-text/12 px-1 py-px text-[9px] text-text/45">{event.hookEvent}</span>
+        {/*
+          이벤트 칩 hover 설명 — "Stop 훅이 뭔데?"에 답한다. 이벤트 시점 의미는 고정
+          어휘라 항상 설명 가능(hookEventGlossary 단일 소스). 이 훅이 구체적으로 뭘
+          하는지는 명령에 달렸으므로 펼침(tier-2 command)으로 안내만 한다.
+          named group 필수 — 조상에 group/msg 등이 있어 무명 group 은 오발화한다.
+        */}
+        <span className="group/hookev relative flex-shrink-0 rounded border border-text/12 px-1 py-px text-[9px] text-text/45">
+          {event.hookEvent}
+          <span className="pointer-events-none absolute bottom-full left-0 z-50 mb-1.5 w-56 whitespace-normal rounded-lg border border-border bg-bg-card px-2.5 py-2 text-left text-[10px] font-normal leading-4 text-text/80 opacity-0 shadow-xl transition-opacity group-hover/hookev:opacity-100">
+            {hookEventGloss(event.hookEvent)}
+            {hasBody && (
+              <span className="mt-1 block border-t border-border pt-1 text-text/45">
+                행을 펼치면 실행된 명령을 볼 수 있어요
+              </span>
+            )}
+          </span>
+        </span>
         <span className={`flex-shrink-0 rounded-full border px-1.5 py-px text-[9px] font-medium ${meta.cls}`}>{meta.label}</span>
         <span className="ml-auto flex flex-shrink-0 items-center gap-2 text-[9px] tabular-nums text-text/40">
           {typeof event.exitCode === 'number' && <span>exit {event.exitCode}</span>}
