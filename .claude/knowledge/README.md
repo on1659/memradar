@@ -54,7 +54,7 @@
 - `cli.md` — CLI 명령/플래그/도움말 관련
 - `release.md` — npm publish, GitHub master 배포 관련
 - `types.md` — `src/types.ts` 스키마 변경의 파급
-- `harness.md` — `.claude/` 자체 운영 함정
+- `meta.md` — `.claude/` 자체 운영 함정
 
 새 영역이 필요하면 사용자에게 물은 뒤 새 파일을 만든다.
 
@@ -70,6 +70,5 @@ wc -l .claude/knowledge/lessons/*.md
 
 ## 참조
 
-- 트리아지 룰: [`.claude/rules/harness.md`](../rules/harness.md)
 - 에이전트 정의: [`.claude/agents/`](../agents/)
 - 프로젝트 제약: 루트 `CLAUDE.md`

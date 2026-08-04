@@ -67,6 +67,8 @@ src/
 │   ├── Heatmap.tsx         # 컴팩트 캘린더 — 로컬 날짜 키(localDailyCounts) 축. 대시보드 활동 구역은 "코딩 리듬" 카드 1장(캘린더+리듬 서사+접힘 영수증)으로 통합됨 (구 히트맵·streak·밀도·요일 4장 대체)
 │   ├── HourChart.tsx
 │   ├── WordCloud.tsx
+│   ├── PersonalityRadar.tsx # 성향 3축 양극 → 12시 시계방향 6극 육각 레이더 (Dashboard 성향 카드·PersonalitySlide 공유 프리미티브)
+│   ├── UsageRadar.tsx      # "AI가 자주 한 일" 역할 분포 단방향 N각형 레이더 (Dashboard 카드, score/maxScore=반지름, 막대 위 보조)
 │   ├── theme.ts
 │   ├── search/
 │   │   ├── SearchView.tsx

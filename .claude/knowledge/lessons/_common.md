@@ -66,6 +66,8 @@
 
 ## L-8: check-triage 훅은 assistant 텍스트가 transcript에 flush되지 않는 환경에서 응답 첫 줄 선언을 못 본다
 
+> **무효 (2026-08-01)** — 트리아지 하네스 제거로 `.claude/hooks/check-triage.sh`가 삭제됐다. 아래는 기록 보존용. transcript를 grep해 assistant 선언을 검사하는 훅을 다시 만들 때 같은 함정에 빠지지 않도록 남긴다.
+
 - **언제 만났나**: 2026-07-03, 정밀 진단+지문 신호 작업 — 응답 첫 줄에 `[트리아지: COMPLEX]`를 선언했는데도 Edit이 반복 차단됨. 원인: 이 환경의 transcript JSONL에 assistant 텍스트 블록이 도구 호출 시점까지 기록되지 않아, "마지막 user 메시지 이후" 구간에 키워드가 없었음. 도구 입력(에이전트 프롬프트/Bash description)에 키워드가 포함된 뒤에야 통과.
 - **함정**: `check-triage.sh`는 transcript에서 마지막 real user 메시지 이후 내용을 grep하는데, assistant 텍스트 flush 타이밍은 하네스/호스트별로 다르다. 선언을 분명히 했는데 차단되면 "선언 형식이 틀렸나"로 오판해 시간을 낭비한다.
 - **회피**: 선언했는데도 차단되면 형식을 의심하지 말고 flush 문제로 보고, 키워드가 도구 입력에 실리도록 한다(예: `echo "[트리아지: ...]"` Bash 1회 — 우회가 아니라 동일 선언의 기록 경로 보정). 근본 해결은 훅이 tool_use 입력·assistant 텍스트를 모두 보도록 개선하는 것 — 훅 수정 기회에 반영할 것.
@@ -105,3 +107,24 @@
 - **함정**: slice(0, MAX) 류 상한을 넣고 "절단이 동작한다"는 테스트를 작성하려는데, 룰 간 상호배타 구조 때문에 동시 발화 최대치가 MAX와 같거나 작으면 절단이 실제로는 절대 트리거되지 않는다. 모르면 도달 불가능한 방어코드를 검증하려 픽스처를 억지로 만들거나, 반대로 "절단 미검증"을 결함으로 오판한다.
 - **회피**: 상한을 넣을 땐 "이 상한이 실제로 트리거되는 입력이 존재하나"를 먼저 따진다. 존재하지 않으면 상한은 순수 방어코드로 문서화하고, 테스트는 "동시 최대 발화 == MAX"까지만 검증한다. 독립(비상호배타) 룰을 추가하거나 MAX를 낮추면 그때 절단 테스트가 유의미해진다.
 - **연관 파일/함수**: `src/lib/promptCoaching.ts`(MAX_INSIGHTS, 상호배타 룰 쌍), `tests/prompt-coaching.test.mts`
+
+## L-14: SVG 프레젠테이션 prop(textAnchor·dominantBaseline)을 map/삼항에서 계산하면 string widening으로 TS2322
+
+- **언제 만났나**: 2026-07-22, 성향 육각 레이더(`PersonalityRadar.tsx`) 구현 — 6극 라벨의 `textAnchor`를 `poles.map()` 반환 객체 안에서 `Math.abs(sin)<0.001 ? 'middle' : sin>0 ? 'start' : 'end'` 삼항으로 계산했더니, `<text textAnchor={p.anchor}>` 사용부에서 TS2322. `npm run build`(tsc) 1회차에서 발견.
+- **함정**: React의 SVG 프레젠테이션 attribute 타입(`textAnchor`, `dominantBaseline` 등)은 좁은 리터럴 유니온(`'start'|'middle'|'end'|...`)이다. `.map()` 반환 객체나 중간 변수에 삼항/조건으로 담으면 TS가 값을 넓은 `string`으로 추론해, JSX에 꽂는 **사용부**에서만 TS2322가 터진다 — 값 자체는 유효한 리터럴이라 런타임은 멀쩡하고, 에러 위치가 계산부가 아니라 사용부라 원인 추적이 어긋난다. eslint는 통과하고 tsc에서만 잡힌다.
+- **회피**: 계산부에서 `as 'start' | 'middle' | 'end'` 명시 캐스팅하거나 삼항 결과에 `as const`. 리터럴 유니온 SVG prop을 map/변수로 우회해 담을 땐 캐스팅을 기본값으로 두고, 데이터비주얼 컴포넌트는 lint뿐 아니라 `npm run build`(tsc)까지 돌려 확인.
+- **연관 파일/함수**: `src/components/PersonalityRadar.tsx`(`poles.map` anchor), 계열 lesson `_common.md` L-7(SVG 차트 비등방 왜곡)
+
+## L-15: 양극(bipolar) 축을 레이더/다각형으로 펼칠 땐 극·값·라벨·각도 정합을 3중 검산하고 균형에 ε을 둘 것
+
+- **언제 만났나**: 2026-07-22, 성향 육각 레이더 구현 — 3축 양극 스펙트럼(탐험가↔설계자 등, `value` 0~1)을 12시부터 시계방향 6꼭짓점으로 펼치며 우극/좌극 매핑. Reviewer가 blocker급 최우선 검증 항목으로 지목(결과는 정확), 추가로 `value=0.5`(무데이터 기본값)에서 한 축 양극이 동시 강조되는 문제를 개선 권고.
+- **함정**: 양극 축(한 `value`로 좌우 두 극을 표현)을 다각형 꼭짓점으로 풀면 세 가지가 동시에 맞아야 한다 — (a) 우극 v=value·좌극 v=1−value 변환, (b) 라벨 인덱스가 극과 정합(`label[0]`=좌극/`label[1]`=우극, en 상수도 ko의 `[left,right]` 순서와 같은 배열), (c) 같은 축 두 극이 180° 대면(v합=1). 하나만 어긋나도 build는 통과한 채 **좌우가 조용히 반전되거나 축이 뒤바뀐다**(타입·린트로 안 드러남). 또 `v>=0.5` 강조 판정은 value=0.5에서 양극을 동시에 강조해 "균형" 표현이 사라진다.
+- **회피**: 위 (a)(b)(c)를 구현과 리뷰에서 각각 명시 확인. 우세극 강조는 `raw >= 0.5 + ε`(ε=0.04, 기존 양방향 막대 UI의 균형 임계와 통일)로 균형·무데이터에서 양극 동시 강조를 막는다. 최종 검증은 실데이터 렌더를 눈으로 — 치우친 유형(폴리곤이 우세극 방향으로 뻗음) + 균형/무데이터(정다각형·라벨 전부 흐림) 두 케이스.
+- **연관 파일/함수**: `src/components/PersonalityRadar.tsx`(`POLES`/좌표식 `x=cx+R·v·sinθ`/`dominant`), 데이터 규약 `src/lib/personality.ts`(`AxisScore` label 순서), 소비처 `Dashboard.tsx`·`src/components/wrapped/slides/PersonalitySlide.tsx`
+
+## L-16: SVG 레이더 라벨 폰트는 viewBox 단위 — 실제 렌더 px = fontSize·(size/V), 형제 레이더와 대조할 것
+
+- **언제 만났나**: 2026-07-23, 역할 분포 레이더(`UsageRadar`) 추가 — viewBox `V=280`을 `size=190`으로 렌더해 `fontSize=11`이 실제 11·(190/280)≈**7.46px**가 됐고, 자매 컴포넌트 `PersonalityRadar`(V260·size220·fs12 → ~10.15px)보다 ~27% 작아 긴 한글 라벨("데이터 엔지니어")이 안 읽혔다. Reviewer 지적 → `size 210·fs14`로 보정.
+- **함정**: SVG의 `fontSize`는 viewBox 좌표 단위라 `width={size}`로 축소 렌더하면 화면 실제 px = `fontSize·(size/V)`로 줄어든다. viewBox·size·fontSize가 컴포넌트마다 다르면 같은 `fontSize` 숫자라도 화면 크기가 제각각이라, 기존 레이더를 참고해 새로 만들 때 fontSize 숫자만 맞추면 실제로는 어긋난다. 라벨이 더 길수록(한글 역할명 등) 더 커야 하는데 오히려 작아지기도 한다. 코드/타입/린트로는 안 드러나고 렌더에서만 보인다.
+- **회피**: SVG 차트 라벨 폰트는 항상 **실제 렌더 px(=`fontSize·size/V`)로 환산해 형제 컴포넌트와 대조**한다. 목표 렌더 px를 먼저 정하고 fontSize를 역산(`fontSize = 목표px·V/size`). 라벨이 더 길면 목표 px를 키운다. 최종 검증은 실데이터 렌더를 브라우저 실측(`svg.getBoundingClientRect()`)으로. + 형제 카드에 나란히 놓을 땐 레이더 자체 size도 통일하고, 콘텐츠가 짧은 카드는 `flex-1`로 여백을 흡수해 카드 높이를 맞춘다.
+- **연관 파일/함수**: `src/components/UsageRadar.tsx`·`src/components/PersonalityRadar.tsx`(`fontSize`·`size`·`V`), 계열 `_common.md` L-7·L-14

@@ -17,7 +17,7 @@
 ## L-1: react-dom/server 의 renderToStaticMarkup 은 브라우저에서 동작 — 별도 deps 불필요
 
 - **언제 만났나**: 2026-05-07, SessionView export 기능 구현
-- **함정**: react-markdown 결과를 정적 HTML 문자열로 만들고 싶을 때 `marked`/`markdown-it` 같은 신규 의존성을 추가하기 쉽다. `package.json` bump가 일어나면 트리아지가 STANDARD에서 COMPLEX로 상향되고, 번들 사이즈도 늘어난다.
+- **함정**: react-markdown 결과를 정적 HTML 문자열로 만들고 싶을 때 `marked`/`markdown-it` 같은 신규 의존성을 추가하기 쉽다. `package.json` 의존성이 늘고 번들 사이즈도 커진다.
 - **회피**: `react-dom`이 이미 설치돼 있으므로 `import { renderToStaticMarkup } from 'react-dom/server'` 만으로 React 트리 → 정적 HTML 문자열 변환 가능. SSR이 아닌 클라이언트 코드에서도 동작 (`react-dom`이 `server.browser.js`를 함께 노출). 신규 deps 0건으로 끝낼 수 있다.
 - **연관 파일/함수**: `src/lib/sessionExport.ts:renderMarkdownToHtml`
 

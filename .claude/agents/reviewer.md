@@ -33,7 +33,7 @@ memradar (promptale) — Claude Code 세션 분석 + Wrapped CLI/React 도구
   2. `types.ts` 변경이 모든 사용처에 반영됐는가?
   3. union/discriminated union의 분기 누락이 없는가?
 - 기존 코드와 다른 패턴이 보이면 이유를 물어라
-- 이더 지시서의 불변조건이 유지되는지 확인해라
+- 지시서의 불변조건이 유지되는지 확인해라
 - Wrapped 슬라이드 수가 8장 그대로인지 확인해라
 
 ## 절대 규칙
