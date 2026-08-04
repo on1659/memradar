@@ -12,7 +12,7 @@
 구현 시 언락 신호 소스로 활용할 수 있는 **이미 존재하는** 데이터 구조 (v0.2.12 기준):
 
 - `Session` (`src/types.ts`) — `messages`, `startTime`, `endTime`, `totalTokens`, `messageCount`, `model`, `source`
-- `Stats` (`src/types.ts`) — `totalSessions`, `totalMessages`, `totalTokens`, `modelsUsed`, `toolsUsed`, `hourlyActivity`, `dailyActivity`, `dailyTokens`, `longestSession`, `topSkills`
+- `Stats` (`src/types.ts`) — `totalSessions`, `totalMessages`, `totalTokens`, `modelResponses`, `toolsUsed`, `hourlyActivity`, `dailyActivity`, `dailyTokens`, `longestSession`, `topSkills`
 
 세션 지속 시간은 `endTime - startTime` 으로 파생해야 한다 (세션 객체에 duration 필드 없음).
 연속일(streak)은 `dailyActivity` 키를 정렬해 파생해야 한다.

@@ -55,3 +55,6 @@ tmp/
 
 # 시크릿 스캔 리포트(scan:secrets 산출물) — 운영 보안 산출물, 커밋 금지 (심층 방어)
 docs/secret-scan-report-*.json
+
+# 로컬 문서 미러(.myview) — 레포 추적 대상 아님
+.myview/

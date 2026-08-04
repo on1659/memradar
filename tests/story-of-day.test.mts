@@ -311,10 +311,13 @@ test('userWords/aiWords — countWords(stripMarkup) 합산, buildAuthorshipRatio
   assert.strictEqual(day.sessionCount, 1)
 })
 
-test('models — 메시지 레벨 model 우선 + 세션 폴백 공존, 둘 다 없으면 미기록', () => {
+test('models — assistant 메시지 레벨 model 우선 + 세션 폴백 공존, 둘 다 없으면 미기록', () => {
+  // 실데이터 형태: user 라인에는 model 이 없다. 원본 JSONL 의 user 라인은 message.model 을
+  // 갖지 않아 parser.ts:105 가 undefined 를 넣는다 (사용자 코퍼스 실측 0건).
   const withBoth = makeSession('claude', [
-    { ...kstMsg('user', '질문', '2026-06-01', 10), model: 'opus' }, // 메시지 레벨
-    kstMsg('assistant', '응답', '2026-06-01', 10, 5),               // 세션 폴백
+    kstMsg('user', '질문', '2026-06-01', 10),
+    { ...kstMsg('assistant', '응답', '2026-06-01', 10, 5), model: 'opus' }, // 메시지 레벨
+    kstMsg('assistant', '응답2', '2026-06-01', 10, 20),                     // 세션 폴백
   ], { model: 'sonnet' })
   const day = buildDailyCollab([withBoth], OPTS).get('2026-06-01')!
   assert.deepStrictEqual([...day.models].sort(), ['opus', 'sonnet'])
@@ -323,6 +326,31 @@ test('models — 메시지 레벨 model 우선 + 세션 폴백 공존, 둘 다 �
   const withNeither = makeSession('claude', [kstMsg('user', '질문', '2026-06-02', 10)])
   const bare = buildDailyCollab([withNeither], OPTS).get('2026-06-02')!
   assert.strictEqual(bare.models.size, 0)
+})
+
+test('models — user 라인은 모델 축에 기여하지 않는다 (유령 모델 주입 차단)', () => {
+  // 이 세션이 실제로 쓴 모델은 'opus' 하나뿐이다. role 게이트 이전에는 model 없는 user
+  // 라인이 세션 폴백 'sonnet' 을 끌어와 2종으로 집계됐고, 그것이 collabFingerprint ⑨ 의
+  // 분자(day.models.size >= 2)를 부풀리는 주 원인이었다 (실측 활동일 31일 중 21→19일).
+  const s = makeSession('claude', [
+    kstMsg('user', '질문', '2026-06-03', 10),
+    { ...kstMsg('assistant', '응답', '2026-06-03', 10, 5), model: 'opus' },
+  ], { model: 'sonnet' })
+  const day = buildDailyCollab([s], OPTS).get('2026-06-03')!
+  assert.deepStrictEqual([...day.models].sort(), ['opus'])
+  assert.strictEqual(day.userMessageCount, 1) // 기존 필드 무변경
+})
+
+test('models — <synthetic> 은 모델 축에서 배제된다 (배지·차트 오염 차단)', () => {
+  // 중단/한도초과 시스템 응답. 트랜스크립트에는 남지만 모델로 세지 않는다.
+  const s = makeSession('claude', [
+    kstMsg('user', '질문', '2026-06-04', 10),
+    { ...kstMsg('assistant', '응답', '2026-06-04', 10, 5), model: 'opus' },
+    { ...kstMsg('assistant', '한도 도달', '2026-06-04', 10, 20), model: '<synthetic>' },
+  ], { model: 'opus' })
+  const day = buildDailyCollab([s], OPTS).get('2026-06-04')!
+  assert.deepStrictEqual([...day.models].sort(), ['opus'])
+  assert.strictEqual(day.aiWords > 0, true) // 본문은 그대로 집계된다
 })
 
 test('projects 규칙① — cwd 있으면 extractProject(cwd), source 무관 (personality 와 동일 규칙)', () => {

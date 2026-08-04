@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage, HookExecutionDetail } from '../types'
 import { shortModelName } from '../lib/modelNames'
+import { isAggregatableModel } from '../lib/modelAttribution'
+import { SessionModelBadge } from './SessionModelBadge'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { getSourceColor, calculateSessionCost } from '../lib/tokenPricing'
 import {
@@ -456,11 +458,8 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
               >
                 {assistantLabel}
               </span>
-              {session.model && (
-                <span className="rounded-full border border-green/25 bg-green/8 px-2 py-0.5 text-[10px] font-medium text-green">
-                  {shortModelName(session.model)}
-                </span>
-              )}
+              {/* 모델 구성 — 헤더와 본문 툴팁이 같은 소스(messages)에서 파생된다 */}
+              <SessionModelBadge session={session} />
               {(() => {
                 const sessionCost = calculateSessionCost(session)
                 const t = session.totalTokens
@@ -629,12 +628,17 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                   ))}
                 </div>
               )}
+            {/*
+              named group 필수 — 안쪽 배지들이 각자 group/token · group/model 을 갖는다.
+              이름 없는 group 을 중첩하면 Tailwind 의 group-hover: 가 조상 중 **아무**
+              .group 에나 매칭돼, 메시지 아무 곳에 hover 해도 배지 툴팁이 떴다.
+            */}
             <div
               ref={(el) => {
                 if (el) messageRefs.current.set(i, el)
                 else messageRefs.current.delete(i)
               }}
-              className={`group animate-in ${isUser ? 'ml-10' : ''}`}
+              className={`group/msg animate-in ${isUser ? 'ml-10' : ''}`}
               style={{ animationDelay: `${Math.min(i * 20, 300)}ms` }}
             >
               <div
@@ -651,11 +655,23 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                     {isUser ? youLabel : aiLabel}
                   </span>
                   <span className="text-[10px] text-text/40">{formatTime(msg.timestamp)}</span>
+                  {!isUser && (() => {
+                    // 응답별 모델 필 — "이 응답은 무슨 모델인가"를 hover 없이 상시 표시.
+                    // 병합 블록 안에서 모델이 바뀐 경우(models[]) 순서대로 → 로 잇는다.
+                    // synthetic 대표 블록(한도 안내 등)은 모델 필 없음 — 모델이 답한 게 아니다.
+                    const pillModels = msg.models ?? (isAggregatableModel(msg.model) ? [msg.model] : [])
+                    if (pillModels.length === 0) return null
+                    return (
+                      <span className="rounded-full border border-border/70 bg-bg-card px-1.5 py-0.5 text-[10px] font-medium text-text/65">
+                        {pillModels.map(shortModelName).join(' → ')}
+                      </span>
+                    )
+                  })()}
                   {hasCopyTarget && (
                     <CopyButton
                       text={copyText}
                       title="이 메시지 복사"
-                      className="rounded-md p-1 text-text/30 opacity-0 transition-all hover:bg-bg-hover hover:text-text-bright group-hover:opacity-100 focus:opacity-100"
+                      className="rounded-md p-1 text-text/30 opacity-0 transition-all hover:bg-bg-hover hover:text-text-bright group-hover/msg:opacity-100 focus:opacity-100"
                     />
                   )}
                   {msg.tokens && (() => {
@@ -668,9 +684,19 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
 
                     const msgTokens = { input: inp, output: out, cachedInput: cacheRead, cacheWriteInput: cacheWrite }
                     const msgCost = !isUser ? calculateSessionCost({ ...session, totalTokens: msgTokens, messages: [] }) : 0
+
+                    // "이 응답은 무슨 모델이었나" — 이 작업의 출발점이 된 질문이다.
+                    // 별도 어포던스를 만들지 않고 기존 토큰 툴팁에 한 줄로 얹는다 (시각적 소음 0).
+                    // models[] 가 있으면 병합 블록 안에서 모델이 바뀐 것이므로 순서대로 보여준다.
+                    const blockModels = msg.models ?? (isAggregatableModel(msg.model) ? [msg.model] : [])
+                    const modelLine = !isUser && blockModels.length > 0
+                      ? [`모델: ${blockModels.map(shortModelName).join(' → ')}`]
+                      : []
+
                     const tooltipLines = isUser
                       ? [`입력 ${inp.toLocaleString()} 토큰`]
                       : [
+                          ...modelLine,
                           `입력 ${inp.toLocaleString()} 토큰`,
                           `출력 ${out.toLocaleString()} 토큰`,
                           ...(cacheRead > 0 ? [`캐시 읽기 ${cacheRead.toLocaleString()} 토큰`] : []),
@@ -679,13 +705,13 @@ export function SessionView({ session, onBack, onReplay, highlightMessageIndex, 
                         ]
 
                     return (
-                      <span className={`group relative ml-auto cursor-default rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      <span className={`group/token relative ml-auto cursor-default rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                         isUser
                           ? 'border-green/20 bg-green/8 text-green/80'
                           : 'border-text/12 bg-bg-hover text-text-bright'
                       }`}>
                         {fmtTokenShort(total)} 토큰
-                        <span className="pointer-events-none absolute bottom-full right-0 z-50 mb-2 w-max rounded-lg border border-border bg-bg-card px-2.5 py-1.5 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                        <span className="pointer-events-none absolute bottom-full right-0 z-50 mb-2 w-max rounded-lg border border-border bg-bg-card px-2.5 py-1.5 text-left text-[10px] leading-5 text-text/80 opacity-0 shadow-xl transition-opacity group-hover/token:opacity-100">
                           {tooltipLines.map((line, idx) => {
                             const isCost = line.startsWith('≈')
                             return (

@@ -53,6 +53,8 @@ import {
 import { applyCalibrationOverUniverse } from '../lib/personaQuiz'
 import { loadPersonaQuiz } from '../lib/personaQuizStorage'
 import { shortModelName } from '../lib/modelNames'
+import { sumModelResponses } from '../lib/modelAttribution'
+import { SessionModelBadge } from './SessionModelBadge'
 import { cleanClaudeText } from '../lib/cleanClaudeText'
 import { maskSecrets } from '../lib/secretMask'
 import { buildModelIntensity, type ModelIntensity } from '../lib/modelIntensity'
@@ -65,7 +67,9 @@ import { GrowthSkillCurve } from './growth/GrowthSkillCurve'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { MemradarTopBar } from './MemradarTopBar'
+import { PersonalityRadar } from './PersonalityRadar'
 import { PersonalitySections } from './PersonalityView'
+import { UsageRadar } from './UsageRadar'
 import { WordCloud } from './WordCloud'
 import { analyzeLanguages, type LanguageScore } from '../lib/languageProfile'
 
@@ -1563,10 +1567,16 @@ export function Dashboard({
     return Math.round(total / entries.length)
   }, [stats])
 
-  const topModels = useMemo(
-    () => Object.entries(stats.modelsUsed).sort((a, b) => b[1] - a[1]),
-    [stats]
-  )
+  // 모델 도넛은 **소스 필터만** 따른다. 검색어·날짜 범위는 세션 목록 전용 탐색 도구라
+  // 분석 카드까지 따라가면 놀랍지만, 소스는 "지금 어느 어시스턴트를 보는가"라서
+  // Claude 로 걸어둔 화면에 gpt 막대가 남는 것은 명백히 틀렸다.
+  // 단위는 응답 수 — Stats.modelResponses 와 같은 함수를 쓴다 (카드 간 수치 드리프트 방지).
+  const topModels = useMemo(() => {
+    const scoped = sessionSourceFilter === 'all'
+      ? sessions
+      : sessions.filter((s) => s.source === sessionSourceFilter)
+    return Object.entries(sumModelResponses(scoped)).sort((a, b) => b[1] - a[1])
+  }, [sessions, sessionSourceFilter])
   const personaQuiz = useMemo(() => loadPersonaQuiz(), [])
   const topUsageCategories = useMemo(() => {
     const auto = analyzeUsageTopCategories(sessions, USAGE_CATEGORIES.length)
@@ -1718,11 +1728,8 @@ export function Dashboard({
               >
                 {sourceLabel}
               </span>
-              {session.model && (
-                <span className="rounded-full border border-green/25 bg-green/8 px-2 py-0.5 text-[10px] font-medium text-green">
-                  {shortModelName(session.model)}
-                </span>
-              )}
+              {/* 모델 구성 — 실측 42%의 세션이 여러 모델을 썼는데 목록에서는 단일로 보였다 */}
+              <SessionModelBadge session={session} placement="top" />
               {sessionTokenTotal > 0 && (
                 <span className="group relative inline-flex">
                   <span
@@ -1821,6 +1828,10 @@ export function Dashboard({
             <p className="mb-3 text-sm text-accent">{personality.subtitle}</p>
             <p className="mx-auto max-w-lg text-sm leading-relaxed text-text/70">{personality.description}</p>
 
+            <div className="mx-auto mt-5 flex justify-center">
+              <PersonalityRadar axes={personality.axes} locale={locale} size={220} />
+            </div>
+
             <div className="mx-auto mt-5 w-full max-w-md space-y-3 text-left">
               {axisOrder.map((key) => {
                 const axis = personality.axes[key]
@@ -1872,7 +1883,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="rounded-[26px] border border-border bg-bg-card p-5">
+        <div className="flex flex-col rounded-[26px] border border-border bg-bg-card p-5">
           <div className="mb-1 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="truncate text-lg font-bold text-text-bright">{aiRoleLabel}</h2>
@@ -1915,6 +1926,11 @@ export function Dashboard({
             </div>
           </div>
           <p className="mb-3 text-sm text-text/50">{aiRoleSummary}</p>
+          {topUsageCategories.length >= 3 && (
+            <div className="flex flex-1 items-center justify-center py-1">
+              <UsageRadar categories={topUsageCategories.slice(0, 6)} size={220} />
+            </div>
+          )}
           {topUsageCategories.length > 0 ? (
             <InteractiveRoleDonutChart
               categories={topUsageCategories}
@@ -2517,7 +2533,7 @@ export function Dashboard({
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value)}
             placeholder={sessionSearchPlaceholder}
-            className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-bright placeholder:text-text/30 focus:border-accent/50 focus:outline-none"
+            className="mb-3 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-bright placeholder:text-text/30 focus:border-accent/50 focus:outline-none"
           />
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] text-text/40">날짜</span>

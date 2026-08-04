@@ -10,6 +10,25 @@ export interface ProductUpdate {
 
 export const productUpdates: ProductUpdate[] = [
   {
+    id: '2026-08-03-model-attribution-per-response',
+    version: 'v4.2.0',
+    date: '2026-08-03',
+    title: '모델 통계 정확도 대수술 — 대화마다, 응답마다 "무슨 모델이었는지"',
+    summary:
+      '한 대화 안에서도 모델이 바뀔 수 있는데(실측: 대화의 42%가 혼합), 지금까지는 처음 만난 모델 하나로 대화 전체를 라벨링해 통계 절반이 어긋나 있었어요. 이제 AI가 실제로 답한 응답 단위로 정확히 집계하고, 각 응답 옆에 모델 필을 상시 표시합니다. "이 질문은 무슨 모델이 답했지?"가 hover 없이 바로 보여요.',
+    highlights: [
+      '대화 목록·상세 헤더에 모델 구성 배지 — "Opus 4.8 · Opus 5"처럼 쓴 모델 전부 표시, hover 시 모델별 응답 수·비중',
+      '각 AI 응답 옆에 모델 필 상시 표시 — 대화 중간에 바뀐 지점도 응답 단위로 정확히',
+      '모델이 바뀐 이유도 표시 — "사용량 한도" 같은 정규화된 분류로 (원문의 시간대 정보는 내보내기에 싣지 않음)',
+      '"사용한 모델" 도넛·Wrapped 모델 슬라이드가 응답 수 기준으로 — 세션당 1표의 왜곡 제거',
+      '대시보드 소스 필터가 모델 도넛에도 적용 — Claude로 거르면 gpt가 사라집니다',
+      '중단·한도초과 시스템 응답(<synthetic>)이 모델 통계·배지에 섞이던 오염 제거',
+      '검색 모델 필터 수정 — 그 모델이 답한 적 없는 내 프롬프트가 결과에 나오던 버그',
+      'Claude 5 계열 모델명 표기 정리 — claude-fable-5 → "Fable 5"',
+    ],
+    category: 'insight',
+  },
+  {
     id: '2026-07-05-empty-session-title-tooltip-personality-cta',
     version: 'v4.1.0',
     date: '2026-07-05',

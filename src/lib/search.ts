@@ -1,4 +1,5 @@
 import type { Session, ParsedMessage } from '../types'
+import { isAggregatableModel } from './modelAttribution'
 
 export interface SearchRecord {
   sessionId: string
@@ -54,7 +55,15 @@ export function buildSearchRecords(sessions: Session[]): SearchRecord[] {
         messageIndex: i,
         text: msg.text,
         role: msg.role,
-        model: msg.model || session.model,
+        // assistant 응답에만 모델을 붙인다. user 라인은 원본 JSONL 에 model 이 없어(실측 0건)
+        // 이 폴백이 모든 user 레코드에 세션 모델을 박았고, 그 결과 모델 필터가
+        // **그 모델이 답한 적 없는 내 프롬프트**를 반환했다.
+        // isAggregatableModel 게이트: synthetic-first 병합 블록은 model='<synthetic>' 을
+        // 대표값으로 갖는데, 이 raw 값이 SearchResults 메타 라인에 그대로 렌더되던
+        // 유일한 잔존 노출 지점이었다 (실측 레코드 30건). 술어는 한 곳에서만 정의된다.
+        model: msg.role === 'assistant'
+          ? [msg.model, session.model].find(isAggregatableModel)
+          : undefined,
         cwd: session.cwd,
         timestamp: msg.timestamp,
         tools: msg.toolUses,
@@ -186,12 +195,17 @@ export function extractFacets(sessions: Session[]): SearchFacets {
   const cwds = new Set<string>()
 
   for (const s of sessions) {
-    if (s.model) models.add(s.model)
     if (s.cwd) cwds.add(s.cwd)
+    // facet 은 per-message 모델에서만 만든다. session.model 을 넣으면 실제로 답한 적 없는
+    // 모델이 선택지로 뜬다 — Codex 는 last-wins 라 마지막 turn_context 가 마지막 응답
+    // 이후 도착할 수 있고, 실측 1세션이 그 상태다. 선택해도 결과가 0건인 유령 항목이 된다.
     for (const m of s.messages) {
-      if (m.model) models.add(m.model)
-      for (const t of m.toolUses) tools.add(t)
+      if (m.role !== 'assistant') continue
+      if (isAggregatableModel(m.model)) models.add(m.model)
+      // 병합 블록 안에 갇힌 전환도 선택지에 포함 (블록의 대표 모델만으로는 누락된다)
+      if (m.models) for (const inner of m.models) models.add(inner)
     }
+    for (const m of s.messages) for (const t of m.toolUses) tools.add(t)
   }
 
   return {

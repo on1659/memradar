@@ -1,5 +1,6 @@
 import type { ParsedMessage, Session, TokenUsage } from '../types'
 import type { Provider } from './types'
+import { createModelResponseCounter, isAggregatableModel } from '../lib/modelAttribution'
 
 interface CodexRecord {
   timestamp?: string
@@ -65,6 +66,8 @@ function parseTotalTokenUsage(payload: Record<string, unknown> | undefined): Tok
 
 function mergeConsecutiveMessages(messages: ParsedMessage[]): ParsedMessage[] {
   const merged: ParsedMessage[] = []
+  // merged 와 같은 인덱스 — 블록별 등장 순 distinct 모델 누산기 (src/parser.ts 와 동일 규칙)
+  const blockModels: string[][] = []
 
   for (const message of messages) {
     const previous = merged[merged.length - 1]
@@ -73,6 +76,8 @@ function mergeConsecutiveMessages(messages: ParsedMessage[]): ParsedMessage[] {
       previous.timestamp = previous.timestamp || message.timestamp
       previous.toolUses = [...previous.toolUses, ...message.toolUses]
       if (!previous.model && message.model) previous.model = message.model
+      const bm = blockModels[blockModels.length - 1]
+      if (isAggregatableModel(message.model) && !bm.includes(message.model)) bm.push(message.model)
       continue
     }
 
@@ -81,6 +86,12 @@ function mergeConsecutiveMessages(messages: ParsedMessage[]): ParsedMessage[] {
       toolUses: [...message.toolUses],
       tokens: message.tokens ? { ...message.tokens } : undefined,
     })
+    blockModels.push(isAggregatableModel(message.model) ? [message.model] : [])
+  }
+
+  // 2종 이상인 블록에만 models 방출 — src/parser.ts 와 동일
+  for (let i = 0; i < merged.length; i++) {
+    if (blockModels[i].length >= 2) merged[i].models = blockModels[i]
   }
 
   return merged
@@ -96,6 +107,8 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
   let totalTokens: TokenUsage = { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 }
   let prevTotalTokens: TokenUsage = { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 }
   let pendingToolUses: string[] = []
+  // Codex 는 assistant response_item 1건 = 응답 1건 (Claude 처럼 라인이 쪼개지지 않아 dedupe 키가 없다)
+  const modelCounter = createModelResponseCounter()
 
   for (const line of lines) {
     try {
@@ -159,6 +172,7 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
       const normalizedText = payload.role === 'user' ? normalizeCodexUserText(textContent) : textContent.trim()
       if (!normalizedText && pendingToolUses.length === 0) continue
 
+      if (payload.role === 'assistant') modelCounter.add(model, null)
       rawMessages.push({
         role: payload.role,
         text: normalizedText,
@@ -175,6 +189,8 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
   const messages = mergeConsecutiveMessages(rawMessages).filter((message) => message.text.trim() || message.toolUses.length > 0)
   if (messages.length === 0) return null
 
+  const modelResponses = modelCounter.finalize()
+
   return {
     id: sessionId || fileName,
     fileName,
@@ -190,6 +206,7 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
       user: messages.filter((message) => message.role === 'user').length,
       assistant: messages.filter((message) => message.role === 'assistant').length,
     },
+    ...(modelResponses ? { modelResponses } : {}),
   }
 }
 

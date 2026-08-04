@@ -212,15 +212,22 @@ function multiProjectPersona(dayCount: number, cwds: [string, string]): Session[
 
 /**
  * 페르소나 7 — 모델 믹스 변화형. 이전 30일(03-02~03-31)·최근 30일(06-01~06-30, 앵커 06-30) 각 1세션/일.
- * multi 일은 메시지 레벨 'opus' + 세션 폴백 'sonnet' 2종, 나머지는 세션 폴백 'sonnet' 단일.
+ * multi 일은 assistant 메시지 레벨 'opus' + 세션 폴백 'sonnet' 2종, 나머지는 세션 폴백 'sonnet' 단일.
  * skipRecentDay 로 최근 활동일을 29일로 줄여 viable 경계 테스트 (앵커 06-30 은 유지 — 29 금지).
+ *
+ * 모델은 assistant 라인만 갖는다 — 원본 JSONL 의 user 라인에는 message.model 이 없다(실측 0건).
+ * 모든 날의 메시지 수·텍스트를 동일하게 고정하고 **모델만** 다르게 해서, ⑥ aiShareShift 등
+ * 다른 신호의 delta 가 0 으로 유지되도록 한다 (⑨ 가 topSignals 밖으로 밀리는 것을 방지).
  */
 function modelMixPersona(priorMultiDays: number, recentMultiDays: number, opts?: { skipRecentDay?: number }): Session[] {
   const mkDay = (day: string, multi: boolean): Session => {
-    const base = kstMsg('user', PLAIN_TEXT, day, 10)
-    const msgs: ParsedMessage[] = multi
-      ? [{ ...base, model: 'opus' }, kstMsg('user', PLAIN_TEXT, day, 10, 30)]
-      : [base]
+    const msgs: ParsedMessage[] = [
+      kstMsg('user', PLAIN_TEXT, day, 10),
+      multi
+        ? { ...kstMsg('assistant', PLAIN_TEXT, day, 10, 20), model: 'opus' } // 메시지 레벨
+        : kstMsg('assistant', PLAIN_TEXT, day, 10, 20),                      // 세션 폴백
+      kstMsg('assistant', PLAIN_TEXT, day, 10, 30),                          // 세션 폴백 (항상)
+    ]
     return makeSession('claude', msgs, { model: 'sonnet' })
   }
   const sessions: Session[] = []
@@ -698,11 +705,14 @@ test('감소 방향 — 0.5→0.2, lift 0.4 이지만 rankScore 2.5 로 top 진�
   assert.ok(fp.topSignals.some((s) => s.id === 'model-mix-shift'))
 })
 
-test('모델 폴백 — 메시지 레벨 model 과 세션 폴백이 한 날에 섞이면 2종으로 집계 (multi 일 성립 경로)', () => {
+test('모델 폴백 — assistant 메시지 레벨 model 과 세션 폴백이 한 날에 섞이면 2종으로 집계 (multi 일 성립 경로)', () => {
   // modelMixPersona 의 multi 일 구성 그대로 1일만 — ⑨ 분자 재료의 폴백 경로 검증
   const day = '2026-06-01'
-  const base = kstMsg('user', PLAIN_TEXT, day, 10)
-  const s = makeSession('claude', [{ ...base, model: 'opus' }, kstMsg('user', PLAIN_TEXT, day, 10, 30)], { model: 'sonnet' })
+  const s = makeSession('claude', [
+    kstMsg('user', PLAIN_TEXT, day, 10),
+    { ...kstMsg('assistant', PLAIN_TEXT, day, 10, 20), model: 'opus' },
+    kstMsg('assistant', PLAIN_TEXT, day, 10, 30),
+  ], { model: 'sonnet' })
   const signal = sig(fpOf([s]), 'model-mix-shift')
   assert.strictEqual(signal.numerator, 1)                // 활동 1일 중 1일이 모델 2+
   assert.strictEqual(signal.viable, false)               // 활동일 1 < 30 — 정직하게 미달

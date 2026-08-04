@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "memradar-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4799
+    },
+    {
+      "name": "memradar-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["cli/index.mjs", "--server"],
+      "port": 3939
+    }
+  ]
+}

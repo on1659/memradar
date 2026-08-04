@@ -211,3 +211,71 @@ test.describe('Hook Activity card', () => {
     await expect(page.locator('[data-hooks-pill]')).toHaveCount(0)
   })
 })
+
+// 모델 귀속 — docs/goal/model-attribution-per-message.md ⑧
+// 세션 모델 구성 배지: "여기서부터 바뀜" 마커가 아니라 "이 대화가 어떤 모델을 얼마나 썼는가"를
+// 토큰·비용 배지와 같은 패턴(압축 값 + hover 내역)으로 적는다.
+test.describe('Session model composition badge', () => {
+  const mixedSession = {
+    id: 'sess-mixed',
+    fileName: 'mixed.jsonl',
+    source: 'claude' as const,
+    startTime: '2026-04-05T14:00:00.000Z',
+    endTime: '2026-04-05T14:10:00.000Z',
+    totalTokens: { input: 100, output: 200, cachedInput: 0, cacheWriteInput: 0 },
+    messageCount: { user: 1, assistant: 2 },
+    model: 'claude-sonnet-4',
+    modelResponses: { 'claude-sonnet-4': 4, 'claude-opus-4-1': 2 },
+    messages: [
+      { role: 'user' as const, text: '이거 고쳐줘', timestamp: '2026-04-05T14:00:00.000Z', toolUses: [] },
+      {
+        role: 'assistant' as const,
+        // 실측 원문 그대로 — 타임존·리셋 시각이 들어 있다. 이 문자열이 픽스처에 실재해야
+        // 아래 '원문 미노출' 단언이 빈 단언이 아니게 된다: 트랜스크립트에는 남되
+        // 배지 툴팁(정규화 분류)에는 절대 나오면 안 되는 값.
+        text: "You've hit your session limit · resets 4:20am (Asia/Seoul)",
+        timestamp: '2026-04-05T14:01:00.000Z',
+        toolUses: [],
+        model: 'claude-sonnet-4',
+      },
+      {
+        role: 'assistant' as const,
+        text: '다른 모델이 이어서 답합니다',
+        timestamp: '2026-04-05T14:02:00.000Z',
+        toolUses: [],
+        model: 'claude-opus-4-1',
+        models: ['claude-opus-4-1', 'claude-sonnet-4'],
+      },
+    ],
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript((sessions) => {
+      ;(window as Window & { __MEMRADAR_SESSIONS__?: unknown }).__MEMRADAR_SESSIONS__ = sessions
+    }, [mixedSession])
+    await page.goto('/#dashboard', { waitUntil: 'domcontentloaded' })
+  })
+
+  test('세션 목록 배지가 쓴 모델을 모두 나열한다 (단일 모델처럼 보이지 않는다)', async ({ page }) => {
+    const badge = page.locator('span[class*="group/model"]').first()
+    await expect(badge).toBeVisible()
+    await expect(badge).toContainText('Sonnet 4')
+    await expect(badge).toContainText('Opus 4.1')
+  })
+
+  test('hover 내역에 모델별 응답 수·비중·전환 사유가 나온다 (원문 미노출)', async ({ page }) => {
+    const badge = page.locator('span[class*="group/model"]').first()
+    const tip = badge.locator('span').first()
+    await expect(tip).toContainText('4 응답')
+    await expect(tip).toContainText('2 응답')
+    await expect(tip).toContainText('모델 2종')
+    await expect(tip).toContainText('전환 사유')
+    // 정규화된 분류만 — 타임존이 든 원문이 산출물에 새면 안 된다
+    await expect(tip).not.toContainText('Asia/Seoul')
+  })
+
+  test('메시지 사이에 전환 마커를 넣지 않는다', async ({ page }) => {
+    await page.locator('span[class*="group/model"]').first().click({ force: true }).catch(() => {})
+    await expect(page.getByText(/여기부터|여기서부터/)).toHaveCount(0)
+  })
+})

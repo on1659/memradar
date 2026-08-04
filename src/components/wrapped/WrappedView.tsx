@@ -48,7 +48,7 @@ export function WrappedView({ sessions, onClose, onOpenPersonaQuiz }: WrappedVie
   )
 
   const topModel = useMemo(() => {
-    const sorted = Object.entries(stats.modelsUsed).sort((a, b) => b[1] - a[1])
+    const sorted = Object.entries(stats.modelResponses).sort((a, b) => b[1] - a[1])
     return sorted[0]?.[0] || 'Unknown'
   }, [stats])
 
@@ -121,7 +121,7 @@ export function WrappedView({ sessions, onClose, onOpenPersonaQuiz }: WrappedVie
     <CoverSlide key="cover" totalSessions={stats.totalSessions} />,
     <IntroSlide key="intro" firstDate={sortedSessions[0]?.startTime || ''} totalSessions={stats.totalSessions} />,
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
-    <ModelSlide key="model" modelsUsed={stats.modelsUsed} />,
+    <ModelSlide key="model" modelResponses={stats.modelResponses} />,
     <HoursSlide key="hours" stats={stats} />,
     <PersonalitySlide key="personality" personality={personality} />,
     <UsageSlide key="usage" sessions={sessions} calibration={personaCalibration} />,

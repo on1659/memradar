@@ -65,14 +65,22 @@
 ### Slide 4: Model — "Your Favorite Model"
 
 - 가장 많이 사용한 모델 1종 강조 + 상위 4개 비율 바
+- **집계 단위는 응답(response) 수** — `Stats.modelResponses`. 세션당 1표가 아니다.
+  Claude 는 distinct `requestId`, Codex 는 assistant `response_item` 1건이 응답 1건.
+  원시 라인(프로바이더 로깅 방식 차이)도 병합 블록(모델별 3.76배 편향)도 쓰지 않는다.
+- `<synthetic>`(중단·한도초과 시스템 응답)은 집계에서 제외된다 — 트랜스크립트 렌더는 유지.
+- 슬라이드 하단에 단위 영수증 1줄: 총 응답 수 + **서브에이전트 제외** 명시.
+  제외분이 포함분보다 크고, 포함 시 1·2위 격차가 88.7% 우위 → 3.1% 접전으로 바뀐다.
 - 모델 성격 라벨 (`getModelLabel`):
   - `opus` 계열 → "깊이를 추구하는 사색가"
   - `sonnet` 계열 → "효율과 균형의 달인"
   - `haiku` 계열 → "속도를 사랑하는 스프린터"
-  - 기타 → "다재다능한 코더"
+  - 기타 → "다재다능한 코더" (현재 `fable`·`gpt` 계열이 여기로 떨어진다 — 별도 트랙)
+- Wrapped 는 프로바이더 **통합** 랭킹이다 (전체 코퍼스 요약). 대시보드 도넛은 소스 필터를 따른다.
 
 구현: `src/components/wrapped/slides/ModelSlide.tsx`
-알고리즘: `src/lib/personality.ts` — `getModelLabel()`
+알고리즘: `cli/lib/modelAttribution.mjs` — `sumModelResponses()` / `src/lib/personality.ts` — `getModelLabel()`
+귀속 규칙 전체: `docs/goal/model-attribution-per-message.md`
 
 ### Slide 5: Hours — "Your Coding Hours"
 
@@ -106,7 +114,7 @@
 | EWM | 🏗️ | 만능 빌더 | All-round Builder |
 | EWS | 🌪️ | 카오스 크리에이터 | Chaos Creator |
 
-3축 라벨 (슬라이더 좌/우, 코드 문자):
+3축 라벨 (육각 레이더 좌/우 극, 코드 문자):
 
 | 축 | 좌(<0.5) | 우(≥0.5) | 코드 |
 |---|---|---|---|
@@ -118,7 +126,7 @@
 - Scope: 프로젝트 수/주 × 프로젝트 전환율 × 집중도
 - Rhythm: 세션 중앙값 × 시간대 엔트로피 × Deep/Quick 세션 비율
 
-슬라이더 라벨·핸들에는 한/영 툴팁이 달리며, `|axis.value − 0.5| < 0.04` 인 경우 "균형형 / Balanced" 로 표시된다. 카드에는 STRENGTHS / HEADS UP 블록이 따라붙는다. 블록 아래에는 면책 캡션 1줄(`대화 패턴 기반의 가벼운 성향 추정이에요. 정확한 성격 분석은 아닙니다.`)이 표시된다.
+3축의 양극을 12시부터 시계방향 6꼭짓점(설계자·유목민·마라토너·탐험가·한우물·스프린터)으로 펼친 **육각형 레이더**(`PersonalityRadar`)로 표시한다. 우극 v=value·좌극 v=1−value라 같은 축의 두 극이 지름으로 마주보고(합=1), 우세극(`raw ≥ 0.5 + 0.04`)은 진하게·균형(±0.04)은 흐리게 렌더된다. 색은 `var(--color-*)` 토큰이라 Wrapped 스코프(`.wrapped-surface`)에서 accent가 퍼플로 자동 적응한다. (구 3축 양방향 슬라이더/막대에서 교체됨.) 카드에는 STRENGTHS / HEADS UP 블록이 따라붙는다. 블록 아래에는 면책 캡션 1줄(`대화 패턴 기반의 가벼운 성향 추정이에요. 정확한 성격 분석은 아닙니다.`)이 표시된다.
 
 구현: `src/components/wrapped/slides/PersonalitySlide.tsx`
 알고리즘: `src/lib/personality.ts` — `computePersonality()`

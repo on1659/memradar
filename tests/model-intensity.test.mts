@@ -99,6 +99,28 @@ test('여러 모델 그룹화 + 세션 수 내림차순 정렬', () => {
   assert.strictEqual(out[1].model, 'model-a')
 })
 
+test('그룹 키는 dominant — session.model(first-wins)과 다르면 dominant 쪽으로 묶인다', () => {
+  // 구분력 확보: session.model='first' 인데 응답 다수는 'dominant' 인 세션.
+  // 그룹 키를 session.model 로 되돌리는 뮤턴트는 이 테스트에서 즉시 깨진다.
+  const s = session('claude-first', 4, { input: 100, output: 100 })
+  s.modelResponses = { 'claude-dominant': 9, 'claude-first': 1 }
+  const out = buildModelIntensity([s])
+  assert.strictEqual(out.length, 1)
+  assert.strictEqual(out[0].model, 'claude-dominant')
+  assert.strictEqual(out[0].sessionCount, 1) // 혼합 세션도 주 사용 모델 한 곳에만 계상
+})
+
+test('session.model 이 <synthetic> 인 세션 — modelResponses 있으면 실모델로, 없으면 제외', () => {
+  // 실측 2세션: 중단 안내가 첫 라인이라 first-wins 가 <synthetic> 이 된 경우
+  const rescued = session('<synthetic>', 2, { input: 10, output: 10 })
+  rescued.modelResponses = { 'claude-real': 5 }
+  const dropped = session('<synthetic>', 2, { input: 10, output: 10 })
+  const out = buildModelIntensity([rescued, dropped])
+  assert.strictEqual(out.length, 1)
+  assert.strictEqual(out[0].model, 'claude-real')
+  assert.strictEqual(out[0].sessionCount, 1) // synthetic-only 세션은 그룹 자체가 없다
+})
+
 test('상위 N(기본 5) 제한', () => {
   const sessions = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((m) =>
     session(m, 1, { input: 1, output: 1 })

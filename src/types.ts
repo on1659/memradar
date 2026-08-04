@@ -1,4 +1,5 @@
 import type { SessionHookSummary, HookOutcomeCounts } from '../cli/lib/hookExtract.mjs'
+import type { ModelResponseCounts } from '../cli/lib/modelAttribution.mjs'
 
 export type SessionSource = 'claude' | 'codex'
 
@@ -11,6 +12,9 @@ export type {
   SessionHookSummary,
   HookExecutionDetail,
 } from '../cli/lib/hookExtract.mjs'
+
+// 모델 귀속 스키마의 단일 소스는 cli/lib/modelAttribution.d.mts (같은 경계 계약).
+export type { ModelResponseCounts } from '../cli/lib/modelAttribution.mjs'
 
 export interface TokenUsage {
   input: number
@@ -25,6 +29,11 @@ export interface RawMessage {
   uuid?: string
   timestamp?: string
   sessionId?: string
+  /**
+   * 한 응답(thinking/text/tool_use 여러 라인)이 공유하는 식별자 — 모델 집계의 응답 단위 키.
+   * 집계 중복 제거에만 쓰고 Session 에는 직렬화하지 않는다 (정적 임베드는 공유 가능한 단일 파일).
+   */
+  requestId?: string
   isSidechain?: boolean
   isMeta?: boolean
   message?: {
@@ -71,6 +80,12 @@ export interface ParsedMessage {
   text: string
   timestamp: string
   model?: string
+  /**
+   * 병합 블록 안에 2종 이상 모델이 갇힌 경우의 등장 순 distinct 목록 (2종 이상일 때만 방출).
+   * 연속 assistant 병합은 비가역이라 model 하나로는 블록 내부 전환을 표현할 수 없다.
+   * 실측 869블록 중 5블록에만 존재 — 나머지는 필드 자체가 없다.
+   */
+  models?: string[]
   tokens?: TokenUsage
   toolUses: string[]
   toolCalls?: ToolCall[]
@@ -86,7 +101,19 @@ export interface Session {
   endTime: string
   cwd?: string
   version?: string
+  /**
+   * 레거시 표시·폴백용 대표 모델 — Claude 는 처음 만난 모델, Codex 는 마지막 turn_context.
+   * **의미 동결**: 가격 폴백(tokenPricing.ts), export 산출물 3종, 검색 필터가 단일 계약값으로
+   * 읽는다. 실제 모델 구성은 modelResponses 를, 최다 모델은 dominantModel() 을 쓸 것.
+   */
   model?: string
+  /**
+   * 모델별 **응답** 수 (Claude=distinct requestId, Codex=assistant response_item).
+   * 병합 이전 raw 라인 루프에서 집계되며 `<synthetic>` 은 제외된다.
+   * 비어 있으면 필드 자체가 없다 — 소비처는 absent 를 no-data 로 관용 처리하고
+   * approximateModelResponses(messages) 로 폴백한다 (서버 모드 파서 갱신 시차·_truncated 세션).
+   */
+  modelResponses?: ModelResponseCounts
   totalTokens: TokenUsage
   messageCount: { user: number; assistant: number }
   /**
@@ -122,7 +149,12 @@ export interface Stats {
   totalMessages: number
   totalTokens: TokenUsage
   avgMessagesPerSession: number
-  modelsUsed: Record<string, number>
+  /**
+   * 모델별 **응답** 수 합계 (세션당 1표가 아니다 — 이름에 단위를 새겨 오해를 막는다).
+   * Session.modelResponses 를 합산할 뿐 재계산하지 않는다. `<synthetic>` 은 이미 제외돼 있다.
+   * Stats 는 런타임 계산값이라 직렬화되지 않으므로 개명에 하위호환 비용이 없다.
+   */
+  modelResponses: Record<string, number>
   toolsUsed: Record<string, number>
   hourlyActivity: number[]
   dailyActivity: Record<string, number>

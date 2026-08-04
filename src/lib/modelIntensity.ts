@@ -1,7 +1,8 @@
 import type { Session } from '../types'
+import { displayModel } from './modelAttribution'
 
 /**
- * 모델별 사용 강도 — 세션별 model 그룹화 후 세션당 user 턴 수·토큰 수의 평균.
+ * 모델별 사용 강도 — 세션을 **주 사용 모델(dominant)** 로 그룹화한 뒤 세션당 user 턴 수·토큰 수의 평균.
  *
  * React 없는 순수 함수 (codingRhythm.ts / languageProfile.ts 패턴). LLM/네트워크 호출 없음.
  * 문자열 카피는 리턴하지 않는다 — 모델 raw 이름 + 수치만 리턴하고, shortModelName 단축·
@@ -33,14 +34,20 @@ export interface ModelIntensity {
 }
 
 /**
- * 세션을 model 별로 그룹화해 세션당 평균 user 턴·토큰을 산출. 세션 수 내림차순 정렬 후 상위 limit.
- * model 이 빈 문자열/미상인 세션은 제외 (의미 있는 비교 대상 아님). 세션 0이면 빈 배열.
+ * 세션을 dominant 모델별로 그룹화해 세션당 평균 user 턴·토큰을 산출. 세션 수 내림차순 정렬 후 상위 limit.
+ * 모델 미상인 세션은 제외 (의미 있는 비교 대상 아님). 세션 0이면 빈 배열.
+ * 혼합 세션은 주 사용 모델 한 곳에만 계상된다 — 그래야 카드가 인쇄하는 "세션 N개" 합이
+ * 총 세션 수를 넘지 않는다 (중복 계상 시 라벨이 거짓이 됨).
  */
 export function buildModelIntensity(sessions: Session[], limit = 5): ModelIntensity[] {
   const groups = new Map<string, { sessionCount: number; totalTurns: number; totalTokens: number }>()
 
   for (const session of sessions) {
-    const model = session.model
+    // 그룹 키만 dominant 로 교체한다 (카드 스코프는 세션 그대로).
+    // 응답 단위로 재키잉하면 avgUserTurns 의 분모가 사라지고(user 턴은 어떤 모델에도
+    // 귀속되지 않는다) 혼합 세션이 중복 계상돼 카드가 인쇄하는 "세션 N개" 합이
+    // 총 세션 수를 넘어 라벨이 거짓이 된다. first/last-wins 오귀속만 제거한다.
+    const model = displayModel(session)
     if (!model) continue
     const group = groups.get(model) ?? { sessionCount: 0, totalTurns: 0, totalTokens: 0 }
     group.sessionCount++

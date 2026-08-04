@@ -1,3 +1,6 @@
+// 모델 귀속(src↔cli 파서 정합) assert 는 이 파일이 아니라 tests/model-attribution.test.mts 에
+// 있다 — 같은 정적 산출물을 생성해 modelResponses/models[] 동일성을 검증하며 test:harness 에
+// 등록되어 매 실행마다 돈다 (docs/goal/model-attribution-per-message.md ②).
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'

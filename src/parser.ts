@@ -1,5 +1,6 @@
 import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage, ToolCall, ToolResult, HookStats, HookAggregateRow, HookExecutionDetail } from './types'
 import { createHookCollector } from './lib/hookExtract'
+import { createModelResponseCounter, isAggregatableModel, sumModelResponses } from './lib/modelAttribution'
 
 export interface ParseOptions {
   includeToolDetails?: boolean
@@ -66,6 +67,9 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
   // summary(페이로드-프리)는 무조건 계산해 Session.hookSummary 로 붙는다 —
   // 업로드 경로도 옵션 없이 tier-1 을 얻는다 (Provider.parse 시그니처 불변).
   const hookCollector = createHookCollector()
+  // 모델 귀속은 **응답** 단위 — 병합 이전 raw 라인 루프에서 세야 한다.
+  // 병합은 비가역이라(라인 → 블록 13.17배) session.messages 에서 복원할 수 없다.
+  const modelCounter = createModelResponseCounter()
 
   for (const line of lines) {
     try {
@@ -96,6 +100,8 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
       if (!cwd && raw.cwd) cwd = raw.cwd
       if (!version && raw.version) version = raw.version
       if (!model && raw.message.model) model = raw.message.model
+      // requestId 로 같은 응답의 추가 라인(thinking/tool_use)을 접는다. `<synthetic>` 은 술어가 배제.
+      if (raw.message.role === 'assistant') modelCounter.add(raw.message.model, raw.requestId)
 
       const usage = raw.message.usage
       rawMessages.push({
@@ -122,6 +128,9 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
   if (rawMessages.length === 0) return null
 
   const messages: ParsedMessage[] = []
+  // messages 와 같은 인덱스 — 블록별 등장 순 distinct 모델 누산기.
+  // `<synthetic>` 은 담지 않는다(모델 축 배제 술어와 동일 기준). 2종 이상인 블록만 방출.
+  const blockModels: string[][] = []
   for (const msg of rawMessages) {
     const prev = messages[messages.length - 1]
     if (prev && prev.role === msg.role) {
@@ -142,6 +151,9 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
         prev.toolCalls = [...(prev.toolCalls || []), ...msg.toolCalls]
       }
       if (!prev.model && msg.model) prev.model = msg.model
+      // 블록 내부 모델 전환 보존 — model 하나로는 표현할 수 없다 (실측 869블록 중 5건)
+      const bm = blockModels[blockModels.length - 1]
+      if (isAggregatableModel(msg.model) && !bm.includes(msg.model)) bm.push(msg.model)
     } else {
       messages.push({
         ...msg,
@@ -149,7 +161,13 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
         toolUses: [...msg.toolUses],
         toolCalls: msg.toolCalls ? [...msg.toolCalls] : undefined,
       })
+      blockModels.push(isAggregatableModel(msg.model) ? [msg.model] : [])
     }
+  }
+
+  // 2종 이상인 블록에만 models 를 방출 — 나머지는 필드 자체가 없다 (직렬화 크기 + absent=단일)
+  for (let i = 0; i < messages.length; i++) {
+    if (blockModels[i].length >= 2) messages[i].models = blockModels[i]
   }
 
   // Estimate user message tokens from adjacent assistant input deltas
@@ -179,6 +197,7 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
   )
 
   const { summary: hookSummary } = hookCollector.finalize()
+  const modelResponses = modelCounter.finalize()
 
   return {
     id: sessionId || fileName,
@@ -197,6 +216,7 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
     },
     // undefined 면 필드 자체를 생략 (정적 임베드 직렬화 크기 + 버전 톨러런스)
     ...(hookSummary ? { hookSummary } : {}),
+    ...(modelResponses ? { modelResponses } : {}),
   }
 }
 
@@ -634,16 +654,14 @@ export function computeStats(sessions: Session[]): Stats {
   const hourlyActivity = new Array(24).fill(0)
   const dailyActivity: Record<string, number> = {}
   const dailyTokens: Record<string, number> = {}
-  const modelsUsed: Record<string, number> = {}
+  // 모델 랭킹은 응답 수 합산 — 정의는 modelAttribution 단일 소스 (대시보드 도넛과 동일 함수)
+  const modelResponses = sumModelResponses(sessions)
   const toolsUsed: Record<string, number> = {}
   const userWordCount: Record<string, number> = {}
   const assistantWordCount: Record<string, number> = {}
   let totalMessages = 0
 
   for (const session of sessions) {
-    if (session.model) {
-      modelsUsed[session.model] = (modelsUsed[session.model] || 0) + 1
-    }
 
     for (const msg of session.messages) {
       totalMessages++
@@ -722,7 +740,7 @@ export function computeStats(sessions: Session[]): Stats {
     totalMessages,
     totalTokens,
     avgMessagesPerSession: sessions.length > 0 ? Math.round(totalMessages / sessions.length) : 0,
-    modelsUsed,
+    modelResponses,
     toolsUsed,
     hourlyActivity,
     dailyActivity,

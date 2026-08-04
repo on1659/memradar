@@ -20,6 +20,16 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Session, ParsedMessage, ToolCall, ToolResult } from '../types'
 import { shortModelName } from './modelNames'
+import { displayModel } from './modelAttribution'
+
+/**
+ * export 산출물의 모델 라벨 — 표시 규칙은 displayModel 한 곳에서만 정의한다.
+ * `<synthetic>` 이 대표 모델로 잡히던 세션(실측 2건)에서 "Synthetic" 배지가 사라진다.
+ */
+function displayModelLabel(session: Session): string | null {
+  const model = displayModel(session)
+  return model ? shortModelName(model) : null
+}
 import { cleanClaudeText } from './cleanClaudeText'
 import { maskSecrets } from './secretMask'
 
@@ -364,7 +374,7 @@ export function buildMarkdown(session: Session, messages: ParsedMessage[]): stri
 
   const sourceLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const startedAt = session.startTime ? new Date(session.startTime).toLocaleString('ko-KR') : '-'
-  const modelLabel = session.model ? shortModelName(session.model) : '-'
+  const modelLabel = displayModelLabel(session) ?? '-'
 
   // 훅 실행 요약 — 페이로드-프리 집계 라인만 (command/stdout 구조적 부재)
   const hookLines = buildHookSummaryLines(session)
@@ -820,7 +830,7 @@ export function buildHtmlChat(session: Session, messages: ParsedMessage[]): stri
   const sourceLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const sourceClass = session.source === 'codex' ? 'codex' : 'claude'
   const startedAt = session.startTime ? new Date(session.startTime).toLocaleString('ko-KR') : '-'
-  const modelLabel = session.model ? shortModelName(session.model) : null
+  const modelLabel = displayModelLabel(session)
   const totalMessages = exportMessages.length
 
   const metaParts: string[] = [
@@ -1189,7 +1199,7 @@ export function buildHtmlMarkdown(session: Session, messages: ParsedMessage[]): 
   const exportMessages = toExportMessages(messages)
   const sourceLabel = session.source === 'codex' ? 'Codex' : 'Claude'
   const startedAt = session.startTime ? new Date(session.startTime).toLocaleString('ko-KR') : '-'
-  const modelLabel = session.model ? shortModelName(session.model) : '-'
+  const modelLabel = displayModelLabel(session) ?? '-'
   const totalMessages = exportMessages.length
 
   const messagesHtml = exportMessages

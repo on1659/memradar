@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { exec, spawn } from 'node:child_process'
 import { maskSecrets } from './lib/secretMask.mjs'
 import { createHookCollector } from './lib/hookExtract.mjs'
+import { createModelResponseCounter, isAggregatableModel } from './lib/modelAttribution.mjs'
 import { scanHooks, matchHookEntries, buildHookTelemetryRows, toPublicHookEntries, toServerHookEntries } from './lib/hookScan.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -340,6 +341,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
   // 훅 텔레메트리 수집 — src/parser.ts 와 동일 위치(role-drop 가드 직전) 배선.
   // light 경로는 페이로드-프리 summary 만 계산한다 (includeDetail 없음).
   const hookCollector = createHookCollector()
+  // 모델 귀속은 **응답** 단위 — 병합 이전 raw 라인 루프에서. src/parser.ts 와 동일 수집기.
+  const modelCounter = createModelResponseCounter()
 
   for (const line of lines) {
     try {
@@ -359,6 +362,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
       if (!cwd && raw.cwd) cwd = raw.cwd
       if (!version && raw.version) version = raw.version
       if (!model && raw.message.model) model = raw.message.model
+      // requestId 로 같은 응답의 추가 라인을 접는다. `<synthetic>` 은 술어가 배제.
+      if (raw.message.role === 'assistant') modelCounter.add(raw.message.model, raw.requestId)
 
       const usage = raw.message.usage
       rawMessages.push({
@@ -381,6 +386,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
   if (rawMessages.length === 0) return null
 
   const merged = []
+  // merged 와 같은 인덱스 — 블록별 등장 순 distinct 모델 누산기 (src/parser.ts 와 동일 규칙)
+  const blockModels = []
   for (const message of rawMessages) {
     const previous = merged[merged.length - 1]
     if (previous && previous.role === message.role) {
@@ -397,13 +404,22 @@ function parseClaudeJsonl(text, fileName, options = {}) {
       }
       previous.toolUses = [...previous.toolUses, ...message.toolUses]
       if (!previous.model && message.model) previous.model = message.model
+      // 블록 내부 모델 전환 보존 — src/parser.ts 와 동일 규칙
+      const bm = blockModels[blockModels.length - 1]
+      if (isAggregatableModel(message.model) && !bm.includes(message.model)) bm.push(message.model)
     } else {
       merged.push({
         ...message,
         tokens: message.tokens ? { ...message.tokens } : undefined,
         toolUses: [...message.toolUses],
       })
+      blockModels.push(isAggregatableModel(message.model) ? [message.model] : [])
     }
+  }
+
+  // 2종 이상인 블록에만 models 방출 — src/parser.ts 와 동일
+  for (let i = 0; i < merged.length; i++) {
+    if (blockModels[i].length >= 2) merged[i].models = blockModels[i]
   }
 
   applyTextCap(merged, options.messageTextCap)
@@ -415,6 +431,7 @@ function parseClaudeJsonl(text, fileName, options = {}) {
   }), { input: 0, output: 0, cachedInput: 0 })
 
   const { summary: hookSummary } = hookCollector.finalize()
+  const modelResponses = modelCounter.finalize()
 
   return {
     id: sessionId || fileName,
@@ -433,6 +450,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
     },
     // 페이로드-프리 tier-1 집계 — 훅 레코드가 없으면 필드 생략 (임베드 크기)
     ...(hookSummary ? { hookSummary } : {}),
+    // 모델별 응답 수 — 모델명 + 정수만 (식별자 없음)
+    ...(modelResponses ? { modelResponses } : {}),
   }
 }
 
@@ -475,6 +494,8 @@ function parseCodexJsonl(text, fileName, options = {}) {
   let model = ''
   let totalTokens = { input: 0, output: 0, cachedInput: 0 }
   let pendingToolUses = []
+  // Codex 는 assistant response_item 1건 = 응답 1건 (dedupe 키 없음). src/providers/codex.ts 와 동일.
+  const modelCounter = createModelResponseCounter()
 
   for (const line of lines) {
     try {
@@ -528,6 +549,7 @@ function parseCodexJsonl(text, fileName, options = {}) {
         model: record.payload.role === 'assistant' ? model : undefined,
         toolUses: pendingToolUses,
       })
+      if (record.payload.role === 'assistant') modelCounter.add(model, null)
       pendingToolUses = []
     } catch { }
   }
@@ -535,6 +557,8 @@ function parseCodexJsonl(text, fileName, options = {}) {
   if (rawMessages.length === 0) return null
 
   const merged = []
+  // merged 와 같은 인덱스 — 블록별 등장 순 distinct 모델 누산기 (src/parser.ts 와 동일 규칙)
+  const blockModels = []
   for (const message of rawMessages) {
     const previous = merged[merged.length - 1]
     if (previous && previous.role === message.role) {
@@ -542,16 +566,26 @@ function parseCodexJsonl(text, fileName, options = {}) {
       previous.timestamp = previous.timestamp || message.timestamp
       previous.toolUses = [...previous.toolUses, ...message.toolUses]
       if (!previous.model && message.model) previous.model = message.model
+      const bm = blockModels[blockModels.length - 1]
+      if (isAggregatableModel(message.model) && !bm.includes(message.model)) bm.push(message.model)
     } else {
       merged.push({
         ...message,
         toolUses: [...message.toolUses],
       })
+      blockModels.push(isAggregatableModel(message.model) ? [message.model] : [])
     }
+  }
+
+  // 2종 이상인 블록에만 models 방출 — src/parser.ts 와 동일
+  for (let i = 0; i < merged.length; i++) {
+    if (blockModels[i].length >= 2) merged[i].models = blockModels[i]
   }
 
   // codex 메시지는 보통 짧아 cap 없이도 부담이 작고, SessionView 의 lazy
   // fetch 패턴이 아직 claude 만 지원해서 codex 본문은 풀로 들고 있는다.
+
+  const modelResponses = modelCounter.finalize()
 
   return {
     id: sessionId || fileName,
@@ -568,6 +602,8 @@ function parseCodexJsonl(text, fileName, options = {}) {
       user: merged.filter((message) => message.role === 'user').length,
       assistant: merged.filter((message) => message.role === 'assistant').length,
     },
+    // 모델별 응답 수 — 모델명 + 정수만 (식별자 없음)
+    ...(modelResponses ? { modelResponses } : {}),
   }
 }
 

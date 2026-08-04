@@ -4,11 +4,12 @@ import { getModelLabel } from '../../../lib/personality'
 import { shortModelName } from '../../../lib/modelNames'
 
 interface Props {
-  modelsUsed: Record<string, number>
+  /** 모델별 **응답** 수 (세션당 1표가 아니다) — Stats.modelResponses */
+  modelResponses: Record<string, number>
 }
 
-export function ModelSlide({ modelsUsed }: Props) {
-  const sorted = Object.entries(modelsUsed).sort((a, b) => b[1] - a[1])
+export function ModelSlide({ modelResponses }: Props) {
+  const sorted = Object.entries(modelResponses).sort((a, b) => b[1] - a[1])
   const topModel = sorted[0]
   const total = sorted.reduce((a, [, c]) => a + c, 0)
 
@@ -51,6 +52,17 @@ export function ModelSlide({ modelsUsed }: Props) {
           )
         })}
       </div>
+
+      {/*
+        단위 영수증 — 막대는 라벨/바/% 3열로 폭 예산이 꽉 차 있어(DESIGN-GUIDE 폭 규칙)
+        정보를 막대 행에 얹지 않고 목록 아래 한 줄로 붙인다.
+        서브에이전트 제외를 명시하는 이유: 제외분이 포함분보다 크고, 포함 시 1·2위 격차가
+        88.7% 우위에서 3.1% 접전으로 바뀐다 — 밝히지 않으면 가장 큰 오차를 숨긴 채
+        "정확한 모델 귀속"을 광고하는 셈이 된다.
+      */}
+      <FadeInText delay={1.6} className="mt-7 max-w-xs text-center text-[10px] leading-relaxed text-text/35">
+        Based on {total.toLocaleString()} responses · main conversation only (subagents not counted)
+      </FadeInText>
     </SlideLayout>
   )
 }

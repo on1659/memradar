@@ -1,6 +1,7 @@
 import type { Session } from '../types'
 import { countWords, extractSkillNames, isStructured, matchRetryMarker, stripMarkup, toLocalDayKey } from '../parser'
 import { detectLanguageNames } from './languageProfile'
+import { isAggregatableModel } from './modelAttribution'
 import { extractProject } from './personality'
 
 /**
@@ -177,9 +178,15 @@ export function buildDailyCollab(
         }
         if (session.source === 'claude') day.hasClaudeSession = true
         for (const name of detectLanguageNames(msg.text)) day.languages.add(name)
-        // per-message model 우선, 없으면 세션 레벨 폴백 — 둘 다 없으면 미기록 (분모 오염 방지)
-        const model = msg.model ?? session.model
-        if (model) day.models.add(model)
+        // assistant 응답만 모델 축에 기여한다. 원본 JSONL 의 user 라인에는 message.model 이
+        // 없어(실측 0건) 이 폴백이 user 메시지마다 세션 모델을 주입했고, 그 결과
+        // collabFingerprint ⑨ 의 분자(day.models.size >= 2)가 부풀려져 있었다.
+        // per-message 우선 + 세션 폴백은 유지하고 role 게이트만 더한다 — 위 주석의
+        // "둘 다 없으면 미기록(분모 오염 방지)" 의도는 그대로다.
+        if (msg.role === 'assistant') {
+          const model = msg.model ?? session.model
+          if (isAggregatableModel(model)) day.models.add(model)
+        }
 
         if (msg.role === 'user') {
           day.userMessageCount++

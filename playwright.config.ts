@@ -2,6 +2,11 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
+  // e2e 는 *.spec.ts 만. tests/ 에는 node:assert 기반 단위 테스트(*.test.mts)가 함께 있는데,
+  // Playwright 의 기본 testMatch(**/*.@(spec|test).?(c|m)[jt]s?(x))가 그것들까지 수집해
+  // 수집 단계에서 실행해 버린다 — 그 파일들은 마지막에 process.exit() 를 호출하므로
+  // 수집 프로세스가 조기 종료되고, 실제로 `playwright test --list` 는 0건을 반환했다.
+  testMatch: '**/*.spec.ts',
   timeout: 30000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
