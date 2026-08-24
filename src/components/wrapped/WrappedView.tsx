@@ -8,6 +8,7 @@ import { analyzeUsageTopCategories, getUsageHeadline, USAGE_CATEGORIES } from '.
 import { applyCalibrationOverUniverse } from '../../lib/personaQuiz'
 import { loadPersonaQuiz } from '../../lib/personaQuizStorage'
 import { useI18n } from '../../i18n'
+import { NpmDownloadsNote } from '../NpmDownloadsNote'
 import { SYSTEM_ICONS } from '../../icons'
 import { CoverSlide } from './slides/CoverSlide'
 import { IntroSlide } from './slides/IntroSlide'
@@ -192,6 +193,19 @@ export function WrappedView({ sessions, onClose, onOpenPersonaQuiz }: WrappedVie
       <AnimatePresence mode="wait">
         {slides[slideIndex]}
       </AnimatePresence>
+
+      {/* 좌상단 chrome — 슬라이드가 아니라 표면 위 레이어라 "8장 고정" 제약과 무관하고,
+          ShareSlide 는 슬라이드 내부 cardRef 만 캡처하므로 공유 이미지에도 안 섞인다.
+          data-wrapped-control: handleSurfaceClick 의 INTERACTIVE_SELECTOR 에 걸려
+          이 영역 클릭이 슬라이드를 넘기지 않게 한다. */}
+      <div
+        className="absolute left-4 top-4 z-10 cursor-default text-xs"
+        data-wrapped-control="true"
+      >
+        <NpmDownloadsNote
+          buttonClassName="inline-flex items-center gap-1 text-white/40 transition-colors hover:text-white/70"
+        />
+      </div>
 
       <div
         className="absolute bottom-6 left-0 right-0 z-10 flex cursor-default items-center justify-center gap-4"

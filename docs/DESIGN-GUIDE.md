@@ -935,6 +935,10 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 - 테마 피커 같은 **큰 패널은 앱 셸 위 최상위 레이어**(`--dashboard-layer-popover` 또는 포털)로 렌더.
 - 작은 툴팁은 컴포넌트에 로컬 붙어도 되지만, **공유 툴팁 레이어 (`--dashboard-layer-tooltip`)** 를 따른다.
 - **모션 컨테이너의 `clipPath` 는 자식 툴팁을 잘라낸다.** framer-motion `inset(0 0 0% 0)` 은 끝 상태에서도 bbox 밖을 잘라내므로, 툴팁이 컨테이너 위/옆으로 솟구치는 영역에서는 `clipPath` 트랜지션을 쓰지 않는다 (대신 `y`/`opacity`/`filter` 로 어포던스).
+- **`?` 도움말 툴팁은 `src/components/HoverTooltip.tsx` 하나를 쓴다.** 예전엔 같은 코드가 `Dashboard.tsx`·`PersonalityView.tsx` 에 두 벌 복제돼 있었다. 새 호출부에서 조정할 축은 세 가지:
+  - `direction` — 기본 `'up'`. **화면 상단**에 놓인 트리거(상단바 등)나 `overflow` 클립 박스 안이면 `'down'`.
+  - `tooltipLayerClass` — 기본 `z-30`. 같은 스태킹 컨텍스트에 더 높은 형제가 있으면(상단바 버튼 클러스터 `z-[85]`) 공유 툴팁 레이어 `'dashboard-tooltip'`(z 95).
+  - `hoverClassName` — 이름 있는 group 을 쓸 때 **완성된 리터럴 문자열**로 넘긴다(`'group-hover/npm:opacity-100 …'`). 문자열을 조합해 만들면 Tailwind JIT 가 클래스를 생성하지 못해 hover 가 죽는다. 이름 없는 `group` 중첩은 조상 아무 `.group` 에나 걸리는 사고를 낸다.
 
 ### 10.5 테마 규칙
 
@@ -992,6 +996,8 @@ Wrapped 는 Memradar 의 상징적 경험이라 별도 섹션으로 다룬다. �
 | 사용 카테고리 9종 정의 | `src/lib/usageProfile.ts` | (USAGE_CATEGORIES 배열) |
 | 사용 카테고리 렌더링 | `src/components/PersonalityView.tsx` | PersonalitySections |
 | 훅 활동 카드 (자주 쓴 스킬 슬롯 대체) | `src/components/Dashboard.tsx` (`HookActivityCard`) | 도넛(GenericDonutChart)·팝오버·empty-state |
+| **`?` 도움말 툴팁 (공유 구현)** | `src/components/HoverTooltip.tsx` | `direction`·`hoverClassName`·`tooltipLayerClass` |
+| npm 다운로드 집계 줄 (공유 구현) | `src/components/NpmDownloadsNote.tsx` | 대시보드 상단바 · 코드 리포트 좌상단 chrome · 퀴즈 상단바 3곳에서 재사용 |
 
 ---
 

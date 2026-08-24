@@ -20,6 +20,7 @@ import {
 } from '../lib/personaQuiz'
 import { PERSONA_STATEMENTS, resolveStatements } from '../data/personaStatements'
 import { savePersonaQuiz, loadPersonaQuiz, clearPersonaQuiz } from '../lib/personaQuizStorage'
+import { NpmDownloadsNote } from './NpmDownloadsNote'
 
 interface PersonaQuizViewProps {
   sessions: Session[]
@@ -207,8 +208,14 @@ export function PersonaQuizView({ sessions, onClose }: PersonaQuizViewProps) {
           <ArrowLeft className="h-4 w-4" />
           <span>{isKorean ? '대시보드로' : 'Dashboard'}</span>
         </button>
-        <div className="text-sm font-semibold tracking-wide text-text/60">
-          {isKorean ? '내 페르소나 진단' : 'My Persona Quiz'}
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="text-sm font-semibold tracking-wide text-text/60">
+            {isKorean ? '내 페르소나 진단' : 'My Persona Quiz'}
+          </div>
+          {/* align="right": 상단바 오른쪽 끝이라 왼쪽 정렬이면 뷰포트 밖으로 나간다 */}
+          <div className="text-xs">
+            <NpmDownloadsNote align="right" />
+          </div>
         </div>
       </div>
 

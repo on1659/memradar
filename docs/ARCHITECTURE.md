@@ -183,9 +183,15 @@ Claude Code 세션 JSONL 의 훅 텔레메트리(`{type:"attachment", attachment
    - `GET /api/session-content` — 개별 세션 원본 콘텐츠
    - `GET /api/skills` — 스킬 인벤토리
    - `GET /api/hooks` — 훅 설정 인벤토리 + 관측 매칭 (command 는 maskSecrets 적용, loopback 전용)
+   - `GET /api/npm-stats` — npm 공개 다운로드 집계 (기동 시 1회 받아둔 값을 그대로 반환, 미조회/실패 시 `null`)
 3. 시작 시 `registry.npmjs.org` 에서 최신 버전을 비동기로 확인 (세션 데이터 미포함 — `--no-update-check` 플래그 또는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 로 생략 가능) — 새 버전이 감지되면 `npx --yes memradar@<latest>` 로 child 를 띄워 자동 재실행한 뒤 본 프로세스를 종료한다. child 에는 `MEMRADAR_SKIP_UPDATE_CHECK=1` 을 주입해 자기 자신을 또 업데이트하려 시도하지 않게 한다 — npx 캐시가 옛 버전이면 재귀 spawn 으로 무한 재시도가 되던 문제를 회피한다
+3-1. 같은 시점에 `api.npmjs.org` 에서 **공개 다운로드 집계**를 비동기로 조회한다 (`fetchNpmDownloads`). 최초 배포일부터 오늘까지를 12개월 단위로 끊어(point API 의 18개월 상한 회피) 병렬 요청하고 합산하며, **한 조각이라도 실패하면 부분합을 쓰지 않고 `null`** 을 반환한다 — 틀린 수보다 없는 편이 낫다. 위 업데이트 체크와 **같은 스위치**로 꺼진다(둘 다 npm 을 향하므로 스위치를 하나로 유지). 결과는 "지금까지 N번 불려나왔어요" 한 줄(`NpmDownloadsNote`)에만 쓰이며, 대시보드 상단바·코드 리포트 좌상단 chrome·페르소나 퀴즈 상단바 세 곳에서 같은 컴포넌트를 재사용한다 (코드 리포트는 **슬라이드가 아니라 표면 위 chrome** 이라 "8장 고정" 제약과 무관하고, `ShareSlide` 는 슬라이드 내부 `cardRef` 만 캡처하므로 공유 이미지에 섞이지 않는다)
 4. `MEMRADAR_NO_OPEN=1` 이 아니면 기본 브라우저를 자동 오픈
-5. `--static` 모드(기본값) 에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `os.tmpdir()/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__`, 훅 설정 인벤토리(공개 형태 — command 원문·filePath 미포함, 비가역 commandKey 만)는 `window.__MEMRADAR_HOOKS__` 로 인라인 주입된다. 직렬화는 세션을 하나씩 스트리밍 방식으로 디스크에 기록해 V8 max string length(~512MB) 한계를 회피한다. 출력 HTML 이 200MB 를 넘으면 브라우저 부담 안내 + 서버 모드 권장 메시지를 출력하고 자동 열기는 생략한다
+5. `--static` 모드(기본값) 에서는 단일 HTML 파일을 `MEMRADAR_OUTPUT_HTML`(기본 `os.tmpdir()/memradar.html`) 로 내보낸다. 세션 데이터는 `window.__MEMRADAR_SESSIONS__`, 스킬 정보는 `window.__MEMRADAR_SKILLS__`, npm 다운로드 집계는 `window.__MEMRADAR_NPM__`(객체 또는 `null`), 훅 설정 인벤토리(공개 형태 — command 원문·filePath 미포함, 비가역 commandKey 만)는 `window.__MEMRADAR_HOOKS__` 로 인라인 주입된다.
+
+   > **주입 순서 불변식** — `__MEMRADAR_HOOKS__` 는 `</script>` 직전 **마지막** 전역이어야 한다. `tests/hook-events.test.mts` 가 `window.__MEMRADAR_HOOKS__=` ~ `;</script>` 구간을 리터럴로 잘라 `JSON.parse` 하므로, 새 전역을 HOOKS 뒤에 붙이면 그 테스트가 엉뚱한 구간을 파싱해 깨진다. **새 전역은 반드시 HOOKS 앞에 끼워 넣을 것.** `tests/harness-cli.mjs` 가 이 순서를 가드한다.
+
+   집계 값을 브라우저가 직접 조회하지 않고 CLI 가 구워 넣는 이유: 정적 HTML 은 공유·오프라인 열람 대상이라 (1) 남의 HTML 을 여는 제3자가 외부 요청을 일으키면 안 되고 (2) `file://` 에서 CORS 에 걸린다. 직렬화는 세션을 하나씩 스트리밍 방식으로 디스크에 기록해 V8 max string length(~512MB) 한계를 회피한다. 출력 HTML 이 200MB 를 넘으면 브라우저 부담 안내 + 서버 모드 권장 메시지를 출력하고 자동 열기는 생략한다
 6. `--version` 플래그 지원
 
 출력된 HTML 은 파일 시스템(`file://`) 또는 배포된 URL 양쪽에서 동일하게 동작하도록 해시 라우팅을 쓴다.

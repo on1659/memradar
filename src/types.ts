@@ -220,6 +220,26 @@ export interface HookConfigPublicEntry {
   commandKey: string
 }
 
+// ── npm 공개 다운로드 집계 와이어 포맷 ──────────────────────────────────────
+
+/**
+ * 정적 임베드 `window.__MEMRADAR_NPM__` / 서버 `/api/npm-stats` 공통 형태.
+ *
+ * CLI 가 기동 시 api.npmjs.org 에서 받아 굽는 값이며 세션 파생값이 아니다 —
+ * 그래서 `Stats`(computeStats 순수 계산 결과)에 넣지 않고 별도 전역으로 둔다.
+ * `total` 은 **다운로드 횟수**이지 사용자 수가 아니다: npx 는 캐시가 없으면
+ * 매 실행마다 다시 받고 CI 도 매번 새로 받으므로 실제 사용자 수보다 크다.
+ * UI 카피는 이 사실을 숨기지 않아야 한다.
+ */
+export interface NpmDownloadStats {
+  /** since~until 구간 누적 다운로드 횟수 */
+  total: number
+  /** 집계 시작일 (YYYY-MM-DD, 최초 배포 직전) */
+  since: string
+  /** 집계 종료일 (YYYY-MM-DD, HTML 생성 시점) */
+  until: string
+}
+
 /** 서버 `/api/hooks` 엔트리 — command 는 maskSecrets 적용된 마스킹본 (loopback 전용) */
 export interface HookConfigServerEntry {
   event: string

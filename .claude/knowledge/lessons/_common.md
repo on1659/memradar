@@ -128,3 +128,10 @@
 - **함정**: SVG의 `fontSize`는 viewBox 좌표 단위라 `width={size}`로 축소 렌더하면 화면 실제 px = `fontSize·(size/V)`로 줄어든다. viewBox·size·fontSize가 컴포넌트마다 다르면 같은 `fontSize` 숫자라도 화면 크기가 제각각이라, 기존 레이더를 참고해 새로 만들 때 fontSize 숫자만 맞추면 실제로는 어긋난다. 라벨이 더 길수록(한글 역할명 등) 더 커야 하는데 오히려 작아지기도 한다. 코드/타입/린트로는 안 드러나고 렌더에서만 보인다.
 - **회피**: SVG 차트 라벨 폰트는 항상 **실제 렌더 px(=`fontSize·size/V`)로 환산해 형제 컴포넌트와 대조**한다. 목표 렌더 px를 먼저 정하고 fontSize를 역산(`fontSize = 목표px·V/size`). 라벨이 더 길면 목표 px를 키운다. 최종 검증은 실데이터 렌더를 브라우저 실측(`svg.getBoundingClientRect()`)으로. + 형제 카드에 나란히 놓을 땐 레이더 자체 size도 통일하고, 콘텐츠가 짧은 카드는 `flex-1`로 여백을 흡수해 카드 높이를 맞춘다.
 - **연관 파일/함수**: `src/components/UsageRadar.tsx`·`src/components/PersonalityRadar.tsx`(`fontSize`·`size`·`V`), 계열 `_common.md` L-7·L-14
+
+## L-17: Tailwind 이름 있는 group 변형은 완성된 리터럴 문자열이어야 한다 — 조합하면 purge돼 hover가 조용히 죽는다
+
+- **언제 만났나**: 2026-08-24, 상단바 npm 다운로드 집계 줄의 `?` 도움말 툴팁 추가 — 공유 `HoverTooltip` 이 툴팁 요소의 hover 클래스를 prop 으로 받게 만들면서, 호출부가 `group/npm` 이름을 쓰는데 컴포넌트가 클래스를 문자열로 조립하면 어떻게 되는지 확인이 필요했다.
+- **함정**: Tailwind 는 **소스 파일에 등장하는 클래스 문자열을 정적 스캔**해 CSS 를 생성한다. `group-hover/${name}:opacity-100` 처럼 템플릿 리터럴로 조립하거나 변수를 이어 붙이면 스캐너가 그 클래스를 못 보고, CSS 규칙이 아예 생성되지 않는다. 마크업에는 `class="group-hover/npm:opacity-100"` 이 멀쩡히 붙어 있고 타입·린트·빌드 전부 통과하므로, **hover 해도 아무 일이 안 일어나는 것으로만** 드러난다. 이름 없는 `group` 을 쓰면 이 문제는 없지만 대신 조상 아무 `.group` 에나 매칭되는 별개의 사고를 낸다(`SessionView.tsx:631-635`).
+- **회피**: 이름 있는 group 을 쓰는 호출부는 `'group-hover/npm:opacity-100 group-focus-within/npm:opacity-100'` 처럼 **완성된 리터럴**을 prop 으로 넘긴다 (컴포넌트 안에서 조립 금지). 검증은 **빌드된 CSS 를 직접 grep** 한다 — `grep -o 'group-hover\/npm[^{,]*' dist/assets/*.css`. 브라우저에서 `document.styleSheets` 를 순회하는 방식은 Tailwind v4 가 규칙을 `@layer` 안에 넣고 여러 셀렉터를 한 규칙으로 묶기 때문에 재귀 탐색이 놓치기 쉽고, "규칙이 없다"는 **거짓 음성**을 준다(실제로 이번에 한 번 속았다). DOM 쪽에서 확인하려면 `el.matches('.group-hover\/npm\:opacity-100')` 로 클래스 부착만 보고, 규칙 생성 여부는 CSS 파일에서 판단한다.
+- **연관 파일/함수**: `src/components/HoverTooltip.tsx`(`hoverClassName` prop), 호출부 `src/components/MemradarTopBar.tsx`, 대조 `src/components/SessionView.tsx:631-635`(이름 없는 group 사고), 가이드 `docs/DESIGN-GUIDE.md` §10.4

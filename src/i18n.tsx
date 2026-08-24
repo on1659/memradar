@@ -12,6 +12,12 @@ const translations = {
     'app.loading.status.wrapped': '당신의 코드 리포트를 준비하는 중',
     'app.loading.status.privacy': '데이터는 외부로 전송되지 않아요',
     'dashboard.subtitle': '{count}개의 세션에서 발견한 당신의 이야기',
+    // npm 공개 다운로드 집계. "사용자 수"가 아니라 "불려나온 횟수"로 적는 건
+    // 정확성 때문 — npx 는 캐시가 없으면 매번 다시 받으므로 사람 수보다 크다.
+    'dashboard.npmDownloads': '지금까지 {count}번 불려나왔어요',
+    'dashboard.npmDownloads.help.title': '이 숫자는 어디서 왔나요?',
+    'dashboard.npmDownloads.help.body':
+      'npm 이 공개하는 memradar 다운로드 집계예요. 이 화면을 만들 때 CLI 가 npm 공개 API 를 한 번 읽어온 값이고, 당신의 세션·기기·사용 기록은 어디로도 전송되지 않습니다. 내려받은 횟수라서 실제 사용자 수보다는 커요 — 같은 사람이 여러 번 받으면 그만큼 더해지거든요.',
     'dashboard.refresh': '세션 새로고침',
     'dashboard.news': '새소식',
     'dashboard.wrapped': '코드 리포트',
@@ -63,6 +69,10 @@ const translations = {
     'app.loading.status.wrapped': 'Preparing your Code Report',
     'app.loading.status.privacy': 'Your data never leaves your device',
     'dashboard.subtitle': 'Your story discovered across {count} sessions',
+    'dashboard.npmDownloads': 'summoned {count} times so far',
+    'dashboard.npmDownloads.help.title': 'Where does this number come from?',
+    'dashboard.npmDownloads.help.body':
+      "npm's public download count for memradar. The CLI read it once from npm's open API while building this page — none of your sessions, device info, or usage ever leaves your machine. It counts downloads, not people, so it runs higher than the real user count: the same person downloading again adds to it.",
     'dashboard.refresh': 'Refresh sessions',
     'dashboard.news': 'Updates',
     'dashboard.wrapped': 'Code Report',

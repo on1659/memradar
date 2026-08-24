@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { ArrowLeft, ArrowLeftRight, CircleHelp } from 'lucide-react'
 import type { Session } from '../types'
 import { computeStats } from '../parser'
@@ -7,6 +7,8 @@ import type { PersonalityResult, TypeCode, AxisKey } from '../lib/personality'
 import { USAGE_CATEGORIES, analyzeUsageTopCategories } from '../lib/usageProfile'
 import type { UsageCategoryScore } from '../lib/usageProfile'
 import { MemradarTopBar } from './MemradarTopBar'
+// 대시보드·상단바와 같은 구현 (예전엔 이 파일에 같은 코드가 복제돼 있었다).
+import { HoverTooltip } from './HoverTooltip'
 import { PERSONALITY_ICONS, ROLE_ICONS, type RoleIconKey } from '../icons'
 
 interface Props {
@@ -231,47 +233,6 @@ function UsageAllJobs({
         })}
       </div>
     </div>
-  )
-}
-
-function HoverTooltip({
-  children,
-  title,
-  description,
-  align = 'center',
-  wrapperClassName = 'group relative inline-flex',
-  buttonClassName = 'inline-flex',
-  tooltipWidthClass = 'w-56',
-}: {
-  children: ReactNode
-  title?: string
-  description: string
-  align?: 'left' | 'center' | 'right'
-  wrapperClassName?: string
-  buttonClassName?: string
-  tooltipWidthClass?: string
-}) {
-  const tooltipPositionClass =
-    align === 'left'
-      ? 'left-0'
-      : align === 'right'
-        ? 'right-0'
-        : 'left-1/2 -translate-x-1/2'
-
-  return (
-    <span className={wrapperClassName}>
-      <button type="button" className={buttonClassName}>
-        {children}
-      </button>
-      <span
-        className={`pointer-events-none absolute bottom-full z-30 mb-2 ${tooltipWidthClass} rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
-      >
-        {title && <span className="block font-semibold text-text-bright">{title}</span>}
-        <span className={title ? 'mt-1 block text-text/75' : 'block text-text'}>
-          {description}
-        </span>
-      </span>
-    </span>
   )
 }
 

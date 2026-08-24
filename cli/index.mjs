@@ -65,6 +65,64 @@ const updateCheckPromise = noUpdateCheck
   ? Promise.resolve(null)
   : checkForUpdate()
 
+// ─── npm 공개 다운로드 집계 ──────────────────────────────────────────
+// 대시보드 상단의 "지금까지 N번 불려나왔어요" 한 줄을 채우는 값.
+//
+// 프라이버시 계약: 세션·기기·경로 등 로컬 정보를 쿼리·헤더·바디 어디에도
+// 싣지 않는 단방향 GET 이다 (checkForUpdate 와 동일한 성격). 나가는 것은
+// "memradar 다운로드 수 얼마?" 질문뿐이고 들어오는 것은 숫자 하나다.
+// --no-update-check / MEMRADAR_SKIP_UPDATE_CHECK=1 로 업데이트 체크와 함께
+// 꺼진다 — 두 호출 모두 npm 을 향하므로 스위치를 하나로 유지한다.
+
+/** memradar 최초 배포(2026-04-13) 직전. 이보다 이른 구간은 npm 이 항상 0 으로 응답한다. */
+const NPM_STATS_SINCE = '2026-04-01'
+/** api.npmjs.org point API 는 18개월을 넘는 구간을 거부하므로 12개월씩 끊는다. */
+const NPM_STATS_CHUNK_MONTHS = 12
+
+const toIsoDay = (date) => date.toISOString().slice(0, 10)
+
+/** [start, end] ISO 날짜 쌍 목록 — 배포일부터 오늘까지를 API 한도 안쪽으로 분할. */
+function npmStatChunks(sinceIso, untilIso) {
+  const chunks = []
+  const until = new Date(`${untilIso}T00:00:00Z`)
+  let cursor = new Date(`${sinceIso}T00:00:00Z`)
+  while (cursor <= until) {
+    const stop = new Date(cursor)
+    stop.setUTCMonth(stop.getUTCMonth() + NPM_STATS_CHUNK_MONTHS)
+    stop.setUTCDate(stop.getUTCDate() - 1)
+    const end = stop > until ? until : stop
+    chunks.push([toIsoDay(cursor), toIsoDay(end)])
+    cursor = new Date(end)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return chunks
+}
+
+async function fetchNpmDownloads() {
+  const until = toIsoDay(new Date())
+  try {
+    const totals = await Promise.all(
+      npmStatChunks(NPM_STATS_SINCE, until).map(async ([start, end]) => {
+        const res = await fetch(`https://api.npmjs.org/downloads/point/${start}:${end}/memradar`, {
+          signal: AbortSignal.timeout(4000),
+        })
+        if (!res.ok) throw new Error(`npm stats ${res.status}`)
+        const data = await res.json()
+        if (typeof data?.downloads !== 'number') throw new Error('npm stats shape')
+        return data.downloads
+      })
+    )
+    // 한 조각이라도 실패하면 부분합을 내보내지 않는다 — 틀린 수보다 없는 편이 낫다.
+    return { total: totals.reduce((sum, n) => sum + n, 0), since: NPM_STATS_SINCE, until }
+  } catch {
+    return null
+  }
+}
+
+const npmDownloadsPromise = noUpdateCheck
+  ? Promise.resolve(null)
+  : fetchNpmDownloads()
+
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
 const isStaticMode = !process.argv.includes('--server')
@@ -291,13 +349,17 @@ function findJsonlFiles(dir, files = [], depth = 0) {
   return files
 }
 
+// exec() 로 띄운 런처는 부모가 곧바로 process.exit() 하면 실행 전에 죽는다 (win32 확인).
+// 정적 모드는 열자마자 종료하므로 반드시 이 Promise 를 await 해야 한다.
 function openBrowser(url) {
   const cmd = process.platform === 'win32'
     ? `start "" "${url}"`
     : process.platform === 'darwin'
       ? `open "${url}"`
       : `xdg-open "${url}"`
-  exec(cmd)
+  return new Promise((resolve) => {
+    exec(cmd, () => resolve())
+  })
 }
 
 // ─── Dist check ──────────────────────────────────────────────────────
@@ -764,6 +826,15 @@ if (!isStaticMode) {
     }
   }
 
+  // npm 공개 다운로드 집계 — CLI 기동 시 한 번 받아둔 값을 그대로 돌려준다.
+  // 브라우저가 api.npmjs.org 를 직접 부르지 않게 하려는 것 (정적 모드가 값을
+  // 구워 넣는 것과 같은 이유). 미조회/실패 시 null 이며 프론트는 no-data 처리.
+  async function handleNpmStats(_req, res) {
+    const stats = await npmDownloadsPromise
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.end(JSON.stringify(stats))
+  }
+
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname
 
@@ -771,6 +842,7 @@ if (!isStaticMode) {
     if (pathname === '/api/session-content') return handleSessionContent(req, res)
     if (pathname === '/api/light-sessions') return handleLightSessions(req, res)
     if (pathname === '/api/hooks') return handleHooks(req, res)
+    if (pathname === '/api/npm-stats') return handleNpmStats(req, res)
     if (pathname === '/api/skills') {
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(JSON.stringify(scanSkills()))
@@ -946,6 +1018,17 @@ if (!isStaticMode) {
     const safeSkills = escapeScript(JSON.stringify(skills))
     const safeJs = escapeScript(jsContent)
 
+    // npm 공개 다운로드 집계 — CLI 가 받아 값으로 굽는다. 정적 HTML 은 공유·
+    // 오프라인 열람 대상이라 브라우저가 api.npmjs.org 를 부르게 두면 (1) 남의
+    // HTML 을 여는 제3자가 외부 요청을 일으키고 (2) file:// CORS 에 걸린다.
+    let safeNpm = 'null'
+    try {
+      const npmStats = await npmDownloadsPromise
+      if (npmStats) safeNpm = escapeScript(JSON.stringify(npmStats))
+    } catch {
+      safeNpm = 'null'
+    }
+
     // 훅 설정 인벤토리 (공개 형태) — command 원문/filePath/timeout 미포함.
     // 정적 HTML 은 공유될 수 있으므로 비가역 다이제스트(commandKey)만 싣는다.
     let safeHooks = '[]'
@@ -998,7 +1081,10 @@ if (!isStaticMode) {
         fs.writeSync(fd, serialized)
       }
 
-      fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};window.__MEMRADAR_HOOKS__=${safeHooks};</script>
+      // __MEMRADAR_HOOKS__ 는 반드시 마지막 전역으로 남긴다 — tests/hook-events.test.mts
+      // 가 `window.__MEMRADAR_HOOKS__=` ~ `;</script>` 를 리터럴로 잘라 파싱한다.
+      // 새 전역은 그 앞(SKILLS 와 HOOKS 사이)에 끼워 넣을 것.
+      fs.writeSync(fd, `];window.__MEMRADAR_SKILLS__=${safeSkills};window.__MEMRADAR_NPM__=${safeNpm};window.__MEMRADAR_HOOKS__=${safeHooks};</script>
       <script type="module">`)
       fs.writeSync(fd, safeJs)
       fs.writeSync(fd, `</script>
@@ -1028,7 +1114,7 @@ if (!isStaticMode) {
     console.log()
 
     if (shouldOpenBrowser && !isHuge) {
-      openBrowser(outPath)
+      await openBrowser(outPath)
     } else if (shouldOpenBrowser && isHuge) {
       console.log(`  (자동 열기 생략 — 위 경로를 직접 열어보거나 서버 모드를 사용하세요)`)
       console.log()

@@ -10,7 +10,7 @@ import { useTheme } from './components/theme'
 import { detectAndParse } from './providers'
 import { useI18n } from './i18n'
 import { SYSTEM_ICONS } from './icons'
-import type { Session, HookConfigPublicEntry } from './types'
+import type { Session, HookConfigPublicEntry, NpmDownloadStats } from './types'
 
 declare global {
   interface Window {
@@ -22,6 +22,12 @@ declare global {
      * 로 폴백한다(서버). 소비자 없이 죽지 않게 카드에서 실제로 읽는다.
      */
     __MEMRADAR_HOOKS__?: HookConfigPublicEntry[]
+    /**
+     * 정적 임베드 npm 다운로드 집계 (cli/index.mjs 주입). 조회 실패·
+     * `--no-update-check` 시 `null`, 업로드(웹) 모드에는 아예 없다 —
+     * MemradarTopBar 가 `useNpmDownloads()` 로 소비하며 셋 다 no-data 로 관용 처리.
+     */
+    __MEMRADAR_NPM__?: NpmDownloadStats | null
   }
 }
 

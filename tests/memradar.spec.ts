@@ -212,6 +212,66 @@ test.describe('Hook Activity card', () => {
   })
 })
 
+test.describe('npm 다운로드 집계 줄', () => {
+  const claudeSessions = fixtureSessions.map((s) => ({
+    ...s,
+    source: (s.model && s.model.startsWith('gpt') ? 'codex' : 'claude') as 'claude' | 'codex',
+  }))
+
+  async function inject(page: import('@playwright/test').Page, npm: unknown) {
+    await page.addInitScript((data) => {
+      const w = window as Window & { __MEMRADAR_SESSIONS__?: unknown; __MEMRADAR_NPM__?: unknown }
+      w.__MEMRADAR_SESSIONS__ = data.sessions
+      // undefined 를 넣으면 "키 부재"가 아니라 "값이 undefined 인 키"가 되어
+      // 서버 폴백 분기를 못 타므로, 부재 케이스는 아예 대입하지 않는다.
+      if (data.npm !== undefined) w.__MEMRADAR_NPM__ = data.npm
+    }, { sessions: claudeSessions, npm })
+    await page.goto('/#dashboard', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: /Memradar/i })).toBeVisible()
+  }
+
+  test('집계가 있으면 상단바에 횟수 + 도움말 툴팁이 나온다', async ({ page }) => {
+    await inject(page, { total: 8346, since: '2026-04-01', until: '2026-08-24' })
+    // 천 단위 구분자 — 8346 이 아니라 8,346 으로 읽혀야 한다
+    await expect(page.getByText(/8,346번 불려나왔어요|summoned 8,346 times/)).toBeVisible()
+    // 툴팁 본문은 hover 전에도 DOM 에 있으나 opacity 0 — "전송되지 않는다"는
+    // 문구가 실제로 실려 있는지가 이 기능의 핵심 약속이라 존재를 확인한다.
+    await expect(
+      page.getByText(/어디로도 전송되지 않습니다|ever leaves your machine/)
+    ).toBeAttached()
+    // 다운로드 ≠ 사용자 수라는 단서도 반드시 함께 실린다 (수치 과대 해석 방지).
+    await expect(
+      page.getByText(/실제 사용자 수보다는 커요|counts downloads, not people/)
+    ).toBeAttached()
+  })
+
+  test('집계가 null 이면 줄 자체를 숨긴다 (0 으로 폴백하지 않는다)', async ({ page }) => {
+    // --no-update-check / 조회 실패 경로. "0번 불려나왔어요"는 사실과 다른 말이다.
+    await inject(page, null)
+    await expect(page.getByText(/불려나왔어요|summoned/)).toHaveCount(0)
+    await expect(page.getByText(/0번 불려나왔어요|summoned 0 times/)).toHaveCount(0)
+  })
+
+  // 사용자가 HTML 을 열면 대시보드가 아니라 코드 리포트(wrapped)로 먼저 떨어진다.
+  // 상단바가 없는 화면이라 한때 여기서만 집계 줄이 안 보였다 — 그 회귀를 막는다.
+  test('대시보드 밖(코드 리포트 화면)에서도 보인다', async ({ page }) => {
+    await page.addInitScript((data) => {
+      const w = window as Window & { __MEMRADAR_SESSIONS__?: unknown; __MEMRADAR_NPM__?: unknown }
+      w.__MEMRADAR_SESSIONS__ = data.sessions
+      w.__MEMRADAR_NPM__ = data.npm
+    }, { sessions: claudeSessions, npm: { total: 8346, since: '2026-04-01', until: '2026-08-24' } })
+    await page.goto('/#wrapped', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/8,346번 불려나왔어요|summoned 8,346 times/)).toBeVisible()
+  })
+
+  test('버전 톨러런스 — 전역도 /api/npm-stats 도 없으면 조용히 생략', async ({ page }) => {
+    await page.route('**/api/npm-stats', (route) => route.fulfill({ status: 404, body: '' }))
+    await inject(page, undefined)
+    await expect(page.getByRole('heading', { name: /Memradar/i })).toBeVisible()
+    await expect(page.getByText(/불려나왔어요|summoned/)).toHaveCount(0)
+  })
+})
+
 // 모델 귀속 — docs/goal/model-attribution-per-message.md ⑧
 // 세션 모델 구성 배지: "여기서부터 바뀜" 마커가 아니라 "이 대화가 어떤 모델을 얼마나 썼는가"를
 // 토큰·비용 배지와 같은 패턴(압축 값 + hover 내역)으로 적는다.

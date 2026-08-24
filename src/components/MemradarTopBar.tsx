@@ -3,6 +3,7 @@ import { Bell, RefreshCw } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { SYSTEM_ICONS } from '../icons'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { NpmDownloadsNote } from './NpmDownloadsNote'
 import { UpdatesPopover, latestProductUpdate } from './updates/ProductUpdates'
 
 const BLOG_URL = 'https://radarlog.kr'
@@ -96,8 +97,9 @@ export function MemradarTopBar({
             </a>
           </div>
           {brandNode}
-          <p className="mt-1 text-sm text-text">
-            {t('dashboard.subtitle', { count: sessionCount })}
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text">
+            <span>{t('dashboard.subtitle', { count: sessionCount })}</span>
+            <NpmDownloadsNote prefix={<span className="text-text/25" aria-hidden="true">·</span>} />
           </p>
         </div>
 

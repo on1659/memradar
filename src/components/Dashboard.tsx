@@ -68,6 +68,8 @@ import { GrowthSkillCurve } from './growth/GrowthSkillCurve'
 import { Heatmap } from './Heatmap'
 import { HourChart } from './HourChart'
 import { MemradarTopBar } from './MemradarTopBar'
+// 상단바·성향 화면과 같은 구현을 쓴다 (예전엔 파일마다 같은 코드가 복제돼 있었다).
+import { HoverTooltip as DashboardHoverTooltip } from './HoverTooltip'
 import { PersonalityRadar } from './PersonalityRadar'
 import { PersonalitySections } from './PersonalityView'
 import { UsageRadar } from './UsageRadar'
@@ -511,47 +513,6 @@ const DASHBOARD_PERSONALITY_PANEL_HELP = {
 
 const DASHBOARD_USAGE_CARD_HELP =
   '사용자 메시지에 자주 나온 요청 패턴을 바탕으로, AI가 어떤 역할을 많이 맡았는지 보여줘요. 키워드 기반 가벼운 추정이라, 정확한 분류는 아니에요.'
-
-function DashboardHoverTooltip({
-  children,
-  title,
-  description,
-  align = 'center',
-  wrapperClassName = 'group relative inline-flex',
-  buttonClassName = 'inline-flex',
-  tooltipWidthClass = 'w-56',
-}: {
-  children: ReactNode
-  title?: string
-  description: string
-  align?: 'left' | 'center' | 'right'
-  wrapperClassName?: string
-  buttonClassName?: string
-  tooltipWidthClass?: string
-}) {
-  const tooltipPositionClass =
-    align === 'left'
-      ? 'left-0'
-      : align === 'right'
-        ? 'right-0'
-        : 'left-1/2 -translate-x-1/2'
-
-  return (
-    <span className={wrapperClassName}>
-      <button type="button" className={buttonClassName}>
-        {children}
-      </button>
-      <span
-        className={`pointer-events-none absolute bottom-full z-30 mb-2 ${tooltipWidthClass} rounded-lg border border-border bg-bg-card px-3 py-2 text-left text-[11px] leading-relaxed text-text opacity-0 shadow-xl transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass}`}
-      >
-        {title && <span className="block font-semibold text-text-bright">{title}</span>}
-        <span className={title ? 'mt-1 block text-text/75' : 'block text-text'}>
-          {description}
-        </span>
-      </span>
-    </span>
-  )
-}
 
 /**
  * 영수증(receipts) 접힘 패턴 — 그날 이야기·AI 협업 지문 카드 공통.

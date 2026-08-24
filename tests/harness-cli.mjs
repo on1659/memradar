@@ -52,6 +52,33 @@ assert.match(html, /\[REDACTED:openai-key\]/, 'openai-key redaction token is mis
 assert.match(html, /\[REDACTED:github-token\]/, 'github-token redaction token is missing')
 assert.match(html, /Credential rotation drill with dummy secrets only/, 'Masked fixture must keep its non-secret prose embedded')
 
+// npm 다운로드 집계 전역은 항상 방출된다. 이 실행은 MEMRADAR_SKIP_UPDATE_CHECK=1
+// 이므로 조회를 건너뛰고 null 이어야 한다 — 테스트가 네트워크에 의존하지 않는
+// 근거이자, 게이팅이 풀려 테스트가 몰래 api.npmjs.org 를 부르기 시작하면 실패한다.
+assert.match(html, /window\.__MEMRADAR_NPM__=null;/, 'npm stats must be null when the update check is skipped')
+
+// 전역 주입 순서 계약: __MEMRADAR_HOOKS__ 가 </script> 직전 **마지막** 전역이어야
+// 한다. tests/hook-events.test.mts 가 `window.__MEMRADAR_HOOKS__=` ~ `;</script>`
+// 를 리터럴로 잘라 JSON.parse 하므로, 새 전역을 HOOKS 뒤에 붙이면 그 테스트가
+// 엉뚱한 구간을 파싱해 깨진다. 새 전역은 반드시 HOOKS 앞에 끼워 넣을 것.
+//
+// 정규식으로 두면 lazy 매칭이 뒤에 붙은 전역까지 삼켜 조용히 통과하므로,
+// hook-events.test.mts 와 **같은 방식으로 잘라 JSON.parse 까지** 해본다.
+{
+  const marker = 'window.__MEMRADAR_HOOKS__='
+  const start = html.indexOf(marker)
+  assert.ok(start >= 0, '__MEMRADAR_HOOKS__ marker is missing')
+  const end = html.indexOf(';</script>', start + marker.length)
+  assert.ok(end > start, '__MEMRADAR_HOOKS__ must be followed by ;</script>')
+  const sliced = html.slice(start + marker.length, end)
+  assert.doesNotMatch(
+    sliced,
+    /window\.__MEMRADAR_/,
+    '__MEMRADAR_HOOKS__ must stay the LAST injected global — insert new globals before it (hook-events.test.mts slices on it)'
+  )
+  assert.doesNotThrow(() => JSON.parse(sliced), '__MEMRADAR_HOOKS__ slice must be valid JSON')
+}
+
 assert.doesNotMatch(html, /<script[^>]+src="[^"]*assets\//i, 'CLI output should inline the JavaScript bundle')
 assert.doesNotMatch(html, /<link[^>]+href="[^"]*assets\/[^"]+\.css"/i, 'CLI output should inline the CSS bundle')
 assert.ok(html.length > 10000, `Generated HTML is unexpectedly small: ${html.length} bytes`)
@@ -86,5 +113,8 @@ assert.doesNotMatch(flagStdout, /새 버전 감지/, '--no-update-check did not 
 assert.ok(fs.existsSync(flagOutPath), '--no-update-check run did not create an HTML file')
 const flagHtml = fs.readFileSync(flagOutPath, 'utf8')
 assert.match(flagHtml, /<title>Memradar<\/title>/, '--no-update-check run produced unexpected HTML')
+// --no-update-check 는 registry 조회뿐 아니라 npm 다운로드 집계 조회도 함께 끈다
+// (두 호출 모두 npm 을 향하므로 스위치를 하나로 유지한다 — README Privacy 참조).
+assert.match(flagHtml, /window\.__MEMRADAR_NPM__=null;/, '--no-update-check must also suppress the npm download-count fetch')
 
 console.log('CLI harness checks passed.')
