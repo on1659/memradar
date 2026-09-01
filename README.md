@@ -5,12 +5,14 @@
 [![npm version](https://img.shields.io/npm/v/memradar.svg)](https://www.npmjs.com/package/memradar)
 [![license](https://img.shields.io/npm/l/memradar.svg)](./LICENSE)
 [![ci](https://github.com/on1659/memradar/actions/workflows/harness.yml/badge.svg)](https://github.com/on1659/memradar/actions/workflows/harness.yml)
+[![community](https://img.shields.io/badge/community-discussions-blue?logo=github)](https://github.com/on1659/memradar/discussions)
 
 Claude Code와 Codex 세션 로그를 로컬에서 시각화·회고하는 웹 도구. 한 줄이면 바로 대시보드가 열리고, 마지막엔 Spotify Wrapped 스타일의 **Code Report**로 자신의 코딩 스타일을 되돌아볼 수 있다.
 
 - 세션 로그는 **브라우저 안에서만 파싱**된다. 서버 업로드, 계정, 로그인 모두 없음.
 - 지원 로그: `~/.claude/projects/**/*.jsonl`, `~/.codex/sessions/**/*.jsonl`.
 - 웹 URL: https://memradar.vercel.app
+- 커뮤니티: https://github.com/on1659/memradar/discussions — Wrapped 자랑, 사용법 수다, 질문·아이디어 모두 환영.
 
 ---
 
