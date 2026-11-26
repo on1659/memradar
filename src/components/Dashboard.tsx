@@ -1778,7 +1778,8 @@ export function Dashboard({
       />
 
       <div className="dashboard-overview-grid animate-in mb-5">
-        <div className="h-full rounded-[26px] border border-border bg-bg-card p-5">
+        {/* 16유형 본문은 옆 카드보다 짧아서 위에 붙는다 — 카드 안에서 세로 가운데로 내린다 */}
+        <div className={`h-full rounded-[26px] border border-border bg-bg-card p-5${collabTypes16.length > 0 ? ' flex flex-col justify-center' : ''}`}>
           {/* 내 AI 16유형이 판정되면 그것을 보여 주고, 판정할 표본이 없을 때(대화가 적거나
               구버전 산출물)만 기존 성향 카드를 그린다. */}
           {collabTypes16.length > 0 ? (

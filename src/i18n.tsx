@@ -6,7 +6,7 @@ type Locale = typeof supportedLocales[number]
 const translations = {
   ko: {
     'app.loading.searching': '세션 파일 검색 중...',
-    'app.loading.progress': '세션 로딩 중... {loaded} / {total}',
+    'app.loading.progress': '세션 {total}개를 읽는 중... {loaded} / {total}',
     'app.loading.status.memory': '기억 조각을 정리하는 중',
     'app.loading.status.flow': '대화의 흐름을 펼치는 중',
     'app.loading.status.wrapped': '당신의 코드 리포트를 준비하는 중',
@@ -63,7 +63,7 @@ const translations = {
   },
   en: {
     'app.loading.searching': 'Searching session files...',
-    'app.loading.progress': 'Loading sessions... {loaded} / {total}',
+    'app.loading.progress': 'Reading {total} sessions... {loaded} / {total}',
     'app.loading.status.memory': 'Organizing memory fragments',
     'app.loading.status.flow': 'Unfolding conversation flow',
     'app.loading.status.wrapped': 'Preparing your Code Report',

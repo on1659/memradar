@@ -101,9 +101,31 @@ function App() {
       // 한 번 파싱해 messageTextCap=4000 적용한 결과를 메모리에 캐시하므로,
       // 클라이언트는 1500번 fetch 대신 1번으로 끝낸다.
       const url = fresh ? '/api/light-sessions?fresh=1' : '/api/light-sessions'
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('API not available')
-      const parsed: Session[] = await res.json()
+      // 서버가 세션 파일을 읽는 동안 "몇 개 중 몇 개째" 를 받아 온다 — 세션이 많으면 수십 초가 걸린다.
+      // 진행 표시는 없어도 되는 정보라 실패는 조용히 넘긴다.
+      const pollProgress = async () => {
+        try {
+          const progressRes = await fetch('/api/load-progress')
+          if (!progressRes.ok) return
+          const progress = await progressRes.json()
+          if (typeof progress?.loaded === 'number' && typeof progress?.total === 'number') {
+            setLoadProgress({ loaded: progress.loaded, total: progress.total })
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      const progressTimer = window.setInterval(pollProgress, 400)
+      let parsed: Session[]
+      try {
+        const sessionsRequest = fetch(url)
+        pollProgress()
+        const res = await sessionsRequest
+        if (!res.ok) throw new Error('API not available')
+        parsed = await res.json()
+      } finally {
+        window.clearInterval(progressTimer)
+      }
 
       if (parsed.length === 0) {
         setView({ type: 'drop' })
@@ -243,7 +265,7 @@ function App() {
         </div>
         <p className="text-sm text-text">
           {loadProgress.total > 0
-            ? t('app.loading.progress', { loaded: loadProgress.loaded, total: loadProgress.total })
+            ? t('app.loading.progress', { loaded: loadProgress.loaded.toLocaleString(), total: loadProgress.total.toLocaleString() })
             : t('app.loading.searching')}
         </p>
         <div className="loading-status-rotator h-5 text-xs text-text/50">

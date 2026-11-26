@@ -808,11 +808,16 @@ if (!isStaticMode) {
   // in memory. The pre-serialized string skips the per-request stringify cost
   // (≈1.7s for 1500 sessions / 24MB) so cache hits respond in tens of ms.
   let lightCachePromise = null
+  // 로딩 화면이 "몇 개 중 몇 개째" 를 보여 줄 수 있게 남기는 진행 상황 (세션 파일 수 기준).
+  // 세션이 많으면 첫 파싱에 수십 초가 걸려서, 숫자가 없으면 멈춘 것처럼 보인다.
+  const lightProgress = { loaded: 0, total: 0 }
 
   async function buildLightCache(textCap) {
     const filesByRoot = logRoots.flatMap((root) =>
       findJsonlFiles(root.dir).map((filePath) => ({ ...root, filePath }))
     )
+    lightProgress.total = filesByRoot.length
+    lightProgress.loaded = 0
     const sessions = []
     const concurrency = 32
     for (let i = 0; i < filesByRoot.length; i += concurrency) {
@@ -831,6 +836,7 @@ if (!isStaticMode) {
         }
       }))
       for (const s of results) if (s) sessions.push(s)
+      lightProgress.loaded = Math.min(i + concurrency, filesByRoot.length)
     }
     const json = JSON.stringify(sessions)
     return { sessions, json }
@@ -891,6 +897,11 @@ if (!isStaticMode) {
     if (pathname === '/api/sessions') return handleSessions(req, res)
     if (pathname === '/api/session-content') return handleSessionContent(req, res)
     if (pathname === '/api/light-sessions') return handleLightSessions(req, res)
+    if (pathname === '/api/load-progress') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify(lightProgress))
+      return
+    }
     if (pathname === '/api/hooks') return handleHooks(req, res)
     if (pathname === '/api/npm-stats') return handleNpmStats(req, res)
     if (pathname === '/api/skills') {
