@@ -11,6 +11,7 @@ import {
   CircleHelp,
   Cpu,
   Fingerprint,
+  Gauge,
   Lightbulb,
   LineChart,
   MessageSquare,
@@ -27,6 +28,8 @@ import type { HookConfigServerEntry, HookOutcomeCounts, HookStats, Session, Sess
 import { computeStats, toLocalDayKey } from '../parser'
 import { useI18n } from '../i18n'
 import { computePersonality } from '../lib/personality'
+import { buildCollabType16, type CollabType16 } from '../lib/collabType16'
+import { CollabType16Hero } from './CollabType16Card'
 import { analyzeUsageTopCategories, USAGE_CATEGORIES, type UsageCategoryScore } from '../lib/usageProfile'
 import {
   buildCodingRhythm,
@@ -62,6 +65,7 @@ import { buildModelIntensity, type ModelIntensity } from '../lib/modelIntensity'
 import { buildAuthorshipRatio } from '../lib/authorshipRatio'
 import { calculateSessionCost, calculateSourceCost, getSourceColor, getTokenTotals } from '../lib/tokenPricing'
 import { GrowthCoaching } from './growth/GrowthCoaching'
+import { UsageCoaching } from './growth/UsageCoaching'
 import { GrowthComplexity } from './growth/GrowthComplexity'
 import { GrowthRetry } from './growth/GrowthRetry'
 import { GrowthSkillCurve } from './growth/GrowthSkillCurve'
@@ -1351,6 +1355,13 @@ export function Dashboard({
 
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
+  const collabTypes16 = useMemo(
+    () =>
+      (['claude', 'codex'] as const)
+        .map((source) => buildCollabType16(sessions, source))
+        .filter((result): result is CollabType16 => result !== null),
+    [sessions]
+  )
   const PersonalityIcon = PERSONALITY_ICONS[personality.type]
   const [sessionFilterLocal, setSessionFilterLocal] = useState(filters?.sessionFilter ?? '')
   const [dateFromLocal, setDateFromLocal] = useState(filters?.dateFrom ?? '')
@@ -1768,6 +1779,11 @@ export function Dashboard({
 
       <div className="dashboard-overview-grid animate-in mb-5">
         <div className="h-full rounded-[26px] border border-border bg-bg-card p-5">
+          {/* 내 AI 16유형이 판정되면 그것을 보여 주고, 판정할 표본이 없을 때(대화가 적거나
+              구버전 산출물)만 기존 성향 카드를 그린다. */}
+          {collabTypes16.length > 0 ? (
+            <CollabType16Hero results={collabTypes16} theme={themeProps.theme} />
+          ) : (
           <div className="mx-auto w-full max-w-xl text-center">
             <div className="mb-3 flex items-center justify-center gap-2">
               <span
@@ -1853,6 +1869,7 @@ export function Dashboard({
             </div>
 
           </div>
+          )}
         </div>
 
         <div className="flex flex-col rounded-[26px] border border-border bg-bg-card p-5">
@@ -2419,6 +2436,21 @@ export function Dashboard({
           </p>
           <GrowthCoaching growth={stats.growth} />
         </div>
+        {/* 사용 습관 코칭 — 요청 단위 캐시·컨텍스트 신호는 Claude 로그에만 있다 (Codex 전용이면 카드 자체를 숨김) */}
+        {sourceSessions.claude.length > 0 && (
+          <div className="dashboard-card dashboard-card-tight animate-in dashboard-growth-card-coaching">
+            <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-text-bright">
+              <Gauge className="h-4 w-4 text-violet" />
+              {isKorean ? '사용 습관 코칭' : 'Usage Coaching'}
+            </h2>
+            <p className="mb-3 text-[11px] text-text/45">
+              {isKorean
+                ? 'Claude 세션의 토큰 기록으로 추정했어요 — 금액은 API 요금 기준 어림값이에요.'
+                : 'Estimated from token records in Claude sessions — amounts are rough API-price equivalents.'}
+            </p>
+            <UsageCoaching sessions={sourceSessions.claude} />
+          </div>
+        )}
       </div>
 
 

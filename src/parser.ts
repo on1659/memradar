@@ -1,6 +1,8 @@
 import type { RawMessage, ParsedMessage, Session, Stats, ContentBlock, TokenUsage, ToolCall, ToolResult, HookStats, HookAggregateRow, HookExecutionDetail } from './types'
 import { createHookCollector } from './lib/hookExtract'
 import { createModelResponseCounter, isAggregatableModel, sumModelResponses } from './lib/modelAttribution'
+import { createUsageSignalCollector } from './lib/usageSignals'
+import { createStyleSignalCollector } from './lib/styleSignals'
 
 export interface ParseOptions {
   includeToolDetails?: boolean
@@ -70,6 +72,13 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
   // 모델 귀속은 **응답** 단위 — 병합 이전 raw 라인 루프에서 세야 한다.
   // 병합은 비가역이라(라인 → 블록 13.17배) session.messages 에서 복원할 수 없다.
   const modelCounter = createModelResponseCounter()
+  // 사용 습관 신호(캐시 재작성·컨텍스트 크기·가벼운 턴)도 요청 단위라 병합 이전에 센다.
+  const usageCollector = createUsageSignalCollector()
+  // AI 협업 스타일 신호(턴의 첫 답·마지막 답·에이전트 호출)도 병합 이전에만 셀 수 있다.
+  const styleCollector = createStyleSignalCollector('claude')
+  // 응답 1건이 여러 라인으로 쪼개지고 모든 라인이 같은 usage 를 반복한다 —
+  // 라인마다 더하면 토큰이 약 1.6배로 부풀므로 requestId 당 한 번만 센다.
+  const countedUsage = new Set<string>()
 
   for (const line of lines) {
     try {
@@ -81,6 +90,8 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
       // 서브에이전트(sidechain) 훅은 위에서 제외됨 — 훅 집계는 부모 세션 것만
       // 다룬다(파서가 sidechain 콘텐츠를 전량 제외하는 것과 일관, 의도적).
       hookCollector.collect(raw)
+      usageCollector.collect(raw)
+      styleCollector.collect(raw)
       if (!raw.message?.role) continue
 
       const text = extractText(raw.message.content)
@@ -103,7 +114,11 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
       // requestId 로 같은 응답의 추가 라인(thinking/tool_use)을 접는다. `<synthetic>` 은 술어가 배제.
       if (raw.message.role === 'assistant') modelCounter.add(raw.message.model, raw.requestId)
 
-      const usage = raw.message.usage
+      let usage = raw.message.usage
+      if (usage && raw.requestId) {
+        if (countedUsage.has(raw.requestId)) usage = undefined
+        else countedUsage.add(raw.requestId)
+      }
       rawMessages.push({
         role: raw.message.role,
         text,
@@ -186,8 +201,10 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
     if (estimated > 0) msg.tokens = { input: estimated, output: 0, cachedInput: 0, cacheWriteInput: 0 }
   }
 
+  // 세션 합계는 assistant 응답의 실제 usage 만 더한다. user 메시지의 tokens 는 위에서 만든
+  // 표시용 추정치이고, 그 프롬프트는 이미 다음 응답의 input·캐시에 들어 있다 — 더하면 이중 계상이다.
   const totalTokens = messages.reduce(
-    (acc, m) => ({
+    (acc, m) => m.role !== 'assistant' ? acc : ({
       input: acc.input + (m.tokens?.input || 0),
       output: acc.output + (m.tokens?.output || 0),
       cachedInput: (acc.cachedInput || 0) + (m.tokens?.cachedInput || 0),
@@ -198,6 +215,8 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
 
   const { summary: hookSummary } = hookCollector.finalize()
   const modelResponses = modelCounter.finalize()
+  const usageSignals = usageCollector.finalize()
+  const styleSignals = styleCollector.finalize()
 
   return {
     id: sessionId || fileName,
@@ -217,6 +236,8 @@ export function parseJsonl(text: string, fileName: string, options: ParseOptions
     // undefined 면 필드 자체를 생략 (정적 임베드 직렬화 크기 + 버전 톨러런스)
     ...(hookSummary ? { hookSummary } : {}),
     ...(modelResponses ? { modelResponses } : {}),
+    ...(usageSignals ? { usageSignals } : {}),
+    ...(styleSignals ? { styleSignals } : {}),
   }
 }
 

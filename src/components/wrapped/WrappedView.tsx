@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, SkipForward, X } from 'lucide-react'
 import type { Session, Stats } from '../../types'
 import { computeStats } from '../../parser'
 import { computePersonality, getCodingTimeLabel } from '../../lib/personality'
+import { buildCollabType16, type CollabType16 } from '../../lib/collabType16'
 import { analyzeUsageTopCategories, getUsageHeadline, USAGE_CATEGORIES } from '../../lib/usageProfile'
 import { applyCalibrationOverUniverse } from '../../lib/personaQuiz'
 import { loadPersonaQuiz } from '../../lib/personaQuizStorage'
@@ -16,6 +17,7 @@ import { PromptsSlide } from './slides/PromptsSlide'
 import { ModelSlide } from './slides/ModelSlide'
 import { HoursSlide } from './slides/HoursSlide'
 import { PersonalitySlide } from './slides/PersonalitySlide'
+import { AiTypeSlide } from './slides/AiTypeSlide'
 import { UsageSlide } from './slides/UsageSlide'
 import { ShareSlide } from './slides/ShareSlide'
 
@@ -37,6 +39,14 @@ export function WrappedView({ sessions, onClose, onOpenPersonaQuiz }: WrappedVie
   const stats: Stats = useMemo(() => computeStats(sessions), [sessions])
   const personality = useMemo(() => computePersonality(sessions, stats), [sessions, stats])
   const codingTime = useMemo(() => getCodingTimeLabel(stats), [stats])
+  // "내 AI" 16유형 — 판정된 AI 만, 주로 쓴 쪽이 먼저. 하나도 없으면 기존 성향(8유형)을 보여 준다
+  const aiTypes = useMemo(
+    () => (['claude', 'codex'] as const)
+      .map((source) => buildCollabType16(sessions, source))
+      .filter((result): result is CollabType16 => result !== null)
+      .sort((a, b) => b.answers - a.answers),
+    [sessions]
+  )
 
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) => a.startTime.localeCompare(b.startTime)),
@@ -124,11 +134,14 @@ export function WrappedView({ sessions, onClose, onOpenPersonaQuiz }: WrappedVie
     <PromptsSlide key="prompts" totalPrompts={totalPrompts} />,
     <ModelSlide key="model" modelResponses={stats.modelResponses} />,
     <HoursSlide key="hours" stats={stats} />,
-    <PersonalitySlide key="personality" personality={personality} />,
+    aiTypes.length > 0
+      ? <AiTypeSlide key="personality" results={aiTypes} />
+      : <PersonalitySlide key="personality" personality={personality} />,
     <UsageSlide key="usage" sessions={sessions} calibration={personaCalibration} />,
     <ShareSlide
       key="share"
       personality={personality}
+      aiTypes={aiTypes}
       stats={stats}
       codingLabel={codingTime.label}
       topModel={topModel}

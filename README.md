@@ -105,6 +105,7 @@ npx memradar@latest --server --host 0.0.0.0  # 같은 네트워크 다른 기기
 ```
 
 - **HTML 모드 (기본)**: 모든 세션을 하나의 HTML 파일로 생성 후 브라우저로 열림. 서버 불필요.
+  - 세션 로그 합계가 100MB를 넘으면 자동으로 서버 모드로 열림. HTML 한 장으로 받으려면 `--force-static`.
 - **서버 모드**: `localhost:3939`에서 앱을 서빙. `Ctrl+C`로 종료. `--host 0.0.0.0` 또는 `--host 192.168.x.x`로 LAN 노출 가능 (보안 주의 — 공용 와이파이 등에서는 금지).
 - **웹사이트**: 설치 없이 [memradar.vercel.app](https://memradar.vercel.app)에서 `.jsonl` 파일 드래그&드롭. 모든 분석은 브라우저 안에서만 — 세션 데이터는 외부 서버로 전송되지 않음.
 

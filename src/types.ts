@@ -1,5 +1,7 @@
 import type { SessionHookSummary, HookOutcomeCounts } from '../cli/lib/hookExtract.mjs'
 import type { ModelResponseCounts } from '../cli/lib/modelAttribution.mjs'
+import type { SessionUsageSignals } from '../cli/lib/usageSignals.mjs'
+import type { SessionStyleSignals } from '../cli/lib/styleSignals.mjs'
 
 export type SessionSource = 'claude' | 'codex'
 
@@ -15,6 +17,11 @@ export type {
 
 // 모델 귀속 스키마의 단일 소스는 cli/lib/modelAttribution.d.mts (같은 경계 계약).
 export type { ModelResponseCounts } from '../cli/lib/modelAttribution.mjs'
+
+// 사용 습관 신호 스키마의 단일 소스는 cli/lib/usageSignals.d.mts (같은 경계 계약).
+export type { SessionUsageSignals, UsageModelSignals } from '../cli/lib/usageSignals.mjs'
+// AI 협업 스타일 신호 스키마의 단일 소스는 cli/lib/styleSignals.d.mts (같은 경계 계약).
+export type { SessionStyleSignals, StyleCue } from '../cli/lib/styleSignals.mjs'
 
 export interface TokenUsage {
   input: number
@@ -122,6 +129,18 @@ export interface Session {
    * 소비자는 absent 를 no-data 로 관용 처리해야 한다 (버전 톨러런스).
    */
   hookSummary?: SessionHookSummary
+  /**
+   * 사용 습관 신호 (캐시 재작성·컨텍스트 크기·가벼운 턴) — 요청 단위라 병합 이전에 집계된다.
+   * usage 기록이 없는 세션·Codex 세션·구버전 산출물에는 필드 자체가 없다 —
+   * 소비자는 absent 를 no-data 로 관용 처리해야 한다 (버전 톨러런스).
+   */
+  usageSignals?: SessionUsageSignals
+  /**
+   * AI 협업 스타일 신호 (에이전트 호출·확인/추측·감정 받아 주기·질문으로 끝내기) — 정수만.
+   * 사람이 직접 연 세션에만 붙는다. 스크립트·에이전트가 연 세션과 구버전 산출물에는
+   * 필드 자체가 없다 — 소비자는 absent 를 no-data 로 관용 처리해야 한다 (버전 톨러런스).
+   */
+  styleSignals?: SessionStyleSignals
 }
 
 export interface GrowthStats {
