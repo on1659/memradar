@@ -1,6 +1,7 @@
 import type { ParsedMessage, Session, TokenUsage } from '../types'
 import type { Provider } from './types'
 import { createModelResponseCounter, isAggregatableModel } from '../lib/modelAttribution'
+import { createStyleSignalCollector } from '../lib/styleSignals'
 
 interface CodexRecord {
   timestamp?: string
@@ -109,10 +110,13 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
   let pendingToolUses: string[] = []
   // Codex 는 assistant response_item 1건 = 응답 1건 (Claude 처럼 라인이 쪼개지지 않아 dedupe 키가 없다)
   const modelCounter = createModelResponseCounter()
+  // AI 협업 스타일 신호 — 턴의 첫 답·마지막 답은 병합 이전에만 셀 수 있다.
+  const styleCollector = createStyleSignalCollector('codex')
 
   for (const line of lines) {
     try {
       const record = JSON.parse(line) as CodexRecord
+      styleCollector.collect(record)
 
       if (record.type === 'session_meta') {
         const payload = record.payload || {}
@@ -190,6 +194,7 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
   if (messages.length === 0) return null
 
   const modelResponses = modelCounter.finalize()
+  const styleSignals = styleCollector.finalize()
 
   return {
     id: sessionId || fileName,
@@ -207,6 +212,7 @@ function parseCodexJsonl(text: string, fileName: string): Session | null {
       assistant: messages.filter((message) => message.role === 'assistant').length,
     },
     ...(modelResponses ? { modelResponses } : {}),
+    ...(styleSignals ? { styleSignals } : {}),
   }
 }
 

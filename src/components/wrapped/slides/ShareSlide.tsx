@@ -5,11 +5,17 @@ import { Camera, Download, MessageCircle, Send, Share2, Sparkles, X } from 'luci
 import { SlideLayout, FadeInText } from './SlideLayout'
 import { shortModelName } from '../../../lib/modelNames'
 import type { PersonalityResult, AxisKey } from '../../../lib/personality'
+import { TYPE16_POLES, type CollabType16 } from '../../../lib/collabType16'
+import { getSourceColor } from '../../../lib/tokenPricing'
 import type { Stats } from '../../../types'
 import { PERSONALITY_ICONS } from '../../../icons'
+import { useI18n } from '../../../i18n'
+import { POLE_LABEL, SOURCE_NAME, type16Nickname } from '../../collabType16Copy'
 
 interface Props {
   personality: PersonalityResult
+  /** "내 AI" 16유형 — 주로 쓴 AI 가 먼저. 비어 있으면 카드는 기존 성향(8유형)을 싣는다 */
+  aiTypes: CollabType16[]
   stats: Stats
   codingLabel: string
   topModel: string
@@ -21,6 +27,7 @@ type SharePlatform = 'threads'
 
 export function ShareSlide({
   personality,
+  aiTypes,
   stats,
   codingLabel,
   topModel,
@@ -33,6 +40,8 @@ export function ShareSlide({
   const [comingSoonOpen, setComingSoonOpen] = useState(false)
   const [shareStatus, setShareStatus] = useState<string | null>(null)
 
+  const { locale } = useI18n()
+  const isKorean = locale === 'ko'
   const axisOrder: AxisKey[] = ['style', 'scope', 'rhythm']
   const PersonalityIcon = PERSONALITY_ICONS[personality.type]
   const axisBarColors: Record<AxisKey, string> = {
@@ -40,6 +49,37 @@ export function ShareSlide({
     scope: '#22d3ee',
     rhythm: '#f59e0b',
   }
+
+  // 카드의 주인공은 주로 쓴 AI 하나 — 다른 AI 는 한 줄로 곁들인다
+  const [aiType, ...otherAiTypes] = aiTypes
+  const aiColor = aiType ? getSourceColor(aiType.source).text : ''
+  const aiTypeLine = (result: CollabType16) =>
+    `${SOURCE_NAME[result.source]} ${result.code} · ${type16Nickname(result.code, isKorean)}`
+  const i = isKorean ? 0 : 1
+  /** 축 막대 — AI 유형이면 네 축(소스 색), 아니면 기존 성향 세 축. active 가 null 이면 판정 보류라 채우지 않는다 */
+  const bars: { key: string; left: string; right: string; value: number; active: 'left' | 'right' | null; color: string }[] = aiType
+    ? aiType.axes.map((axis) => {
+        const [left, right] = TYPE16_POLES[axis.id]
+        return {
+          key: axis.id,
+          left: `${left} ${POLE_LABEL[left][i]}`,
+          right: `${POLE_LABEL[right][i]} ${right}`,
+          value: axis.value,
+          active: axis.letter === left ? 'left' : axis.letter === right ? 'right' : null,
+          color: aiColor,
+        }
+      })
+    : axisOrder.map((key) => {
+        const axis = personality.axes[key]
+        return {
+          key,
+          left: axis.label[0],
+          right: axis.label[1],
+          value: axis.value,
+          active: axis.value < 0.5 ? 'left' : 'right',
+          color: axisBarColors[key],
+        }
+      })
 
   const publicShareUrl = useMemo(() => {
     if (typeof window === 'undefined') return 'https://memradar.vercel.app/'
@@ -49,15 +89,13 @@ export function ShareSlide({
       : origin
   }, [])
 
-  const shareCaption = useMemo(
-    () => [
-      'My Memradar Code Report',
-      usageHeadline,
-      `${personality.title} - ${personality.subtitle}`,
-      personality.shareQuote,
-    ].join('\n'),
-    [personality.shareQuote, personality.subtitle, personality.title, usageHeadline]
-  )
+  const shareCaption = [
+    'My Memradar Code Report',
+    usageHeadline,
+    ...(aiType
+      ? aiTypes.map(aiTypeLine)
+      : [`${personality.title} - ${personality.subtitle}`, personality.shareQuote]),
+  ].join('\n')
 
   async function exportCardDataUrl() {
     if (!cardRef.current) return null
@@ -199,20 +237,51 @@ export function ShareSlide({
         }}
       >
         <div className="text-center">
-          <div className="mb-3 flex justify-center" style={{ color: '#e8e6f0' }}>
-            <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-              <PersonalityIcon size={46} aria-hidden="true" />
-            </span>
-          </div>
-          <div
-            className="font-display mb-1 text-[2.2rem] font-bold leading-none"
-            style={{ color: '#e8e6f0' }}
-          >
-            {personality.title}
-          </div>
-          <div className="mb-4 text-[15px]" style={{ color: '#7b6cf6' }}>
-            {personality.subtitle}
-          </div>
+          {aiType ? (
+            <>
+              <div style={{ marginBottom: '10px', fontSize: '11px', letterSpacing: '0.12em', color: aiColor }}>
+                {isKorean ? `내 ${SOURCE_NAME[aiType.source]}` : `My ${SOURCE_NAME[aiType.source]}`}
+              </div>
+              <div
+                className="font-display mb-2 text-[2.6rem] font-bold leading-none"
+                style={{ letterSpacing: '0.14em', marginRight: '-0.14em' }}
+              >
+                {aiType.axes.map((axis) => (
+                  <span
+                    key={axis.id}
+                    style={{ color: axis.borderline || axis.lowSample ? 'rgba(232,230,240,0.45)' : '#e8e6f0' }}
+                  >
+                    {axis.letter}
+                  </span>
+                ))}
+              </div>
+              <div className={otherAiTypes.length > 0 ? 'mb-1 text-[15px]' : 'mb-4 text-[15px]'} style={{ color: aiColor }}>
+                {type16Nickname(aiType.code, isKorean)}
+              </div>
+              {otherAiTypes.length > 0 && (
+                <div style={{ marginBottom: '16px', fontSize: '11px', color: 'rgba(232,230,240,0.45)' }}>
+                  {otherAiTypes.map(aiTypeLine).join(' / ')}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mb-3 flex justify-center" style={{ color: '#e8e6f0' }}>
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                  <PersonalityIcon size={46} aria-hidden="true" />
+                </span>
+              </div>
+              <div
+                className="font-display mb-1 text-[2.2rem] font-bold leading-none"
+                style={{ color: '#e8e6f0' }}
+              >
+                {personality.title}
+              </div>
+              <div className="mb-4 text-[15px]" style={{ color: '#7b6cf6' }}>
+                {personality.subtitle}
+              </div>
+            </>
+          )}
 
           <div
             style={{
@@ -226,12 +295,11 @@ export function ShareSlide({
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            {axisOrder.map((key) => {
-              const axis = personality.axes[key]
-              const pct = Math.round(axis.value * 100)
+            {bars.map((bar) => {
+              const pct = Math.round(bar.value * 100)
 
               return (
-                <div key={key} style={{ marginBottom: '10px' }}>
+                <div key={bar.key} style={{ marginBottom: '10px' }}>
                   <div
                     style={{
                       display: 'flex',
@@ -240,11 +308,11 @@ export function ShareSlide({
                       marginBottom: '4px',
                     }}
                   >
-                    <span style={{ color: axis.value < 0.5 ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}>
-                      {axis.label[0]}
+                    <span style={{ color: bar.active === 'left' ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}>
+                      {bar.left}
                     </span>
-                    <span style={{ color: axis.value >= 0.5 ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}>
-                      {axis.label[1]}
+                    <span style={{ color: bar.active === 'right' ? '#e8e6f0' : 'rgba(232,230,240,0.35)' }}>
+                      {bar.right}
                     </span>
                   </div>
                   <div
@@ -256,19 +324,21 @@ export function ShareSlide({
                       overflow: 'hidden',
                     }}
                   >
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        height: '100%',
-                        borderRadius: '3px',
-                        background: axisBarColors[key],
-                        opacity: 0.6,
-                        ...(pct >= 50
-                          ? { left: '50%', width: `${pct - 50}%` }
-                          : { right: '50%', width: `${50 - pct}%` }),
-                      }}
-                    />
+                    {bar.active && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          height: '100%',
+                          borderRadius: '3px',
+                          background: bar.color,
+                          opacity: 0.6,
+                          ...(pct >= 50
+                            ? { left: '50%', width: `${pct - 50}%` }
+                            : { right: '50%', width: `${50 - pct}%` }),
+                        }}
+                      />
+                    )}
                     <div
                       style={{
                         position: 'absolute',

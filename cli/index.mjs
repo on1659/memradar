@@ -9,6 +9,8 @@ import { exec, spawn } from 'node:child_process'
 import { maskSecrets } from './lib/secretMask.mjs'
 import { createHookCollector } from './lib/hookExtract.mjs'
 import { createModelResponseCounter, isAggregatableModel } from './lib/modelAttribution.mjs'
+import { createUsageSignalCollector } from './lib/usageSignals.mjs'
+import { createStyleSignalCollector } from './lib/styleSignals.mjs'
 import { scanHooks, matchHookEntries, buildHookTelemetryRows, toPublicHookEntries, toServerHookEntries } from './lib/hookScan.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -125,7 +127,6 @@ const npmDownloadsPromise = noUpdateCheck
 
 const distDir = path.join(__dirname, '..', 'dist')
 const shouldOpenBrowser = process.env.MEMRADAR_NO_OPEN !== '1'
-const isStaticMode = !process.argv.includes('--server')
 const DEFAULT_PORT = parseInt(process.env.MEMRADAR_PORT || '3939', 10)
 
 // --host <value> 또는 MEMRADAR_HOST 로 바인딩 인터페이스 변경.
@@ -371,6 +372,29 @@ if (!fs.existsSync(distDir)) {
 
 const logRoots = getLogRoots()
 
+// 정적 HTML 한 장에 담기엔 큰 로그의 기준 (합계 바이트)
+const STATIC_MAX_BYTES = 100 * 1024 * 1024
+
+function totalLogBytes() {
+  let total = 0
+  for (const root of logRoots) {
+    for (const filePath of findJsonlFiles(root.dir)) {
+      try {
+        total += fs.statSync(filePath).size
+      } catch { }
+    }
+  }
+  return total
+}
+
+// 모드 결정. 기본은 정적 HTML 이지만 로그가 크면 서버 모드로 자동 전환한다 —
+// 예전에는 여기서 종료하고 플래그를 붙여 다시 실행하라고 안내했는데, 그러면 로그가 쌓인
+// 사용자에게 `npx memradar` 가 "실행이 안 되는" 명령이 된다.
+// 정적 출력을 명시한 경우(--force-static, MEMRADAR_OUTPUT_HTML)는 전환하지 않는다.
+const wantsStatic = process.argv.includes('--force-static') || !!process.env.MEMRADAR_OUTPUT_HTML
+const autoServer = !process.argv.includes('--server') && !wantsStatic && totalLogBytes() >= STATIC_MAX_BYTES
+const isStaticMode = !process.argv.includes('--server') && !autoServer
+
 // ─── Parser functions (shared by server and static modes) ────────────
 
 function extractText(content) {
@@ -405,6 +429,12 @@ function parseClaudeJsonl(text, fileName, options = {}) {
   const hookCollector = createHookCollector()
   // 모델 귀속은 **응답** 단위 — 병합 이전 raw 라인 루프에서. src/parser.ts 와 동일 수집기.
   const modelCounter = createModelResponseCounter()
+  // 사용 습관 신호 — src/parser.ts 와 동일 수집기·동일 위치.
+  const usageCollector = createUsageSignalCollector()
+  // AI 협업 스타일 신호 — src/parser.ts 와 동일 수집기·동일 위치.
+  const styleCollector = createStyleSignalCollector('claude')
+  // usage 는 requestId 당 한 번만 센다 (라인마다 같은 값이 반복된다) — src/parser.ts 와 동일.
+  const countedUsage = new Set()
 
   for (const line of lines) {
     try {
@@ -414,6 +444,8 @@ function parseClaudeJsonl(text, fileName, options = {}) {
       // 서브에이전트(sidechain) 훅은 위에서 제외됨 — 훅 집계는 부모 세션 것만
       // 다룬다(파서가 sidechain 을 전량 제외하는 것과 일관, 의도적). src/parser.ts 와 동일.
       hookCollector.collect(raw)
+      usageCollector.collect(raw)
+      styleCollector.collect(raw)
       if (!raw.message?.role) continue
 
       const textContent = extractText(raw.message.content)
@@ -427,7 +459,11 @@ function parseClaudeJsonl(text, fileName, options = {}) {
       // requestId 로 같은 응답의 추가 라인을 접는다. `<synthetic>` 은 술어가 배제.
       if (raw.message.role === 'assistant') modelCounter.add(raw.message.model, raw.requestId)
 
-      const usage = raw.message.usage
+      let usage = raw.message.usage
+      if (usage && raw.requestId) {
+        if (countedUsage.has(raw.requestId)) usage = undefined
+        else countedUsage.add(raw.requestId)
+      }
       rawMessages.push({
         role: raw.message.role,
         text: textContent,
@@ -437,7 +473,9 @@ function parseClaudeJsonl(text, fileName, options = {}) {
           ? {
               input: usage.input_tokens || 0,
               output: usage.output_tokens || 0,
-              cachedInput: (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+              // 읽기·쓰기를 나눠 담는다 — 합치면 캐시 쓰기가 읽기 단가로 계산된다 (src/parser.ts 와 동일 계약)
+              cachedInput: usage.cache_read_input_tokens || 0,
+              cacheWriteInput: usage.cache_creation_input_tokens || 0,
             }
           : undefined,
         toolUses,
@@ -460,6 +498,7 @@ function parseClaudeJsonl(text, fileName, options = {}) {
           previous.tokens.input += message.tokens.input
           previous.tokens.output += message.tokens.output
           previous.tokens.cachedInput = (previous.tokens.cachedInput || 0) + (message.tokens.cachedInput || 0)
+          previous.tokens.cacheWriteInput = (previous.tokens.cacheWriteInput || 0) + (message.tokens.cacheWriteInput || 0)
         } else {
           previous.tokens = { ...message.tokens }
         }
@@ -490,10 +529,13 @@ function parseClaudeJsonl(text, fileName, options = {}) {
     input: accumulator.input + (message.tokens?.input || 0),
     output: accumulator.output + (message.tokens?.output || 0),
     cachedInput: (accumulator.cachedInput || 0) + (message.tokens?.cachedInput || 0),
-  }), { input: 0, output: 0, cachedInput: 0 })
+    cacheWriteInput: (accumulator.cacheWriteInput || 0) + (message.tokens?.cacheWriteInput || 0),
+  }), { input: 0, output: 0, cachedInput: 0, cacheWriteInput: 0 })
 
   const { summary: hookSummary } = hookCollector.finalize()
   const modelResponses = modelCounter.finalize()
+  const usageSignals = usageCollector.finalize()
+  const styleSignals = styleCollector.finalize()
 
   return {
     id: sessionId || fileName,
@@ -514,6 +556,9 @@ function parseClaudeJsonl(text, fileName, options = {}) {
     ...(hookSummary ? { hookSummary } : {}),
     // 모델별 응답 수 — 모델명 + 정수만 (식별자 없음)
     ...(modelResponses ? { modelResponses } : {}),
+    // 사용 습관 신호 — 모델명 + 정수만 (식별자 없음)
+    ...(usageSignals ? { usageSignals } : {}),
+    ...(styleSignals ? { styleSignals } : {}),
   }
 }
 
@@ -558,10 +603,13 @@ function parseCodexJsonl(text, fileName, options = {}) {
   let pendingToolUses = []
   // Codex 는 assistant response_item 1건 = 응답 1건 (dedupe 키 없음). src/providers/codex.ts 와 동일.
   const modelCounter = createModelResponseCounter()
+  // AI 협업 스타일 신호 — src/providers/codex.ts 와 동일 수집기·동일 위치.
+  const styleCollector = createStyleSignalCollector('codex')
 
   for (const line of lines) {
     try {
       const record = JSON.parse(line)
+      styleCollector.collect(record)
       if (record.type === 'session_meta') {
         sessionId = typeof record.payload?.id === 'string' ? record.payload.id : sessionId
         cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : cwd
@@ -648,6 +696,7 @@ function parseCodexJsonl(text, fileName, options = {}) {
   // fetch 패턴이 아직 claude 만 지원해서 codex 본문은 풀로 들고 있는다.
 
   const modelResponses = modelCounter.finalize()
+  const styleSignals = styleCollector.finalize()
 
   return {
     id: sessionId || fileName,
@@ -666,6 +715,7 @@ function parseCodexJsonl(text, fileName, options = {}) {
     },
     // 모델별 응답 수 — 모델명 + 정수만 (식별자 없음)
     ...(modelResponses ? { modelResponses } : {}),
+    ...(styleSignals ? { styleSignals } : {}),
   }
 }
 
@@ -891,6 +941,11 @@ if (!isStaticMode) {
   }
   console.log(`  Sessions:  ${fileCount}`)
   console.log(`  Server:    ${url}`)
+  if (autoServer) {
+    console.log()
+    console.log('  세션 로그가 커서 서버 모드로 열었어요 (이 창을 닫으면 종료돼요).')
+    console.log('  HTML 파일 한 장으로 받으려면: npx memradar --force-static')
+  }
   if (!isLoopbackHost(SERVER_HOST)) {
     const lanIps = SERVER_HOST === '0.0.0.0' ? getLanIps() : []
     if (lanIps.length > 0) {
@@ -956,7 +1011,7 @@ if (!isStaticMode) {
         } catch { }
       }
       const totalMB = (totalSize / 1024 / 1024).toFixed(1)
-      if (totalSize >= 100 * 1024 * 1024) {
+      if (totalSize >= STATIC_MAX_BYTES) {
         console.log()
         console.log('  ⚠️  대용량 세션 감지 (' + totalMB + ' MB)')
         console.log('     정적 HTML 모드는 시간이 오래 걸릴 수 있습니다.')

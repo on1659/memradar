@@ -1,4 +1,5 @@
 import type { Session, Stats } from '../types'
+import { collectUserPrompts } from './userPrompts'
 
 // --- 3-axis system ---
 // Axis 1: Work Style  — Reader (R) vs Executor (E)
@@ -23,6 +24,24 @@ export interface PersonalityResult {
   strengths: string
   caution: string
   axes: Record<AxisKey, AxisScore>
+  /**
+   * 축 판정에 실제로 들어간 측정값 — 다른 카드(16유형)가 영수증으로 그대로 인용한다 (재계산 금지).
+   * 데이터가 부족해 기본값을 돌려준 경우와 정적 미리보기에는 없다.
+   */
+  measured?: PersonalityMeasured
+}
+
+export interface PersonalityMeasured {
+  /** 사람이 직접 프롬프트를 쓴 세션 수 (자동화 세션 제외) */
+  humanSessions: number
+  /** 직접 쓴 프롬프트 길이의 중앙값 (글자 수) */
+  medianPromptChars: number
+  /** 세션당 직접 쓴 프롬프트 수 평균 */
+  turnsPerSession: number
+  /** 묶은 뒤의 프로젝트 수 */
+  projects: number
+  /** 가장 많이 쓴 프로젝트의 세션 비중 (0~1) */
+  topProjectShare: number
 }
 
 interface TypeDef {
@@ -51,6 +70,39 @@ export function extractProject(cwd: string): string {
   // On Unix: /home/alice/projects/foo → need 4 depth
   // Use min(parts.length, 6) to cover both cases without collapsing siblings
   return parts.slice(0, Math.min(parts.length, 6)).join('/')
+}
+
+/** 프로젝트 루트로 인정하는 최소 깊이 — 홈 아래 두 단계(/Users/alice/Work/foo). 더 얕은 조상(~/Work)으로는 묶지 않는다 */
+const MIN_PROJECT_ROOT_DEPTH = 4
+const DATE_SEGMENT_RE = /^\d{4}-\d{2}-\d{2}$/
+const DRIVE_SEGMENT_RE = /^[A-Za-z]:$/
+
+/**
+ * 코퍼스 기준 프로젝트 묶기 — 같은 저장소 안의 하위 폴더를 한 프로젝트로 센다.
+ *
+ * extractProject 는 경로 앞 6단계만 보기 때문에, 저장소 안에 배치·채팅마다 새 폴더를 만들어
+ * 작업하면 폴더 하나하나가 별개 프로젝트가 된다 (실측: 작업 폴더 179종이 프로젝트 92개로 집계).
+ * 두 규칙으로 묶는다:
+ *  1. 날짜 이름 폴더(2026-09-21) 앞에서 끊는다 — 날짜별로 새로 생기는 임시 작업 폴더다.
+ *  2. 코퍼스에서 실제 작업 폴더로 쓰인 가장 얕은 조상이 있으면 그것이 프로젝트다.
+ * 해당 없으면 extractProject 로 폴백 (기존 동작). 성격 scope 축 전용 — storyOfDay 의 일별 집계는
+ * extractProject 를 그대로 쓴다.
+ */
+export function buildProjectResolver(cwds: readonly string[]): (cwd: string) => string {
+  const split = (cwd: string): string[] => cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  const seen = new Set(cwds.map((cwd) => split(cwd).join('/')))
+
+  return (cwd: string): string => {
+    let parts = split(cwd)
+    const minDepth = MIN_PROJECT_ROOT_DEPTH + (parts[0] && DRIVE_SEGMENT_RE.test(parts[0]) ? 1 : 0)
+    const dateAt = parts.findIndex((part) => DATE_SEGMENT_RE.test(part))
+    if (dateAt >= minDepth - 1) parts = parts.slice(0, dateAt)
+    for (let depth = minDepth; depth < parts.length; depth++) {
+      const ancestor = parts.slice(0, depth).join('/')
+      if (seen.has(ancestor)) return ancestor
+    }
+    return extractProject(parts.join('/'))
+  }
 }
 
 /** Compute median of a numeric array */
@@ -147,39 +199,46 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
     return { type: 'EWS', axes: defaultAxes, ...TYPE_DEFS.EWS }
   }
 
+  // 성격은 "사람이 어떻게 일하는가" 다 — 사람이 직접 프롬프트를 쓴 세션만 본다.
+  // 스크립트가 돌린 자동화 세션(실측 1,254개 중 748개)이 섞이면 프로젝트 집중도·세션 길이·턴 수가
+  // 전부 자동화 쪽으로 끌려간다. 직접 쓴 프롬프트가 하나도 없으면 전체 세션으로 폴백.
+  const corpus = collectUserPrompts(sessions)
+  const humanSessions = sessions.filter((_, i) => corpus.bySession[i].length > 0)
+  const basis = humanSessions.length > 0 ? humanSessions : sessions
+
   // Sort sessions chronologically (app/CLI may pass them in arbitrary order)
-  const sorted = [...sessions].sort(
+  const sorted = [...basis].sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
   )
 
   // ═══ Axis 1: Conversation Style — 설계자(A) vs 탐험가(E) ═══
-  // Measures user's conversation pattern, NOT AI tool usage
+  // Measures user's conversation pattern, NOT AI tool usage.
+  // 입력은 사용자 쪽 신호 둘뿐이다: 프롬프트 길이(중앙값)와 세션당 말한 횟수.
+  //  - 평균이 아니라 중앙값 — 로그·문서를 붙여 넣은 긴 프롬프트 몇 개가 평균을 수십 배로 끌어올린다
+  //    (실측 중앙값 24자 vs 상위 10% 137자 이상).
+  //  - AI 출력/입력 토큰 비율은 뺐다 — Claude 로그는 캐시된 입력을 input 에서 빼고 기록해 이 비율이
+  //    누구에게나 포화되고(실측 출력 64.5M / 입력 0.9M), 애초에 사용자가 아니라 AI 의 분량이다.
 
-  const userMessages = sorted.flatMap((s) =>
-    s.messages.filter((m) => m.role === 'user'),
-  )
-  const avgMsgLen = userMessages.length > 0
-    ? userMessages.reduce((sum, m) => sum + m.text.length, 0) / userMessages.length
-    : 100
+  const medianPromptChars = corpus.prompts.length > 0
+    ? median(corpus.prompts.map((text) => text.length))
+    : 60
 
-  const turnsPerSession = sorted.length > 0
-    ? sorted.reduce((sum, s) => sum + s.messageCount.user, 0) / sorted.length
+  const turnsPerSession = humanSessions.length > 0
+    ? corpus.prompts.length / humanSessions.length
     : 8
 
-  const tokenRatio = stats.totalTokens.input > 0
-    ? stats.totalTokens.output / stats.totalTokens.input
-    : 5
-
   const styleValue =
-    sigmoid(avgMsgLen, 100, 0.02) * 0.4 +          // longer msg → Architect
-    (1 - sigmoid(turnsPerSession, 8, 0.2)) * 0.3 +  // fewer turns → Architect
-    sigmoid(tokenRatio, 5, 0.3) * 0.3               // higher AI output → Architect
+    sigmoid(medianPromptChars, 60, 0.04) * 0.5 +    // longer prompt → Architect
+    (1 - sigmoid(turnsPerSession, 8, 0.2)) * 0.5    // fewer turns → Architect
 
   // ═══ Axis 2: Work Scope — 한우물(D) vs 유목민(W) ═══
   // Measures project diversity from cwd, NOT tool diversity
 
+  const resolveProject = buildProjectResolver(
+    sessions.map((s) => s.cwd).filter((cwd): cwd is string => !!cwd),
+  )
   const projectIds = sorted
-    .map((s) => (s.cwd ? extractProject(s.cwd) : ''))
+    .map((s) => (s.cwd ? resolveProject(s.cwd) : ''))
     .filter(Boolean)
   const uniqueProjects = new Set(projectIds)
 
@@ -257,7 +316,15 @@ export function computePersonality(sessions: Session[], stats: Stats): Personali
   const r = rhythmValue >= 0.5 ? 'M' : 'S'
   const type = `${s}${d}${r}` as TypeCode
 
-  return { type, axes, ...TYPE_DEFS[type] }
+  const measured: PersonalityMeasured = {
+    humanSessions: humanSessions.length,
+    medianPromptChars,
+    turnsPerSession,
+    projects: uniqueProjects.size,
+    topProjectShare: projectIds.length > 0 ? topProjectShare : 0,
+  }
+
+  return { type, axes, measured, ...TYPE_DEFS[type] }
 }
 
 export function getCodingTimeLabel(stats: Stats): { label: string; emoji: string } {

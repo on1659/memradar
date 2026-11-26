@@ -30,9 +30,9 @@
 | Prompts | 큰 카운트업 숫자 (`AnimatedNumber` 래퍼 div, `text-7xl md:text-9xl`) |
 | Model | 모델명 (`shortModelName`, `text-4xl md:text-6xl`) |
 | Hours | 시간대 라벨 ("Night Owl" 등, `text-4xl md:text-5xl`) |
-| Personality | 성격 타이틀 (`personality.title`, `text-4xl md:text-6xl`) |
+| Personality | 16유형 네 글자 (`CollabType16Hero`, `text-6xl`) · 폴백: 성격 타이틀 (`personality.title`, `text-4xl md:text-6xl`) |
 | Usage | 직업 카테고리 타이틀 (`primary.title`, `text-4xl md:text-6xl`) |
-| Share | 공유 카드 헤드라인 (`personality.title`, `text-[2.2rem]`) |
+| Share | 공유 카드 헤드라인 (16유형 네 글자 `text-[2.6rem]` · 폴백: `personality.title`, `text-[2.2rem]`) |
 | ~~Tools~~ | (orphan — `WrappedView` 미import. 본 표는 향후 재진입 시 정합성 위해 같이 정리됨: "가장 많이 쓴 도구" 타이틀) |
 
 ### Slide 1: Cover — "Memradar"
@@ -99,9 +99,17 @@
 구현: `src/components/wrapped/slides/HoursSlide.tsx`
 알고리즘: `src/lib/personality.ts` — `getCodingTimeLabel()`
 
-### Slide 6: Personality — "Your Coding Personality"
+### Slide 6: Personality — "내 AI 유형" (판정 가능할 때) / "Your Coding Personality" (폴백)
 
-3축 × 2값 = **8 유형** (`src/lib/personality.ts`).
+이 자리는 **"내 AI" 16유형**을 먼저 보여 준다. 사람이 아니라 AI 가 일하는 방식(모델 + 내 설정)을 E/I · S/N · T/F · J/P 네 글자로 추정한 것이다.
+
+- 판정: `src/lib/collabType16.ts` — `buildCollabType16()` (Claude · Codex 따로, 최종 답 50개 이상일 때). 근거가 모자란 축은 `?` 로 보류하고, 그때는 별명 대신 "아직 알아가는 중" 을 쓴다.
+- 화면: `slides/AiTypeSlide.tsx` 가 대시보드 맨 위 카드와 같은 본문(`CollabType16Hero`)을 싣는다 — 네 글자 → 별명 → 소개 문장 → 축 막대 4개 + 근거 숫자. 둘 다 판정되면 Claude/Codex 토글이 붙고, 주로 쓴 AI(최종 답이 많은 쪽)가 먼저 보인다.
+- 카피: `src/components/collabType16Copy.ts` (별명 16개 · 축 라벨)
+- 연출: 한 번에 다 보여 주지 않는다. 빈 칸 네 개(`_ _ _ _`)로 시작해, 축마다 **AI 가 한 일(근거 문장) → 막대 → 글자** 순으로 하나씩 드러나고(첫 근거 0.9초, 이후 1.3초 간격), 네 글자가 다 채워진 뒤에 별명·소개·Claude/Codex 토글이 나온다. `AiTypeSlide` 가 단계(`revealed`)를 올리고 `CollabType16Hero` 가 CSS 전환으로 그린다. `prefers-reduced-motion` 이면 처음부터 전부 보인다. 대시보드 카드는 연출 없이 그대로다.
+- 판정된 AI 가 하나도 없으면 아래의 기존 성향(8유형) 슬라이드가 그대로 나온다.
+
+**폴백 — 8유형.** 3축 × 2값 = **8 유형** (`src/lib/personality.ts`).
 
 | 코드 | 이모지 | 한국어 | 영문 |
 |---|---|---|---|
@@ -160,7 +168,9 @@
 ### Slide 8: Share — "Your Memradar Ending"
 
 - 전체 요약 카드 (1장 이미지로 캡처)
-- 포함 정보: 이모지, 성격 유형 타이틀/서브, `usageHeadline`, 3축 슬라이더, Sessions, Messages, Rhythm(`codingLabel`), Top Model
+- 포함 정보: 주로 쓴 AI 의 16유형(`내 Claude` 라벨 · 네 글자 · 별명, 다른 AI 는 한 줄로 곁들임), `usageHeadline`, 네 축 막대, Sessions, Messages, Rhythm(`codingLabel`), Top Model
+  - 판정된 AI 가 없으면 기존대로 이모지 · 성격 유형 타이틀/서브 · 3축 막대를 싣는다
+  - 공유 문구에도 같은 유형이 들어간다 (`Claude ISTP · 손 빠른 해결사`)
 - 공유 버튼:
   - **이미지 저장** — `memradar-code-report.png` PNG 다운로드
   - **공유하기** — 플랫폼 모달 (Threads 활성, X · Instagram "개발중" 배지)
@@ -208,7 +218,7 @@
 - 테두리: `1px solid rgba(123,108,246,0.2)`, 라운드 `26px`
 - 캡처: `toPng(cardRef, { pixelRatio: 2, cacheBust: true })`
 - 파일명: `memradar-code-report.png`
-- 축 색상: `style #7b6cf6`, `scope #22d3ee`, `rhythm #f59e0b`
+- 축 색상: 16유형은 네 축 모두 그 AI 의 소스 색(`getSourceColor` — Claude amber · Codex indigo), 폴백 8유형은 `style #7b6cf6`, `scope #22d3ee`, `rhythm #f59e0b`
 
 ## Wrapped 팔레트
 
